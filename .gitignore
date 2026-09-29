@@ -1,0 +1,29 @@
+# Dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Entorno y credenciales
+.env
+.env.local
+.env.*.local
+*.local
+
+# Archivos de sistema operativo y editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Logs y builds
+logs/
+*.log
+dist/
+build/
+.next/
+out/

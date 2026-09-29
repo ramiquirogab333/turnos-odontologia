@@ -1,0 +1,84 @@
+{
+  "discovery": {
+    "casos_de_uso": [
+      "Como paciente, quiero ver horarios libres y reservar sin llamar",
+      "Como paciente, quiero cancelar o reprogramar respetando 24 hs de anticipación",
+      "Como paciente, quiero recibir recordatorios por WhatsApp",
+      "Como odontólogo/a, quiero ver mi agenda del día/semana por profesional",
+      "Como recepción/admin, quiero gestionar pacientes, ausentismo, ocupación por sillón y caja desde un panel"
+    ],
+    "competitors": [
+      {
+        "name": "DentalSoft Argentina",
+        "notes_file": "discovery/discovery.md"
+      },
+      { "name": "Dentalink", "notes_file": "discovery/discovery.md" },
+      { "name": "Doctocliq", "notes_file": "discovery/discovery.md" },
+      { "name": "AgendaPro", "notes_file": "discovery/discovery.md" },
+      { "name": "Simples Dental", "notes_file": "discovery/discovery.md" }
+    ],
+    "created_by": "discovery-research",
+    "funcionalidades_necesarias": [
+      "Agenda multi-profesional + sillones con anti-solape",
+      "Reserva online sin registro obligatorio (nombre + teléfono)",
+      "Cancelación/reprogramación con regla 24 hs",
+      "Recordatorios y confirmación por WhatsApp",
+      "Panel admin (ocupación, ausentismo, recupero, caja)",
+      "Ficha + odontograma FDI básico + presupuestos con cobertura OS",
+      "Nomenclador OS AR precargado",
+      "Mercado Pago + transferencia",
+      "Sincronía Google Calendar bidireccional",
+      "Roles y auditoría básica + exportación masiva"
+    ],
+    "funcionalidades_opcionales": [
+      "Historia de turnos extendida",
+      "Periodontograma avanzado e imágenes/RX con IA",
+      "Facturación electrónica ARCA nativa",
+      "Portal paciente con historia y cuotas",
+      "Campañas de recupero y controles periódicos",
+      "API pública y webhooks",
+      "App móvil dedicada",
+      "Multi-sucursal, laboratorio, inventario",
+      "Firma digital y consentimientos",
+      "IA de secretaría 24/7"
+    ],
+    "integraciones": [
+      "WhatsApp (recordatorios/confirmación; manual vs API a definir)",
+      "Google Calendar (sincronía bidireccional; sistema actual principal)"
+    ],
+    "preguntas_abiertas": [
+      "¿Uno o varios odontólogos desde el día 1?",
+      "¿Login de paciente o nombre + teléfono por turno?",
+      "¿WhatsApp manual o automático vía API (costo por mensaje)?",
+      "¿Tabla concreta tratamiento→duración para la v1?"
+    ],
+    "problema": "Coordinar turnos odontológicos en consultorios y clínicas chicas es un caos: WhatsApp, papel, teléfono y Google Calendar dispersos generan dobles reservas, ausentismo y tiempo perdido confirmando manualmente.",
+    "restricciones": [
+      "Sin restricciones: libertad total de stack, plazo y plataforma; diseño mobile-first asumido"
+    ],
+    "riesgos": [
+      "Supuesto sin probar: el paciente puede preferir WhatsApp manual por costumbre y no adoptar la reserva online",
+      "Disponibilidad desactualizada → horarios falsos",
+      "Reglas (duraciones, 24 hs) cambian a mitad de camino",
+      "Competidor nativo (DentalSoft AR) ya ocupa el wedge de localización; cifras de adopción del mercado sin auditoría"
+    ],
+    "sources": [
+      "https://www.dentalsoft.com.ar/",
+      "https://dev.bilog.com.ar/",
+      "https://www.softwaredentalink.com/ar",
+      "https://dentidesk.com/",
+      "https://www.doctocliq.com/planes-y-precios",
+      "https://agendapro.com/",
+      "https://pro.doctoralia.com/ar",
+      "https://www.simplesdental.com/",
+      "https://www.opendental.com/site/websched.html",
+      "https://www.curvedental.com/dental-patient-engagement-software",
+      "https://tab32.com/pricing/",
+      "https://www.dentally.com/en-gb/pricing"
+    ],
+    "sources_fetched_at": "2026-09-29"
+  },
+  "owner": "active-orchestrator",
+  "step": "discovery",
+  "version": 4
+}
