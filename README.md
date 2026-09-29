@@ -64,6 +64,7 @@ La mayoría de las herramientas internacionales o genéricas fallan en cubrir la
 El informe completo de relevamiento y la matriz comparativa detallada pueden consultarse en:
 - Documento Markdown: [docs/discovery/discovery.md](docs/discovery/discovery.md)
 - Documento PDF: [docs/discovery/discovery.pdf](docs/discovery/discovery.pdf)
+- Reporte de Validación: [docs/discovery/Validación Discovery.md](docs/discovery/Validaci%C3%B3n%20Discovery.md)
 
 ---
 
@@ -79,7 +80,8 @@ turnos-odontologia/
 ├── docs/
 │   └── discovery/
 │       ├── discovery.md            # Informe detallado de relevamiento de requerimientos y competidores
-│       └── discovery.pdf           # Versión compilada en PDF del estudio de mercado
+│       ├── discovery.pdf           # Versión compilada en PDF del estudio de mercado
+│       └── Validación Discovery.md # Reporte de auditoría y validación de fuentes de competidores
 ├── openspec/
 │   ├── config.yaml                 # Configuración del workflow de especificaciones
 │   ├── changes/                    # Cambios propuestos y archivados
