@@ -220,10 +220,16 @@
     "skill_count": 5,
     "skills": ["vercel-react-best-practices", "frontend-design", "postgresql-table-design", "playwright-cli", "gws-calendar-agenda"],
     "skill_source_dir": ".agents/skills",
-    "conventions": "none yet (no CLAUDE.md/AGENTS.md — expected, generated next phase)",
+    "conventions": "AGENTS.md + CLAUDE.md generados (agents-md-generator, R1-R18, step done)",
     "notes": "gws-calendar-agenda agenda-only; gws-shared prerequisite missing. openspec-*/workflow skills skipped."
   },
+  "agents": {
+    "created_by": "agents-md-generator",
+    "files": ["AGENTS.md", "CLAUDE.md"],
+    "reglas_applied": ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R15", "R16", "R17", "R18"],
+    "stack_decided": "Backend Python + FastAPI + SQLAlchemy (+Alembic) + PostgreSQL + Redis + JWT + Docker Compose; Frontend React + TypeScript + Vite; E2E Playwright (R4 corregida: ORM SQLAlchemy, no Postgres directo)"
+  },
   "owner": "active-orchestrator",
-  "step": "registry",
+  "step": "done",
   "version": 4
 }

@@ -72,7 +72,9 @@ El informe completo de relevamiento y la matriz comparativa detallada pueden con
 
 ```text
 turnos-odontologia/
-├── .active-orchestrator-state.json # Estado estructurado del proceso (fase actual: registry)
+├── .active-orchestrator-state.json # Estado estructurado del proceso (fase actual: done)
+├── AGENTS.md                       # Instrucciones para agentes (stack, KB, skills, roadmap, reglas R1–R18)
+├── CLAUDE.md                       # Copia de AGENTS.md (no editar a mano sin re-sincronizar)
 ├── .agents/skills/                 # Skills de proyecto instaladas (5): vercel-react-best-practices,
 │                                   # frontend-design, postgresql-table-design, playwright-cli, gws-calendar-agenda
 ├── .atl/skill-registry.md          # Registro de skills (versionado con `git add -f`; resto de .atl/ ignorado)
@@ -118,7 +120,9 @@ El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenS
 - [x] **KB — Base de conocimiento:** 12 archivos en `knowledge-base/` generados desde discovery (visión, modelo de datos, reglas, funcionalidades, arquitectura, decisiones y preguntas abiertas).
 - [x] **Roadmap — Secuencia de implementación:** `CHANGES.md` con 13 changes atómicos (C-01..C-13), dependencias, gates de paralelismo y camino crítico.
 - [x] **Skills — Capacidades de proyecto:** 5 skills instaladas en `.agents/skills/` (`vercel-react-best-practices`, `frontend-design`, `postgresql-table-design`, `playwright-cli`, `gws-calendar-agenda`) + `skills-lock.json` y `.atl/skill-registry.md`.
-- [ ] **Fase 2 — Arquitectura y Stack Tecnológico (C-01..C-03):** Selección de framework (ej. Next.js / TypeScript, Tailwind CSS), base de datos (PostgreSQL/Supabase o SQLite), modelos core y auth/RBAC del panel.
+- [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, roadmap C-01..C-13, reglas duras R1–R18). Es lo primero que lee todo agente al entrar al repo.
+- [x] **Preguntas Alta resueltas (2026-09-30):** multi-odontólogo/multi-sillón día 1, WhatsApp manual v1 (`wa.me/`), entidad Tratamientos con duración, stack congelado (ver `knowledge-base/10_preguntas_abiertas.md`).
+- [ ] **Fase 2 — Arquitectura y Stack Tecnológico (C-01..C-03):** Stack decidido — Backend Python + FastAPI + SQLAlchemy (+Alembic) + PostgreSQL + Redis + JWT + Docker Compose; Frontend React + TypeScript + Vite; E2E Playwright (ver `AGENTS.md`). Siguiente: fijar versiones en C-01, modelos core y auth/RBAC del panel.
 - [ ] **Fase 3 — Diseño UX/UI (C-04..C-05):** Catálogo/tratamientos, disponibilidad y reserva pública mobile-first sin registro obligatorio.
 - [ ] **Fase 4 — Implementación del MVP (C-06..C-08, C-11):** Seña/pagos (GAP `en_espera` sin bloqueo), cancelación/reprogramación 24 hs, agenda profesional y ficha/odontograma.
 - [ ] **Fase 5 — Integraciones y admin (C-09..C-10, C-12..C-13):** WhatsApp, Google Calendar sync, caja/ausentismo y auditoría/exportación.
