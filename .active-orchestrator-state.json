@@ -78,7 +78,152 @@
     ],
     "sources_fetched_at": "2026-09-29"
   },
+  "kb": {
+    "created_by": "kb-creator",
+    "discovery": {
+      "domain": "odontologia",
+      "needs_infra": true,
+      "problem": "Coordinar turnos odontológicos en consultorios y clínicas chicas es un caos: WhatsApp, papel, teléfono y Google Calendar dispersos generan dobles reservas, ausentismo y tiempo perdido confirmando manualmente.",
+      "scale": "public_multi_user",
+      "stack": "sin definir (mobile-first asumido, low confidence — ver 10_preguntas_abiertas.md)",
+      "system_type": "web_app"
+    },
+    "files": [
+      "knowledge-base/01_vision_y_objetivos.md",
+      "knowledge-base/02_descripcion_general.md",
+      "knowledge-base/03_actores_y_roles.md",
+      "knowledge-base/04_modelo_de_datos.md",
+      "knowledge-base/05_reglas_de_negocio.md",
+      "knowledge-base/06_funcionalidades.md",
+      "knowledge-base/07_flujos_principales.md",
+      "knowledge-base/08_arquitectura_propuesta.md",
+      "knowledge-base/09_decisiones_y_supuestos.md",
+      "knowledge-base/10_preguntas_abiertas.md",
+      "knowledge-base/11_analisis_competidores.md",
+      "knowledge-base/README.md"
+    ],
+    "source": "ingest"
+  },
+  "roadmap": {
+    "created_by": "roadmap-generator",
+    "source": "CHANGES.md",
+    "changes": ["C-01", "C-02", "C-03", "C-04", "C-05", "C-06", "C-07", "C-08", "C-09", "C-10", "C-11", "C-12", "C-13"]
+  },
+  "skills": {
+    "installed": ["vercel-react-best-practices", "frontend-design", "postgresql-table-design", "playwright-cli", "gws-calendar-agenda"],
+  "scope": "project (.agents/skills, mode copy + skills-lock.json; no global copies)",
+    "recommended": [
+      {
+        "why": "React best practices for the mobile-first public booking flow (C-05) and panel agenda views (C-08); stack-agnostic frontend discipline until C-01 picks a stack.",
+        "changes": ["C-01", "C-05", "C-08"],
+        "installs": "~756K",
+        "source": "vercel-labs/agent-skills",
+        "skill": "vercel-react-best-practices"
+      },
+      {
+        "why": "Mobile-first booking UX for reserva publica (RN-GL-03, C-05) and odontologo/recepcion panel usability (C-08, C-12).",
+        "changes": ["C-01", "C-05", "C-08", "C-12"],
+        "installs": "~938K",
+        "source": "anthropics/skills",
+        "skill": "frontend-design"
+      },
+      {
+        "why": "Web design guidelines companion for consistent paciente + panel UI (C-01 scaffolding, C-05, C-08).",
+        "changes": ["C-01", "C-05", "C-08"],
+        "installs": "~682K",
+        "source": "vercel-labs/agent-skills",
+        "skill": "web-design-guidelines"
+      },
+      {
+        "why": "Mobile-app design patterns directly matching the mobile-first constraint (RN-GL-03) for the public reservation flow.",
+        "changes": ["C-01", "C-05"],
+        "installs": "~523K",
+        "source": "designed-by-ai/skills",
+        "skill": "design-mobile-apps"
+      },
+      {
+        "why": "Postgres best practices for core models, anti-solape indexes (profesional/sillon/inicio) and seed idempotency (C-02).",
+        "changes": ["C-02"],
+        "installs": "~423K",
+        "source": "supabase/agent-skills",
+        "skill": "supabase-postgres-best-practices"
+      },
+      {
+        "why": "ORM/migration alternative for C-02 core models + nomenclador seed if Prisma is chosen at C-01; client API + setup pair.",
+        "changes": ["C-02"],
+        "installs": "~325K / ~324K",
+        "source": "prisma/skills",
+        "skill": "prisma-database-setup + prisma-client-api"
+      },
+      {
+        "why": "Table-design patterns for agenda indexes and Turno/PagoSena constraints (C-02, C-06 migration 004).",
+        "changes": ["C-02", "C-06"],
+        "installs": "~26.6K",
+        "source": "wshobson/agents",
+        "skill": "postgresql-table-design"
+      },
+      {
+        "why": "Pattern reference only for JWT rotation/blacklist + RBAC matrix design (C-03 uses custom JWT, not Clerk); do not adopt as drop-in auth.",
+        "changes": ["C-03"],
+        "installs": "~50K / ~16.7K",
+        "source": "clerk/skills + wshobson/agents",
+        "skill": "clerk-nextjs-patterns / auth-implementation-patterns (reference)"
+      },
+      {
+        "why": "If Next.js is chosen at C-01, App Router patterns for public + panel frontends (frontend-paciente/, frontend-panel/).",
+        "changes": ["C-01", "C-05", "C-08"],
+        "installs": "~31.2K",
+        "source": "wshobson/agents",
+        "skill": "nextjs-app-router-patterns"
+      },
+      {
+        "why": "E2E coverage for booking race conditions, 24h cancel/reprogram window edges, and seña state transitions (C-05, C-06, C-07).",
+        "changes": ["C-05", "C-06", "C-07"],
+        "installs": "~170K / ~167K",
+        "source": "microsoft/playwright-cli + anthropics/skills",
+        "skill": "playwright-cli / webapp-testing"
+      },
+      {
+        "why": "Webhook/idempotency + signature-verification patterns adaptable to the Mercado Pago seña flow (C-06); no Mercado-Pago-native skill exists — adapt, do not expect MP specifics.",
+        "changes": ["C-06"],
+        "installs": "~12.8K",
+        "source": "wshobson/agents",
+        "skill": "stripe-integration (pattern reference for MP)"
+      },
+      {
+        "why": "GCal agenda/sync patterns for bidirectional Turno<->EventoCalendar sync, syncToken pull+push, conflict flagging (C-10).",
+        "changes": ["C-10"],
+        "installs": "~47K",
+        "source": "googleworkspace/cli",
+        "skill": "gws-calendar-agenda"
+      },
+      {
+        "why": "Only WhatsApp-automation skill found; low installs (~5.9K) — treat with skepticism per find-skill quality gate, useful as scaffold for reminder/confirm/cancel jobs (C-09) behind the provider-abstraction interface.",
+        "changes": ["C-09"],
+        "installs": "~5.9K (low — verify)",
+        "source": "claude-office-skills/skills",
+        "skill": "whatsapp-automation (caution)"
+      }
+    ],
+    "gaps": [
+      "No Mercado-Pago-native skill found — C-06 will adapt generic payment-webhook patterns.",
+      "No high-trust WhatsApp skill found (only ~5.9K installs) — C-09 keeps provider abstraction (manual vs API).",
+      "No odontologia/clinical-records domain skill found — C-11 (ficha/odontograma FDI/presupuestos OS) has no direct skill match."
+    ],
+    "mode": "RECOMMEND-ONLY",
+    "searched": ["react", "nextjs", "postgres prisma supabase", "testing playwright e2e", "auth clerk jwt", "whatsapp calendar stripe payments", "design mobile ui accessibility"],
+    "note": "Recommendations only — nothing installed (no `npx skills add` run). Install gate owned by orchestrator + user."
+  },
+  "registry": {
+    "created_by": "skill-registry",
+    "registry_file": ".atl/skill-registry.md",
+    "skill_count": 5,
+    "skills": ["vercel-react-best-practices", "frontend-design", "postgresql-table-design", "playwright-cli", "gws-calendar-agenda"],
+    "skill_source_dir": ".agents/skills",
+    "conventions": "none yet (no CLAUDE.md/AGENTS.md — expected, generated next phase)",
+    "notes": "gws-calendar-agenda agenda-only; gws-shared prerequisite missing. openspec-*/workflow skills skipped."
+  },
   "owner": "active-orchestrator",
-  "step": "discovery",
+  "step": "registry",
   "version": 4
 }

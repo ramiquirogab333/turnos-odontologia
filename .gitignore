@@ -27,3 +27,6 @@ dist/
 build/
 .next/
 out/
+
+# Orquestador local
+.atl/
