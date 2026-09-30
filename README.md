@@ -72,22 +72,33 @@ El informe completo de relevamiento y la matriz comparativa detallada pueden con
 
 ```text
 turnos-odontologia/
-├── .active-orchestrator-state.json # Estado estructurado del proceso de relevamiento
-├── .gitignore                      # Configuración de exclusiones de Git
+├── .active-orchestrator-state.json # Estado estructurado del proceso (fase actual: registry)
+├── .agents/skills/                 # Skills de proyecto instaladas (5): vercel-react-best-practices,
+│                                   # frontend-design, postgresql-table-design, playwright-cli, gws-calendar-agenda
+├── .atl/skill-registry.md          # Registro de skills (versionado con `git add -f`; resto de .atl/ ignorado)
+├── .gitignore                      # Configuración de exclusiones de Git (incluye .atl/)
 ├── .opencode/                      # Comandos y habilidades para flujo guiado por agentes IA
 │   ├── commands/                   # Comandos /opsx-* para el ciclo spec-driven
 │   └── skills/                     # Habilidades integradas de OpenSpec
+├── CHANGES.md                      # Índice canónico de changes C-01..C-13 (roadmap, dependencias y gates)
 ├── docs/
 │   └── discovery/
 │       ├── discovery.md            # Informe detallado de relevamiento de requerimientos y competidores
 │       ├── discovery.pdf           # Versión compilada en PDF del estudio de mercado
 │       └── Validación Discovery.md # Reporte de auditoría y validación de fuentes de competidores
+├── knowledge-base/                 # Base de conocimiento (12 archivos: 01..11 + README)
 ├── openspec/
 │   ├── config.yaml                 # Configuración del workflow de especificaciones
 │   ├── changes/                    # Cambios propuestos y archivados
 │   └── specs/                      # Especificaciones vigentes del sistema
+├── skills-lock.json                # Lockfile de versions de las skills instaladas
 └── README.md                       # Documentación general del repositorio
 ```
+
+### Base de conocimiento, roadmap y skills
+- **Base de conocimiento:** ver [knowledge-base/README.md](knowledge-base/README.md) — visión, actores, modelo de datos (13 entidades), 17 reglas de negocio, funcionalidades US-001..US-012, flujos, arquitectura propuesta, decisiones y preguntas abiertas.
+- **Roadmap de implementación:** ver [CHANGES.md](CHANGES.md) — secuencia atómica C-01 (foundation) → C-13 (auditoría), con árbol de dependencias, gates de paralelismo y camino crítico. Leer antes de ejecutar cualquier `/opsx:propose`.
+- **Skills de proyecto:** `.agents/skills/` + [skills-lock.json](skills-lock.json), registradas en [.atl/skill-registry.md](.atl/skill-registry.md). Cobertura: booking mobile-first, panel/agenda, modelos Postgres anti-solape, E2E con Playwright y sync con Google Calendar.
 
 ---
 
@@ -104,7 +115,10 @@ El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenS
 ## 7. Estado del Proyecto y Próximos Pasos
 
 - [x] **Fase 1 — Discovery y Relevamiento:** Requerimientos, casos de uso, estudio de competidores y definición de reglas iniciales.
-- [ ] **Fase 2 — Arquitectura y Stack Tecnológico:** Selección de framework (ej. Next.js / TypeScript, Tailwind CSS), base de datos (PostgreSQL/Supabase o SQLite), y diseño de modelos de datos.
-- [ ] **Fase 3 — Diseño UX/UI:** Mockups del flujo de reserva del paciente y panel de administración.
-- [ ] **Fase 4 — Implementación del MVP:** Desarrollo de la agenda, reserva sin registro y módulo de cancelación/reprogramación con regla 24 hs.
-- [ ] **Fase 5 — Integraciones:** Notificaciones por WhatsApp y pasarela de pagos.
+- [x] **KB — Base de conocimiento:** 12 archivos en `knowledge-base/` generados desde discovery (visión, modelo de datos, reglas, funcionalidades, arquitectura, decisiones y preguntas abiertas).
+- [x] **Roadmap — Secuencia de implementación:** `CHANGES.md` con 13 changes atómicos (C-01..C-13), dependencias, gates de paralelismo y camino crítico.
+- [x] **Skills — Capacidades de proyecto:** 5 skills instaladas en `.agents/skills/` (`vercel-react-best-practices`, `frontend-design`, `postgresql-table-design`, `playwright-cli`, `gws-calendar-agenda`) + `skills-lock.json` y `.atl/skill-registry.md`.
+- [ ] **Fase 2 — Arquitectura y Stack Tecnológico (C-01..C-03):** Selección de framework (ej. Next.js / TypeScript, Tailwind CSS), base de datos (PostgreSQL/Supabase o SQLite), modelos core y auth/RBAC del panel.
+- [ ] **Fase 3 — Diseño UX/UI (C-04..C-05):** Catálogo/tratamientos, disponibilidad y reserva pública mobile-first sin registro obligatorio.
+- [ ] **Fase 4 — Implementación del MVP (C-06..C-08, C-11):** Seña/pagos (GAP `en_espera` sin bloqueo), cancelación/reprogramación 24 hs, agenda profesional y ficha/odontograma.
+- [ ] **Fase 5 — Integraciones y admin (C-09..C-10, C-12..C-13):** WhatsApp, Google Calendar sync, caja/ausentismo y auditoría/exportación.
