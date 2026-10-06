@@ -1,6 +1,6 @@
 # turnos-odontologia — Base de Conocimiento
 
-Base de conocimiento generada por ingest silencioso (Mode A) desde `docs/discovery/discovery.md`, `docs/discovery/Validación Discovery.md` y la sección `discovery` de `.active-orchestrator-state.json` (2026-09-29). `docs/discovery/discovery.pdf` excluido del ingest — ver `10_preguntas_abiertas.md`.
+Base de conocimiento generada por ingest silencioso (Mode A) desde `docs/discovery/informe-discovery.md`, `docs/discovery/Validación Discovery.md` y la sección `discovery` de `.active-orchestrator-state.json` (2026-09-29). `docs/discovery/informe-discovery.pdf` excluido del ingest — ver `10_preguntas_abiertas.md`.
 
 ## Índice de Archivos
 

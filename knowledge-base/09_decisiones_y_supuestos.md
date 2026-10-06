@@ -47,7 +47,7 @@
 ## Supuestos inferidos
 
 ### SU-01 — El PDF equivale a los .md
-**Supuesto**: `docs/discovery/discovery.pdf` contiene lo mismo que `docs/discovery/discovery.md` ya ingerido.
+**Supuesto**: `docs/discovery/informe-discovery.pdf` contiene lo mismo que `docs/discovery/informe-discovery.md` ya ingerido.
 **Origen**: mismo nombre y tamaño similar; el PDF no pudo parsearse (ver `10_preguntas_abiertas.md`).
 **Riesgo si es falso**: pérdida de contenido exclusivo del PDF.
 **Cómo validar**: revisión manual del PDF contra esta KB.

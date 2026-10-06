@@ -21,7 +21,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://turnos:turnos@postgres:5432/turnos
       APP_TZ: America/Argentina/Buenos_Aires

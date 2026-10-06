@@ -5,11 +5,11 @@
 **Actor**: Paciente (sin login).
 
 **Pasos**:
-1. Paciente abre la reserva pública desde el celular y elige tratamiento/profesional.
-2. Frontend pide horarios libres; API los calcula desde disponibilidad + turnos existentes (anti-solape).
+1. Paciente abre la reserva pública desde el celular y elige tratamiento/profesional (multi-odontólogo/multi-sillón día 1: siempre con profesional + sillón asignados).
+2. Frontend pide horarios libres; API los calcula desde disponibilidad + turnos que BLOQUEAN agenda (anti-solape por profesional Y por sillón, RN-TU-03).
 3. Paciente elige horario e ingresa nombre + teléfono.
-4. API crea el turno en estado reservado (fin = inicio + duración del tratamiento).
-5. Sistema agenda recordatorio WhatsApp y sincroniza el evento a Google Calendar.
+4. API crea el turno en estado reservado (fin = inicio + duración del tratamiento; stack congelado: FastAPI + PostgreSQL). Desde C-06 (GAP header CHANGES.md): nace en `en_espera` (NO bloquea, R8) y solo la seña acreditada (`PagoSena`, monto `Numeric`, `ref_unica`) lo pasa a `reservado` (bloquea).
+5. Sistema agenda recordatorio WhatsApp MANUAL v1 (link `wa.me/` preformateado) y sincroniza el evento a Google Calendar (solo turnos bloqueantes).
 
 **Casos de error**:
 - Horario tomado en simultáneo por otro paciente → se rechaza y se ofrecen alternativas.
@@ -34,18 +34,17 @@
 **Actor**: Sistema → Paciente.
 
 **Pasos**:
-1. Scheduler detecta turnos próximos sin recordar.
-2. API envía recordatorio por WhatsApp con botones (confirmar / cancelar).
+1. Scheduler (workers Redis) detecta turnos próximos que BLOQUEAN agenda (`reservado`; `en_espera` NO recibe recordatorio, R8) sin recordar.
+2. API genera/sirve recordatorio por WhatsApp MANUAL v1: link `wa.me/` preformateado con botones como links con código de gestión (confirmar / cancelar).
 3. Paciente confirma → turno pasa a confirmado. Si cancela, aplica Flujo 2 (ventana 24 hs).
 
 ```
-Scheduler → WhatsApp API → Paciente
-Paciente → (botón) → API → DB (estado actualizado)
+Scheduler → link wa.me preformateado → Paciente
+Paciente → (link con código) → API → DB (estado actualizado)
 ```
 
 **Casos de error**:
 - Envío fallido → se reintenta y queda registrado (estado fallido).
-- Modalidad manual vs. automática aún sin definir (ver `10_preguntas_abiertas.md`).
 
 ## Flujo 4: Consulta de agenda por el profesional
 **Disparador**: el odontólogo/a quiere ver a quién atiende.

@@ -1,7 +1,7 @@
 """FastAPI application entrypoint (R13/R15/R16/R17)."""
 
 from fastapi import FastAPI
-from sqlalchemy import text
+from sqlalchemy import select
 
 from app.shared.db import get_session_factory
 from app.shared.exceptions import OverlapError, ReferenceNotFoundError
@@ -30,6 +30,6 @@ app.add_exception_handler(ReferenceNotFoundError, referencia_handler)  # type: i
 async def health() -> HealthRead:
     """Return 200 when the API and the PostgreSQL connection are up."""
     async with get_session_factory()() as session:
-        await session.execute(text("SELECT 1"))
+        await session.execute(select(1))
     logger.info("health ok")
     return HealthRead(status="ok", db="ok")

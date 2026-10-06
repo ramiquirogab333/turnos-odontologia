@@ -116,13 +116,15 @@ async def test_mismo_horario_distintos_recursos_devuelve_201(client, seed_pair) 
 
 
 async def test_estado_cancelado_no_bloquea(client, seed_ids, session_factory) -> None:
-    from sqlalchemy import text
+    from sqlalchemy import update
+
+    from app.turnos.models import Turno
 
     inicio = future_iso(120)
     r1 = await client.post("/api/turnos", json={**seed_ids, "inicio": inicio})
     assert r1.status_code == 201
     async with session_factory() as s:
-        await s.execute(text("UPDATE turno SET estado='cancelado' WHERE id=:i"), {"i": r1.json()["id"]})
+        await s.execute(update(Turno).where(Turno.id == r1.json()["id"]).values(estado="cancelado"))
         await s.commit()
     r2 = await client.post("/api/turnos", json={**seed_ids, "inicio": inicio})
     assert r2.status_code == 201, r2.text

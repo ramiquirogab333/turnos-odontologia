@@ -1,14 +1,24 @@
-"""Shared fixtures: real PostgreSQL + HTTP client (FK parents via direct SQL, C-04 owns CRUDs)."""
+"""Shared fixtures: real PostgreSQL + HTTP client (FK parents via ORM harness, C-04 owns CRUDs)."""
 
 import os
+import sys
 from collections.abc import AsyncIterator
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+# El código vive en src/ (layout canónico de la cátedra): exponerlo en sys.path
+# para que `from app...` resuelva sin instalar el paquete. Vía estándar mínima
+# (alternativa: `pythonpath = src` en pytest.ini; se eligió conftest para que
+# también funcione al importar los tests fuera de pytest).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.turnos.models import Profesional, Sillon, Tratamiento
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL", "postgresql+asyncpg://turnos:turnos@localhost:5433/turnos"
@@ -61,10 +71,12 @@ async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
 async def clean_db(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> AsyncIterator[None]:
-    """Truncate all tables before each test (child first)."""
+    """Delete all rows before each test via ORM (child first, R14; fixture harness)."""
+    from app.turnos.models import Turno
+
     async with session_factory() as session:
-        for table in ("turno", "profesional", "sillon", "tratamiento"):
-            await session.execute(text(f"TRUNCATE {table} RESTART IDENTITY CASCADE"))
+        for model in (Turno, Profesional, Sillon, Tratamiento):
+            await session.execute(delete(model))
         await session.commit()
     yield
 
@@ -73,80 +85,41 @@ async def clean_db(
 async def seed_ids(
     session_factory: async_sessionmaker[AsyncSession], clean_db: None
 ) -> dict[str, int]:
-    """Insert one Profesional/Sillon/Tratamiento via direct SQL; return their ids."""
+    """Insert one Profesional/Sillon/Tratamiento via ORM (fixture harness); return ids."""
+    from decimal import Decimal
+
     async with session_factory() as session:
-        prof = (
-            await session.execute(
-                text(
-                    "INSERT INTO profesional (nombre, matricula, especialidad) "
-                    "VALUES ('Dra. Test', 'MAT-001', 'General') RETURNING id"
-                )
-            )
-        ).scalar_one()
-        sill = (
-            await session.execute(
-                text("INSERT INTO sillon (nombre, estado) VALUES ('S1', 'activo') RETURNING id")
-            )
-        ).scalar_one()
-        trat = (
-            await session.execute(
-                text(
-                    "INSERT INTO tratamiento (nombre, duracion_minutos, precio_base) "
-                    "VALUES ('Limpieza', 30, 1000.00) RETURNING id"
-                )
-            )
-        ).scalar_one()
+        prof = Profesional(nombre="Dra. Test", matricula="MAT-001", especialidad="General")
+        sill = Sillon(nombre="S1", estado="activo")
+        trat = Tratamiento(nombre="Limpieza", duracion_minutos=30, precio_base=Decimal("1000.00"))
+        session.add_all([prof, sill, trat])
+        await session.flush()
         await session.commit()
-    return {"profesional_id": int(prof), "sillon_id": int(sill), "tratamiento_id": int(trat)}
+    return {"profesional_id": int(prof.id), "sillon_id": int(sill.id), "tratamiento_id": int(trat.id)}
 
 
 @pytest_asyncio.fixture
 async def seed_pair(
     session_factory: async_sessionmaker[AsyncSession], clean_db: None
 ) -> dict[str, int]:
-    """Two profesionales + two sillones + one tratamiento for cross-resource tests."""
+    """Two profesionales + two sillones + one tratamiento via ORM (fixture harness)."""
+    from decimal import Decimal
+
     async with session_factory() as session:
-        p1 = (
-            await session.execute(
-                text(
-                    "INSERT INTO profesional (nombre, matricula, especialidad) "
-                    "VALUES ('P1', 'M-1', 'G') RETURNING id"
-                )
-            )
-        ).scalar_one()
-        p2 = (
-            await session.execute(
-                text(
-                    "INSERT INTO profesional (nombre, matricula, especialidad) "
-                    "VALUES ('P2', 'M-2', 'G') RETURNING id"
-                )
-            )
-        ).scalar_one()
-        s1 = (
-            await session.execute(
-                text("INSERT INTO sillon (nombre, estado) VALUES ('S1', 'activo') RETURNING id")
-            )
-        ).scalar_one()
-        s2 = (
-            await session.execute(
-                text("INSERT INTO sillon (nombre, estado) VALUES ('S2', 'activo') RETURNING id")
-            )
-        ).scalar_one()
-        t = (
-            await session.execute(
-                text(
-                    "INSERT INTO tratamiento (nombre, duracion_minutos, precio_base) "
-                    "VALUES ('T', 30, 500.00) RETURNING id"
-                )
-            )
-        ).scalar_one()
+        p1 = Profesional(nombre="P1", matricula="M-1", especialidad="G")
+        p2 = Profesional(nombre="P2", matricula="M-2", especialidad="G")
+        s1 = Sillon(nombre="S1", estado="activo")
+        s2 = Sillon(nombre="S2", estado="activo")
+        t = Tratamiento(nombre="T", duracion_minutos=30, precio_base=Decimal("500.00"))
+        session.add_all([p1, p2, s1, s2, t])
+        await session.flush()
         await session.commit()
     return {
-        "p1": int(p1),
-        "p2": int(p2),
-        "s1": int(s1),
-        "s2": int(s2),
-        "t": int(t),
+        "p1": int(p1.id),
+        "p2": int(p2.id),
+        "s1": int(s1.id),
+        "s2": int(s2.id),
+        "t": int(t.id),
     }
 
 

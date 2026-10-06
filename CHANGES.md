@@ -111,7 +111,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 > C-01 es un vertical slice de una sola funcionalidad (restricción de usuario 2026-09-30), no un foundation genérico. C-02 extiende sus 4 tablas con el resto del dominio.
 
 ### [C-01] `crear-turno-sin-solape`
-- **Estado**: `[x]` archivado 2026-10-01 (`openspec/changes/archive/2026-10-01-c-01-crear-turno-sin-solape/`, spec en `openspec/specs/turnos/creacion-sin-solape/spec.md`; E2E 4.1 diferido, ver archive record)
+- **Estado**: `[x]` archivado 2026-10-01 (`openspec/changes/archive/2026-10-01-crear-turno-sin-solapamientos/`, spec en `openspec/specs/turnos/creacion-sin-solape/spec.md`; E2E 4.1 diferido, ver `## Acta de desvío` en `tasks.md` del change archivado)
 - **Scope**: Vertical slice mínimo y completo: crear un turno evitando solapamientos por profesional Y por sillón/box (stack congelado: Python + FastAPI + SQLAlchemy + Alembic + PostgreSQL + Docker Compose; E2E Playwright)
   - `backend/` mínimo estrictamente necesario: app FastAPI con `GET /api/health`, `shared/` con settings (Pydantic), logger, db, exceptions; todo el backend con type hints (R13), sin SQL crudo fuera de migraciones (R14), Pydantic in/out en el borde (R15), I/O async sin bloquear el loop (R16), secretos solo por env vars (R17), servicios solo vía Docker Compose con healthchecks de Postgres (R18)
   - `docker-compose.yml`: `backend` + `postgres` con healthcheck; `.env.example` con `DATABASE_URL` (sin secrets hardcodeados)
@@ -384,3 +384,17 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - `knowledge-base/06_funcionalidades.md` §US-011
   - `knowledge-base/06_funcionalidades.md` §US-012
   - `knowledge-base/04_modelo_de_datos.md` §RegistroAuditoria
+
+---
+
+## Riesgos
+
+| Riesgo | Mitigación |
+|--------|------------|
+| E2E Windows diferido (C-01 4.1: popups `python.exe` cuelgan el host; Playwright prohibido en este entorno) | Cobertura interina verde API+DB (carrera 201+409, SQLSTATE 23P01) en la suite 27 passed; follow-up en C-05/C-08; ver `## Acta de desvío` en `openspec/changes/archive/2026-10-01-crear-turno-sin-solapamientos/tasks.md` |
+| Forward-compat `EXCLUDE` → C-06 (`en_espera` no bloqueante) | Resuelta con estrategia A: EXCLUDE parciales `WHERE estado IN ('reservado','confirmado')`; `en_espera` queda fuera del constraint desde el DDL de C-01, sin migración correctiva en C-06 |
+| Daemon Docker no disponible en el host | `docker compose config` como verificación sin daemon pesado; Postgres levantado solo con `docker compose up -d postgres` (foreground, un intento); si falla, abortar y reportar en vez de reintentar en background |
+| Alertas Snyk: `playwright-cli` / `gws-calendar-agenda` | Skills solo como harness de test/agenda; sin pins productivos afectados; revisar alertas antes de C-05 (Playwright) y C-10 (GCal) |
+| Cifras de mercado autodeclaradas (ej. DentalSoft "+300 clínicas / −82% ausencias" sin auditoría) | No usar como criterio de aceptación; métricas de éxito propias en `01_vision_y_objetivos.md`; pendiente de confirmación (pregunta Media en `10_preguntas_abiertas.md`) |
+| Reglas que pueden cambiar (ventana 24h idéntica p/ reprogramación, RN-GC-02, unicidad operativa por teléfono) | Trazadas como preguntas abiertas/inconsistencias en `10_preguntas_abiertas.md` (IN-02, RN-GC-02); cambios solo vía OPSX con specs actualizados |
+| Disponibilidad desactualizada (franjas/excepciones/feriados) | Horarios libres siempre calculados desde disponibilidad vigente − turnos bloqueantes (RN-TU-07); sin caché de libres del lado cliente |

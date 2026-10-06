@@ -71,6 +71,7 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 - **Total**: 13 changes en 5 fases.
 - **Camino crítico** (9): detalle en `CHANGES.md` (eje `C-01 → … → C-13` con `C-06 sena-pagos-turno` como change propio de la restricción de seña).
 - **Primer change**: `C-01` (foundation-setup) → arrancar con `/opsx:propose C-01-foundation-setup`.
+- Estado actual: C-01 archivado 2026-10-01; cambio crítico de seguimiento: C-12 (panel-admin-caja-ausentismo); próximo por árbol: C-02.
 
 **Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md), identificá las dependencias del change y los archivos de "Leer antes".
 
@@ -109,6 +110,9 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 **Universales (van acá porque no hay global que las cubra)**
 - R11. NUNCA commitear/pushear sin pedido explícito → cambios quedan en working tree.
 - R12. Commits con conventional commits, sin co-autoría IA.
+
+**Privacidad**
+- R19. NUNCA utilizar datos reales de pacientes en el repositorio, seeds, tests o logs → información 100% sintética (Ley 25.326).
 
 ---
 

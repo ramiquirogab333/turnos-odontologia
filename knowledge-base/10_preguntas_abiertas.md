@@ -2,8 +2,8 @@
 
 ## Aviso de ingest
 
-- **PDF no ingerido**: `docs/discovery/discovery.pdf` NO fue parseado (fallo previo de parser). Se asumió que equivale a `docs/discovery/discovery.md` (SU-01 en `09_decisiones_y_supuestos.md`). Su contenido debe validarse manualmente contra esta KB; si trae material exclusivo, incorporarlo a los canónicos correspondientes.
-- **Fuente raíz ausente**: no existe `discovery/discovery.md` en la raíz (la discovery de discovery-research del 2026-09-29 vive en `docs/discovery/discovery.md` + sección `discovery` de `.active-orchestrator-state.json`, ambas ingeridas). Sin acción requerida salvo que aparezca ese archivo.
+- **PDF no ingerido**: `docs/discovery/informe-discovery.pdf` NO fue parseado (fallo previo de parser). Se asumió que equivale a `docs/discovery/informe-discovery.md` (SU-01 en `09_decisiones_y_supuestos.md`). Su contenido debe validarse manualmente contra esta KB; si trae material exclusivo, incorporarlo a los canónicos correspondientes.
+- **Fuente raíz ausente**: no existe `discovery/discovery.md` en la raíz (la discovery de discovery-research del 2026-09-29 vive en `docs/discovery/informe-discovery.md` + sección `discovery` de `.active-orchestrator-state.json`, ambas ingeridas). Sin acción requerida salvo que aparezca ese archivo.
 
 ## Inconsistencias detectadas
 

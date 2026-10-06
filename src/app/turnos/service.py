@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from sqlalchemy import text
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,16 +29,22 @@ async def existe_solape(
     session: AsyncSession, columna: str, recurso_id: int, inicio: object, fin: object
 ) -> bool:
     """True when a blocking turno of the same resource overlaps [inicio, fin)."""
-    if columna not in ("profesional_id", "sillon_id"):
+    if columna == "profesional_id":
+        recurso_col = Turno.profesional_id
+    elif columna == "sillon_id":
+        recurso_col = Turno.sillon_id
+    else:
         raise ValueError(f"columna de recurso desconocida: {columna}")
     fila = (
         await session.execute(
-            text(
-                f"SELECT 1 FROM turno WHERE {columna} = :rid "
-                "AND estado IN ('reservado', 'confirmado') "
-                "AND inicio < :fin AND fin > :inicio LIMIT 1"
-            ),
-            {"rid": recurso_id, "inicio": inicio, "fin": fin},
+            select(Turno.id)
+            .where(
+                recurso_col == recurso_id,
+                Turno.estado.in_(ESTADOS_BLOQUEANTES),
+                Turno.inicio < fin,
+                Turno.fin > inicio,
+            )
+            .limit(1)
         )
     ).first()
     return fila is not None

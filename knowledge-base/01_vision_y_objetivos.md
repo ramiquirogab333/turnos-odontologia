@@ -1,6 +1,6 @@
 # Visión y Objetivos
 
-Fuente: ingest de `docs/discovery/discovery.md`, `docs/discovery/Validación Discovery.md` y sección `discovery` de `.active-orchestrator-state.json` (2026-09-29). `docs/discovery/discovery.pdf` excluido (ver `10_preguntas_abiertas.md`).
+Fuente: ingest de `docs/discovery/informe-discovery.md`, `docs/discovery/Validación Discovery.md` y sección `discovery` de `.active-orchestrator-state.json` (2026-09-29). `docs/discovery/informe-discovery.pdf` excluido (ver `10_preguntas_abiertas.md`).
 
 ## Propósito del sistema
 

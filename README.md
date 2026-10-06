@@ -62,8 +62,8 @@ La mayoría de las herramientas internacionales o genéricas fallan en cubrir la
 - Restricción física de **sillones odontológicos** compartidos entre varios especialistas.
 
 El informe completo de relevamiento y la matriz comparativa detallada pueden consultarse en:
-- Documento Markdown: [docs/discovery/discovery.md](docs/discovery/discovery.md)
-- Documento PDF: [docs/discovery/discovery.pdf](docs/discovery/discovery.pdf)
+- Documento Markdown: [docs/discovery/informe-discovery.md](docs/discovery/informe-discovery.md)
+- Documento PDF: [docs/discovery/informe-discovery.pdf](docs/discovery/informe-discovery.pdf)
 - Reporte de Validación: [docs/discovery/Validación Discovery.md](docs/discovery/Validaci%C3%B3n%20Discovery.md)
 
 ---
@@ -83,14 +83,21 @@ turnos-odontologia/
 │   ├── commands/                   # Comandos /opsx-* para el ciclo spec-driven
 │   └── skills/                     # Habilidades integradas de OpenSpec
 ├── CHANGES.md                      # Índice canónico de changes C-01..C-13 (roadmap, dependencias y gates)
-├── backend/                        # C-01 vertical slice: FastAPI + SQLAlchemy + Alembic (app/, tests/, Dockerfile)
+├── src/                            # Código backend: FastAPI + SQLAlchemy + Alembic
+│   ├── app/                        # `main`, `shared/`, `turnos/` (models, schemas, router, service)
+│   └── alembic/                    # Entorno + migraciones (001 agenda con EXCLUDE)
+├── tests/                          # Suite pytest raíz (conftest + 3 archivos; conftest expone `src/` en sys.path)
+├── pytest.ini                      # `asyncio_mode = auto`, `testpaths = tests` (rootdir = raíz)
+├── requirements.txt                # Pins del backend (raíz)
+├── alembic.ini                     # `script_location = src/alembic` (raíz)
+├── Dockerfile                      # Build con contexto raíz (`COPY src/`, `PYTHONPATH=/code/src`)
 ├── discovery/                      # Prompt de estudio de mercado (raíz; distinto de docs/discovery/)
 ├── docker-compose.yml              # postgres:16 + backend con healthcheck (host 5433→5432)
 ├── .env.example                    # Plantilla de env (copiar a .env; nunca commitear .env)
 ├── docs/
 │   └── discovery/
-│       ├── discovery.md            # Informe detallado de relevamiento de requerimientos y competidores
-│       ├── discovery.pdf           # Versión compilada en PDF del estudio de mercado
+│       ├── informe-discovery.md    # Informe detallado de relevamiento de requerimientos y competidores
+│       ├── informe-discovery.pdf   # Versión compilada en PDF del estudio de mercado
 │       └── Validación Discovery.md # Reporte de auditoría y validación de fuentes de competidores
 ├── e2e/                            # Playwright: playwright.config.js + tests/race.spec.js (node_modules/ ignorado)
 ├── knowledge-base/                 # Base de conocimiento (12 archivos: 01..11 + README)
@@ -107,11 +114,23 @@ turnos-odontologia/
 - **Roadmap de implementación:** ver [CHANGES.md](CHANGES.md) — secuencia atómica C-01 (crear-turno-sin-solape, `[x]` archivado 2026-10-01) → C-13 (auditoría), con árbol de dependencias, gates de paralelismo y camino crítico. Leer antes de ejecutar cualquier `/opsx:propose`.
 - **Skills de proyecto:** `.agents/skills/` + [skills-lock.json](skills-lock.json), registradas en [.atl/skill-registry.md](.atl/skill-registry.md). Cobertura: booking mobile-first, panel/agenda, modelos Postgres anti-solape, E2E con Playwright y sync con Google Calendar.
 
+### Inicio rápido paso a paso (verificado contra los archivos reales)
+1. Clonar: `git clone <url-del-repo> && cd turnos-odontologia`.
+2. Crear y activar venv: `python -m venv .venv` → en Windows `cmd /c .venv\Scripts\activate` (nunca commitear el `.env` real — R17).
+3. Instalar (ver [`requirements.txt`](requirements.txt)): `pip install -r requirements.txt`.
+4. Configurar entorno (ver [`.env.example`](.env.example)): copiar a `.env` (`DATABASE_URL=postgresql+asyncpg://turnos:turnos@localhost:5433/turnos`).
+5. Levantar Postgres (servicio `postgres` con healthcheck `pg_isready`, ver [`docker-compose.yml`](docker-compose.yml)): `docker compose up -d postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
+6. Migrar desde la raíz (ver [`alembic.ini`](alembic.ini): `script_location = src/alembic`): `alembic upgrade head`.
+7. Tests backend desde la raíz (ver [`pytest.ini`](pytest.ini): `testpaths = tests`): `python -m pytest tests -q` (27 tests; `tests/conftest.py` inserta `src/` en `sys.path`).
+
 ### Cómo levantar (C-01)
-1. Copiar `.env.example` a `.env` (nunca commitear el `.env` real — R17).
-2. `docker compose up --build` — levanta `postgres` (host `5433`) y `backend` (`:8000`).
-3. Backend: `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
-4. Tests backend: `pytest` en `backend/`; E2E: `npm --prefix e2e install && npm --prefix e2e test` (carrera concurrente mismo slot → un `201` y un `409`).
+1. Crear y activar un venv, e instalar dependencias (desde la raíz):
+   `python -m venv .venv` → activar → `pip install -r requirements.txt` (nunca commitear el `.env` real — R17).
+2. Copiar `.env.example` a `.env`.
+3. Levantar Postgres vía compose: `docker compose up -d postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
+4. Aplicar migraciones desde la raíz: `alembic upgrade head`.
+5. Levantar el backend: `docker compose up --build` (o local: `uvicorn app.main:app` con `PYTHONPATH=src`) — `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
+6. Tests backend desde la raíz: `python -m pytest tests -q` (27 tests; `tests/conftest.py` inserta `src/` en `sys.path`); E2E: `npm --prefix e2e install && npm --prefix e2e test` (carrera concurrente mismo slot → un `201` y un `409`).
 
 ---
 
@@ -133,7 +152,7 @@ El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenS
 - [x] **Skills — Capacidades de proyecto:** 5 skills instaladas en `.agents/skills/` (`vercel-react-best-practices`, `frontend-design`, `postgresql-table-design`, `playwright-cli`, `gws-calendar-agenda`) + `skills-lock.json` y `.atl/skill-registry.md`.
 - [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, roadmap C-01..C-13, reglas duras R1–R18). Es lo primero que lee todo agente al entrar al repo.
 - [x] **Preguntas Alta resueltas (2026-09-30):** multi-odontólogo/multi-sillón día 1, WhatsApp manual v1 (`wa.me/`), entidad Tratamientos con duración, stack congelado (ver `knowledge-base/10_preguntas_abiertas.md`).
-- [x] **C-01 — crear-turno-sin-solape (archivado 2026-10-01):** `POST /api/turnos` con anti-solape por profesional Y sillón (`EXCLUDE USING gist`, migración 001), `backend/` + `docker-compose.yml` + spec en `openspec/specs/turnos/` + E2E de carrera (E2E 4.1 diferido, ver archive record).
+- [x] **C-01 — crear-turno-sin-solape (archivado 2026-10-01):** `POST /api/turnos` con anti-solape por profesional Y sillón (`EXCLUDE USING gist`, migración 001), `src/` + `tests/` + `docker-compose.yml` + spec en `openspec/specs/turnos/` + E2E de carrera (E2E 4.1 diferido, ver archive record).
 - [ ] **Fase 2 — Arquitectura y resto del core (C-02..C-03):** Stack decidido — Backend Python + FastAPI + SQLAlchemy (+Alembic) + PostgreSQL + Redis + JWT + Docker Compose; Frontend React + TypeScript + Vite; E2E Playwright (ver `AGENTS.md`). Siguiente: resto de modelos (C-02) y auth/RBAC del panel (C-03).
 - [ ] **Fase 3 — Diseño UX/UI (C-04..C-05):** Catálogo/tratamientos, disponibilidad y reserva pública mobile-first sin registro obligatorio.
 - [ ] **Fase 4 — Implementación del MVP (C-06..C-08, C-11):** Seña/pagos (GAP `en_espera` sin bloqueo), cancelación/reprogramación 24 hs, agenda profesional y ficha/odontograma.

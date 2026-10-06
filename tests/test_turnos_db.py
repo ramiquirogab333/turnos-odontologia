@@ -4,26 +4,29 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import text
+
+from app.turnos.models import Turno
 
 BASE = datetime(2030, 5, 6, 10, 0, tzinfo=timezone.utc)
 FIN = BASE + timedelta(minutes=30)
 
 
 async def _insert(session_factory, prof, sill, trat, inicio, fin, estado="reservado"):
+    """Insert a Turno via ORM (test harness); EXCLUDE constraints still enforced by DB."""
     async with session_factory() as s:
-        row = (
-            await s.execute(
-                text(
-                    "INSERT INTO turno (profesional_id, sillon_id, tratamiento_id, "
-                    "inicio, fin, estado) "
-                    "VALUES (:p, :s, :t, :i, :f, :e) RETURNING id"
-                ),
-                {"p": prof, "s": sill, "t": trat, "i": inicio, "f": fin, "e": estado},
-            )
-        ).scalar_one()
+        turno = Turno(
+            profesional_id=prof,
+            sillon_id=sill,
+            tratamiento_id=trat,
+            inicio=inicio,
+            fin=fin,
+            estado=estado,
+        )
+        s.add(turno)
+        await s.flush()
+        turno_id = int(turno.id)
         await s.commit()
-        return int(row)
+        return turno_id
 
 
 async def test_doble_insert_mismo_profesional_aborta_23P01(session_factory, seed_pair) -> None:

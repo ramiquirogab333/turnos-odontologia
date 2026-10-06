@@ -1,6 +1,6 @@
 # Análisis de Competidores y Mercado
 
-Extra justificado: la discovery trae relevamiento de 18+ sistemas en 3 frentes con matriz ponderada; ese material no cabe en los canónicos y debe preservarse como referencia de producto. Fuente: `docs/discovery/discovery.md` §4, `docs/discovery/Validación Discovery.md`, `state.discovery.sources` (verificadas 2026-09-29).
+Extra justificado: la discovery trae relevamiento de 18+ sistemas en 3 frentes con matriz ponderada; ese material no cabe en los canónicos y debe preservarse como referencia de producto. Fuente: `docs/discovery/informe-discovery.md` §4, `docs/discovery/Validación Discovery.md`, `state.discovery.sources` (verificadas 2026-09-29).
 
 ## Situación actual
 
