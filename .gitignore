@@ -28,5 +28,12 @@ build/
 .next/
 out/
 
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
 # Orquestador local
 .atl/
