@@ -1,0 +1,14 @@
+{
+  "name": "e2e-turnos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "E2E Playwright (backend-only) para C-01: carrera concurrente POST /api/turnos.",
+  "scripts": {
+    "test": "playwright test",
+    "test:race": "playwright test race --repeat-each=3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "pg": "8.23.1"
+  }
+}
