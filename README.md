@@ -83,24 +83,35 @@ turnos-odontologia/
 │   ├── commands/                   # Comandos /opsx-* para el ciclo spec-driven
 │   └── skills/                     # Habilidades integradas de OpenSpec
 ├── CHANGES.md                      # Índice canónico de changes C-01..C-13 (roadmap, dependencias y gates)
+├── backend/                        # C-01 vertical slice: FastAPI + SQLAlchemy + Alembic (app/, tests/, Dockerfile)
+├── discovery/                      # Prompt de estudio de mercado (raíz; distinto de docs/discovery/)
+├── docker-compose.yml              # postgres:16 + backend con healthcheck (host 5433→5432)
+├── .env.example                    # Plantilla de env (copiar a .env; nunca commitear .env)
 ├── docs/
 │   └── discovery/
 │       ├── discovery.md            # Informe detallado de relevamiento de requerimientos y competidores
 │       ├── discovery.pdf           # Versión compilada en PDF del estudio de mercado
 │       └── Validación Discovery.md # Reporte de auditoría y validación de fuentes de competidores
+├── e2e/                            # Playwright: playwright.config.js + tests/race.spec.js (node_modules/ ignorado)
 ├── knowledge-base/                 # Base de conocimiento (12 archivos: 01..11 + README)
 ├── openspec/
 │   ├── config.yaml                 # Configuración del workflow de especificaciones
-│   ├── changes/                    # Cambios propuestos y archivados
-│   └── specs/                      # Especificaciones vigentes del sistema
+│   ├── changes/                    # Cambios propuestos y archivados (C-01 archivado 2026-10-01)
+│   └── specs/turnos/               # Specs vigentes (creacion-sin-solape)
 ├── skills-lock.json                # Lockfile de versions de las skills instaladas
 └── README.md                       # Documentación general del repositorio
 ```
 
 ### Base de conocimiento, roadmap y skills
 - **Base de conocimiento:** ver [knowledge-base/README.md](knowledge-base/README.md) — visión, actores, modelo de datos (13 entidades), 17 reglas de negocio, funcionalidades US-001..US-012, flujos, arquitectura propuesta, decisiones y preguntas abiertas.
-- **Roadmap de implementación:** ver [CHANGES.md](CHANGES.md) — secuencia atómica C-01 (foundation) → C-13 (auditoría), con árbol de dependencias, gates de paralelismo y camino crítico. Leer antes de ejecutar cualquier `/opsx:propose`.
+- **Roadmap de implementación:** ver [CHANGES.md](CHANGES.md) — secuencia atómica C-01 (crear-turno-sin-solape, `[x]` archivado 2026-10-01) → C-13 (auditoría), con árbol de dependencias, gates de paralelismo y camino crítico. Leer antes de ejecutar cualquier `/opsx:propose`.
 - **Skills de proyecto:** `.agents/skills/` + [skills-lock.json](skills-lock.json), registradas en [.atl/skill-registry.md](.atl/skill-registry.md). Cobertura: booking mobile-first, panel/agenda, modelos Postgres anti-solape, E2E con Playwright y sync con Google Calendar.
+
+### Cómo levantar (C-01)
+1. Copiar `.env.example` a `.env` (nunca commitear el `.env` real — R17).
+2. `docker compose up --build` — levanta `postgres` (host `5433`) y `backend` (`:8000`).
+3. Backend: `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
+4. Tests backend: `pytest` en `backend/`; E2E: `npm --prefix e2e install && npm --prefix e2e test` (carrera concurrente mismo slot → un `201` y un `409`).
 
 ---
 
@@ -122,7 +133,8 @@ El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenS
 - [x] **Skills — Capacidades de proyecto:** 5 skills instaladas en `.agents/skills/` (`vercel-react-best-practices`, `frontend-design`, `postgresql-table-design`, `playwright-cli`, `gws-calendar-agenda`) + `skills-lock.json` y `.atl/skill-registry.md`.
 - [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, roadmap C-01..C-13, reglas duras R1–R18). Es lo primero que lee todo agente al entrar al repo.
 - [x] **Preguntas Alta resueltas (2026-09-30):** multi-odontólogo/multi-sillón día 1, WhatsApp manual v1 (`wa.me/`), entidad Tratamientos con duración, stack congelado (ver `knowledge-base/10_preguntas_abiertas.md`).
-- [ ] **Fase 2 — Arquitectura y Stack Tecnológico (C-01..C-03):** Stack decidido — Backend Python + FastAPI + SQLAlchemy (+Alembic) + PostgreSQL + Redis + JWT + Docker Compose; Frontend React + TypeScript + Vite; E2E Playwright (ver `AGENTS.md`). Siguiente: fijar versiones en C-01, modelos core y auth/RBAC del panel.
+- [x] **C-01 — crear-turno-sin-solape (archivado 2026-10-01):** `POST /api/turnos` con anti-solape por profesional Y sillón (`EXCLUDE USING gist`, migración 001), `backend/` + `docker-compose.yml` + spec en `openspec/specs/turnos/` + E2E de carrera (E2E 4.1 diferido, ver archive record).
+- [ ] **Fase 2 — Arquitectura y resto del core (C-02..C-03):** Stack decidido — Backend Python + FastAPI + SQLAlchemy (+Alembic) + PostgreSQL + Redis + JWT + Docker Compose; Frontend React + TypeScript + Vite; E2E Playwright (ver `AGENTS.md`). Siguiente: resto de modelos (C-02) y auth/RBAC del panel (C-03).
 - [ ] **Fase 3 — Diseño UX/UI (C-04..C-05):** Catálogo/tratamientos, disponibilidad y reserva pública mobile-first sin registro obligatorio.
 - [ ] **Fase 4 — Implementación del MVP (C-06..C-08, C-11):** Seña/pagos (GAP `en_espera` sin bloqueo), cancelación/reprogramación 24 hs, agenda profesional y ficha/odontograma.
 - [ ] **Fase 5 — Integraciones y admin (C-09..C-10, C-12..C-13):** WhatsApp, Google Calendar sync, caja/ausentismo y auditoría/exportación.
