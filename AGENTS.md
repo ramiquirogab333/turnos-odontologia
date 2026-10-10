@@ -110,6 +110,7 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 **Universales (van acá porque no hay global que las cubra)**
 - R11. NUNCA commitear/pushear sin pedido explícito → cambios quedan en working tree.
 - R12. Commits con conventional commits, sin co-autoría IA.
+- R20. NUNCA crear archivos sueltos en la raíz fuera de la estructura canónica ni commitear archivos de configuración .env*. La raíz solo almacena los artefactos canónicos de la metodología (AGENTS.md, CLAUDE.md, CHANGES.md, README.md, .active-orchestrator-state.json) y los archivos de infraestructura del stack (Dockerfile, compose, requirements, alembic, pytest).
 
 **Privacidad**
 - R19. NUNCA utilizar datos reales de pacientes en el repositorio, seeds, tests o logs → información 100% sintética (Ley 25.326).
