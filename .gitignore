@@ -11,6 +11,8 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 *.local
+!.env.example
+!backend/.env.example
 
 # Archivos de sistema operativo y editores
 .DS_Store
