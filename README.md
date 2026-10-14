@@ -63,7 +63,6 @@ La mayoría de las herramientas internacionales o genéricas fallan en cubrir la
 
 El informe completo de relevamiento y la matriz comparativa detallada pueden consultarse en:
 - Documento Markdown: [docs/discovery/informe-discovery.md](docs/discovery/informe-discovery.md)
-- Documento PDF: [docs/discovery/informe-discovery.pdf](docs/discovery/informe-discovery.pdf)
 - Reporte de Validación: [docs/discovery/Validación Discovery.md](docs/discovery/Validaci%C3%B3n%20Discovery.md)
 
 ---
@@ -73,31 +72,30 @@ El informe completo de relevamiento y la matriz comparativa detallada pueden con
 ```text
 turnos-odontologia/
 ├── .active-orchestrator-state.json # Estado estructurado del proceso (fase actual: done)
-├── AGENTS.md                       # Instrucciones para agentes (stack, KB, skills, roadmap, reglas R1–R18)
+├── AGENTS.md                       # Instrucciones para agentes (stack, KB, skills, roadmap, reglas R1–R19)
 ├── CLAUDE.md                       # Copia de AGENTS.md (no editar a mano sin re-sincronizar)
 ├── .agents/skills/                 # Skills de proyecto instaladas (5): vercel-react-best-practices,
 │                                   # frontend-design, postgresql-table-design, playwright-cli, gws-calendar-agenda
-├── .atl/skill-registry.md          # Registro de skills (versionado con `git add -f`; resto de .atl/ ignorado)
+├── .atl/skill-registry.md          # Registro de skills (trackeado vía excepción en .gitignore; resto de .atl/ ignorado)
 ├── .gitignore                      # Configuración de exclusiones de Git (incluye .atl/)
 ├── .opencode/                      # Comandos y habilidades para flujo guiado por agentes IA
 │   ├── commands/                   # Comandos /opsx-* para el ciclo spec-driven
 │   └── skills/                     # Habilidades integradas de OpenSpec
 ├── CHANGES.md                      # Índice canónico de changes C-01..C-13 (roadmap, dependencias y gates)
-├── src/                            # Código backend: FastAPI + SQLAlchemy + Alembic
-│   ├── app/                        # `main`, `shared/`, `turnos/` (models, schemas, router, service)
-│   └── alembic/                    # Entorno + migraciones (001 agenda con EXCLUDE)
-├── tests/                          # Suite pytest raíz (conftest + 3 archivos; conftest expone `src/` en sys.path)
-├── pytest.ini                      # `asyncio_mode = auto`, `testpaths = tests` (rootdir = raíz)
-├── requirements.txt                # Pins del backend (raíz)
-├── alembic.ini                     # `script_location = src/alembic` (raíz)
-├── Dockerfile                      # Build con contexto raíz (`COPY src/`, `PYTHONPATH=/code/src`)
-├── discovery/                      # Prompt de estudio de mercado (raíz; distinto de docs/discovery/)
+├── backend/                        # Código backend: FastAPI + SQLAlchemy + Alembic + tests
+│   ├── src/
+│   │   ├── app/                    # `main`, `shared/`, `turnos/` (models, schemas, router, service)
+│   │   └── alembic/                # Entorno + migraciones (001 agenda con EXCLUDE)
+│   ├── tests/                      # Suite pytest (conftest + 3 archivos; `pythonpath = src`)
+│   ├── pytest.ini                  # `asyncio_mode = auto`, `testpaths = tests`, `pythonpath = src`
+│   ├── requirements.txt            # Pins del backend
+│   ├── alembic.ini                 # `script_location = src/alembic` (correr desde `backend/`)
+│   └── Dockerfile                  # Build con contexto `./backend` (`COPY src/`, `PYTHONPATH=/code/src`)
 ├── docker-compose.yml              # postgres:16 + backend con healthcheck (host 5433→5432)
 ├── .env.example                    # Plantilla de env (copiar a .env; nunca commitear .env)
 ├── docs/
 │   └── discovery/
 │       ├── informe-discovery.md    # Informe detallado de relevamiento de requerimientos y competidores
-│       ├── informe-discovery.pdf   # Versión compilada en PDF del estudio de mercado
 │       └── Validación Discovery.md # Reporte de auditoría y validación de fuentes de competidores
 ├── e2e/                            # Playwright: playwright.config.js + tests/race.spec.js (node_modules/ ignorado)
 ├── knowledge-base/                 # Base de conocimiento (12 archivos: 01..11 + README)
@@ -117,20 +115,20 @@ turnos-odontologia/
 ### Inicio rápido paso a paso (verificado contra los archivos reales)
 1. Clonar: `git clone <url-del-repo> && cd turnos-odontologia`.
 2. Crear y activar venv: `python -m venv .venv` → en Windows `cmd /c .venv\Scripts\activate` (nunca commitear el `.env` real — R17).
-3. Instalar (ver [`requirements.txt`](requirements.txt)): `pip install -r requirements.txt`.
+3. Instalar (ver [`backend/requirements.txt`](backend/requirements.txt)): `pip install -r backend/requirements.txt`.
 4. Configurar entorno (ver [`.env.example`](.env.example)): copiar a `.env` (`DATABASE_URL=postgresql+asyncpg://turnos:turnos@localhost:5433/turnos`).
 5. Levantar Postgres (servicio `postgres` con healthcheck `pg_isready`, ver [`docker-compose.yml`](docker-compose.yml)): `docker compose up -d postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
-6. Migrar desde la raíz (ver [`alembic.ini`](alembic.ini): `script_location = src/alembic`): `alembic upgrade head`.
-7. Tests backend desde la raíz (ver [`pytest.ini`](pytest.ini): `testpaths = tests`): `python -m pytest tests -q` (27 tests; `tests/conftest.py` inserta `src/` en `sys.path`).
+6. Migrar desde `backend/` (ver [`backend/alembic.ini`](backend/alembic.ini): `script_location = src/alembic`): `cd backend && alembic upgrade head`.
+7. Tests backend desde `backend/` (ver [`backend/pytest.ini`](backend/pytest.ini): `testpaths = tests`, `pythonpath = src`): `cd backend && python -m pytest tests -q` (27 tests).
 
 ### Cómo levantar (C-01)
 1. Crear y activar un venv, e instalar dependencias (desde la raíz):
-   `python -m venv .venv` → activar → `pip install -r requirements.txt` (nunca commitear el `.env` real — R17).
+   `python -m venv .venv` → activar → `pip install -r backend/requirements.txt` (nunca commitear el `.env` real — R17).
 2. Copiar `.env.example` a `.env`.
 3. Levantar Postgres vía compose: `docker compose up -d postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
-4. Aplicar migraciones desde la raíz: `alembic upgrade head`.
-5. Levantar el backend: `docker compose up --build` (o local: `uvicorn app.main:app` con `PYTHONPATH=src`) — `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
-6. Tests backend desde la raíz: `python -m pytest tests -q` (27 tests; `tests/conftest.py` inserta `src/` en `sys.path`); E2E: `npm --prefix e2e install && npm --prefix e2e test` (carrera concurrente mismo slot → un `201` y un `409`).
+4. Aplicar migraciones desde `backend/`: `cd backend && alembic upgrade head`.
+5. Levantar el backend: `docker compose up --build` (o local: `uvicorn app.main:app` con `PYTHONPATH=src` desde `backend/`) — `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
+6. Tests backend desde `backend/`: `cd backend && python -m pytest tests -q` (27 tests); E2E: `npm --prefix e2e install && npm --prefix e2e test` (carrera concurrente mismo slot → un `201` y un `409`).
 
 ---
 
@@ -150,10 +148,20 @@ El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenS
 - [x] **KB — Base de conocimiento:** 12 archivos en `knowledge-base/` generados desde discovery (visión, modelo de datos, reglas, funcionalidades, arquitectura, decisiones y preguntas abiertas).
 - [x] **Roadmap — Secuencia de implementación:** `CHANGES.md` con 13 changes atómicos (C-01..C-13), dependencias, gates de paralelismo y camino crítico.
 - [x] **Skills — Capacidades de proyecto:** 5 skills instaladas en `.agents/skills/` (`vercel-react-best-practices`, `frontend-design`, `postgresql-table-design`, `playwright-cli`, `gws-calendar-agenda`) + `skills-lock.json` y `.atl/skill-registry.md`.
-- [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, roadmap C-01..C-13, reglas duras R1–R18). Es lo primero que lee todo agente al entrar al repo.
+- [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, roadmap C-01..C-13, reglas duras R1–R19). Es lo primero que lee todo agente al entrar al repo.
 - [x] **Preguntas Alta resueltas (2026-09-30):** multi-odontólogo/multi-sillón día 1, WhatsApp manual v1 (`wa.me/`), entidad Tratamientos con duración, stack congelado (ver `knowledge-base/10_preguntas_abiertas.md`).
-- [x] **C-01 — crear-turno-sin-solape (archivado 2026-10-01):** `POST /api/turnos` con anti-solape por profesional Y sillón (`EXCLUDE USING gist`, migración 001), `src/` + `tests/` + `docker-compose.yml` + spec en `openspec/specs/turnos/` + E2E de carrera (E2E 4.1 diferido, ver archive record).
+- [x] **C-01 — crear-turno-sin-solape (archivado 2026-10-01):** `POST /api/turnos` con anti-solape por profesional Y sillón (`EXCLUDE USING gist`, migración 001), `backend/src/` + `backend/tests/` + `docker-compose.yml` + spec en `openspec/specs/turnos/` + E2E de carrera (E2E 4.1 diferido, ver archive record).
 - [ ] **Fase 2 — Arquitectura y resto del core (C-02..C-03):** Stack decidido — Backend Python + FastAPI + SQLAlchemy (+Alembic) + PostgreSQL + Redis + JWT + Docker Compose; Frontend React + TypeScript + Vite; E2E Playwright (ver `AGENTS.md`). Siguiente: resto de modelos (C-02) y auth/RBAC del panel (C-03).
 - [ ] **Fase 3 — Diseño UX/UI (C-04..C-05):** Catálogo/tratamientos, disponibilidad y reserva pública mobile-first sin registro obligatorio.
 - [ ] **Fase 4 — Implementación del MVP (C-06..C-08, C-11):** Seña/pagos (GAP `en_espera` sin bloqueo), cancelación/reprogramación 24 hs, agenda profesional y ficha/odontograma.
 - [ ] **Fase 5 — Integraciones y admin (C-09..C-10, C-12..C-13):** WhatsApp, Google Calendar sync, caja/ausentismo y auditoría/exportación.
+
+---
+
+## 8. Video de Defensa del Proyecto
+
+Estado actual del proyecto (fundación + C-01) presentado en video:
+
+[![Video de defensa — turnos-odontologia](https://img.youtube.com/vi/1k6zfgvAfZs/0.jpg)](https://youtu.be/1k6zfgvAfZs)
+
+Ver en YouTube: [https://youtu.be/1k6zfgvAfZs](https://youtu.be/1k6zfgvAfZs)
