@@ -25,6 +25,12 @@
       "skillPath": "plugins/database-design/skills/postgresql-table-design/SKILL.md",
       "computedHash": "d9832627098bddf570aef2219092625faf6b2a14aeeb0f6fb96ed691a020100a"
     },
+    "spec-rules-auditor": {
+      "source": "local/turnos-odontologia",
+      "sourceType": "project-local",
+      "skillPath": ".agents/skills/spec-rules-auditor/SKILL.md",
+      "computedHash": "203cd7c54546a1842c9da70c3852475f9852696d5fa433a48e3d5b8386de4252"
+    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",

@@ -13,6 +13,7 @@ See `_shared/skill-resolver.md` for the full resolution protocol.
 | Designing or reviewing a PostgreSQL-specific schema; column types, keys, constraints, indexes, partitioning | postgresql-table-design | C:\Users\PC\OneDrive\Documentos\Rami\Programación\Facultad\2°\2° - Sem 1\Met sist\turnos-odontologia\.agents\skills\postgresql-table-design\SKILL.md |
 | Automating browser interactions, testing web pages, working with Playwright tests | playwright-cli | C:\Users\PC\OneDrive\Documentos\Rami\Programación\Facultad\2°\2° - Sem 1\Met sist\turnos-odontologia\.agents\skills\playwright-cli\SKILL.md |
 | Google Calendar: showing upcoming events across all calendars | gws-calendar-agenda | C:\Users\PC\OneDrive\Documentos\Rami\Programación\Facultad\2°\2° - Sem 1\Met sist\turnos-odontologia\.agents\skills\gws-calendar-agenda\SKILL.md |
+| Auditing technical specifications, proposals, and design documents against business rules and domain invariants; synthesizing the 3-scenario verification matrix (happy path, business error, edge case) | spec-rules-auditor | C:\Users\PC\OneDrive\Documentos\Rami\Programación\Facultad\2°\2° - Sem 1\Met sist\turnos-odontologia\.agents\skills\spec-rules-auditor\SKILL.md |
 
 ## Compact Rules
 
@@ -60,6 +61,15 @@ Pre-digested rules per skill. Delegators copy matching blocks into sub-agent pro
 - Read-only by design — never modifies events; filter with `--calendar`, override tz explicitly (e.g. `America/Argentina/Buenos_Aires`; defaults to Google account tz)
 - PREREQUISITE `../gws-shared/SKILL.md` (auth/global flags) is NOT installed — run `gws generate-skills` or fall back to `gws calendar --help`; same for full `gws-calendar` manage commands
 - Scope warning for C-10: agenda alone is insufficient for bidirectional Turno↔Evento sync — syncToken pull+push and conflict flagging need the full `gws-calendar` skill (not installed); treat this skill as agenda-view only
+
+### spec-rules-auditor
+- Inputs: Source of Truth (`knowledge-base/05_reglas_de_negocio.md`, `AGENTS.md`) + target spec/change (`proposal.md`, `spec.md`, `design.md`)
+- Mandatory Check: map every entity and state transition to active rules; detect unverified assumptions or domain leakage (e.g. bypassing deposit checks or duration calculation)
+- Quality Gate: synthesize/verify the 3 canonical BDD scenarios:
+  1. Happy path (comportamiento esperado con invariantes satisfechas)
+  2. Business error (violación deliberada de regla de dominio, rechazo explícito y preservación de estado)
+  3. Edge case (frontera operativa: 23h 59m antes de turno, límites de horario, solape concurrente en el mismo minuto)
+- Output: Verdict (`APROBADO` / `OBSERVACIONES` / `RECHAZADO`), Traceability Matrix, and Gherkin scenarios ready for `spec.md`
 
 ## Project Conventions
 
