@@ -147,8 +147,8 @@ El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenS
 - [x] **Fase 1 — Discovery y Relevamiento:** Requerimientos, casos de uso, estudio de competidores y definición de reglas iniciales.
 - [x] **KB — Base de conocimiento:** 12 archivos en `knowledge-base/` generados desde discovery (visión, modelo de datos, reglas, funcionalidades, arquitectura, decisiones y preguntas abiertas).
 - [x] **Roadmap — Secuencia de implementación:** `CHANGES.md` con 13 changes atómicos (C-01..C-13), dependencias, gates de paralelismo y camino crítico.
-- [x] **Skills — Capacidades de proyecto:** 5 skills instaladas en `.agents/skills/` (`vercel-react-best-practices`, `frontend-design`, `postgresql-table-design`, `playwright-cli`, `gws-calendar-agenda`) + `skills-lock.json` y `.atl/skill-registry.md`.
-- [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, roadmap C-01..C-13, reglas duras R1–R19). Es lo primero que lee todo agente al entrar al repo.
+- [x] **Skills — Capacidades de proyecto:** 6 skills en `.agents/skills/` (`vercel-react-best-practices`, `frontend-design`, `postgresql-table-design`, `playwright-cli`, `gws-calendar-agenda`, y la skill propia `spec-rules-auditor`) + `skills-lock.json` y `.atl/skill-registry.md`.
+- [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, integración MCP, roadmap C-01..C-13, reglas duras R1–R19). Es lo primero que lee todo agente al entrar al repo.
 - [x] **Preguntas Alta resueltas (2026-09-30):** multi-odontólogo/multi-sillón día 1, WhatsApp manual v1 (`wa.me/`), entidad Tratamientos con duración, stack congelado (ver `knowledge-base/10_preguntas_abiertas.md`).
 - [x] **C-01 — crear-turno-sin-solape (archivado 2026-10-01):** `POST /api/turnos` con anti-solape por profesional Y sillón (`EXCLUDE USING gist`, migración 001), `backend/src/` + `backend/tests/` + `docker-compose.yml` + spec en `openspec/specs/turnos/` + E2E de carrera (E2E 4.1 diferido, ver archive record).
 - [ ] **Fase 2 — Arquitectura y resto del core (C-02..C-03):** Stack decidido — Backend Python + FastAPI + SQLAlchemy (+Alembic) + PostgreSQL + Redis + JWT + Docker Compose; Frontend React + TypeScript + Vite; E2E Playwright (ver `AGENTS.md`). Siguiente: resto de modelos (C-02) y auth/RBAC del panel (C-03).
@@ -165,3 +165,47 @@ Estado actual del proyecto (fundación + C-01) presentado en video:
 [![Video de defensa — turnos-odontologia](https://img.youtube.com/vi/1k6zfgvAfZs/0.jpg)](https://youtu.be/1k6zfgvAfZs)
 
 Ver en YouTube: [https://youtu.be/1k6zfgvAfZs](https://youtu.be/1k6zfgvAfZs)
+
+---
+
+## 9. Integración de Herramientas del Agente (Skill Propia y Servidor MCP)
+
+Como parte de la evolución metodológica del entorno de desarrollo (TP Metodología I), se incorporaron herramientas especializadas para potenciar el flujo **Spec-Driven Development (SDD)**:
+
+### 9.1. Skill Propia: `spec-rules-auditor`
+* **Ubicación:** [`.agents/skills/spec-rules-auditor/SKILL.md`](.agents/skills/spec-rules-auditor/SKILL.md)
+* **Registro:** [`.atl/skill-registry.md`](.atl/skill-registry.md) y [`skills-lock.json`](skills-lock.json).
+* **Propósito:** Audita sistemáticamente especificaciones, propuestas y diseños técnicos (`spec.md`, `proposal.md`, `design.md`) contra las reglas de negocio e invariantes documentadas en [`knowledge-base/05_reglas_de_negocio.md`](knowledge-base/05_reglas_de_negocio.md) y [`AGENTS.md`](AGENTS.md).
+* **Entregable clave:** Genera la **Terna Canónica de Escenarios Verificables** (Comportamiento Esperado, Error de Negocio y Caso de Borde) en formato BDD/Gherkin y emite un dictamen formal con matriz de trazabilidad.
+
+### 9.2. Servidor MCP: Google Stitch (`@_davideast/stitch-mcp`)
+* **Propósito:** Conectar al agente con la plataforma de diseño visual Google Stitch (Google Labs) para explorar proyectos, extraer código HTML/React de pantallas mobile-first y tokens de diseño para los documentos `design.md` (garantizando la regla **R3** de diseño funcional a 360px).
+* **Configuración reproducible en el cliente MCP:**
+  ```json
+  {
+    "mcpServers": {
+      "stitch": {
+        "command": "npx",
+        "args": ["-y", "@_davideast/stitch-mcp", "proxy"],
+        "env": {
+          "GOOGLE_CLOUD_PROJECT": "TU_GOOGLE_CLOUD_PROJECT_ID"
+        }
+      }
+    }
+  }
+  ```
+* **Variables de entorno necesarias:**
+  * `GOOGLE_CLOUD_PROJECT`: ID del proyecto de Google Cloud con acceso habilitado a Google Labs / Stitch.
+  * Opcionalmente `STITCH_API_KEY` para autenticación directa por clave.
+* **Comprobación de conexión y ejecución de herramientas:**
+  * Verificar disponibilidad vía CLI:
+    ```bash
+    # En Windows PowerShell usar npx.cmd
+    npx.cmd -y @_davideast/stitch-mcp --help
+    ```
+  * Inspección de herramientas MCP: `npx.cmd -y @_davideast/stitch-mcp tool --help`
+* **Resolución de problemas comunes detectados:**
+  * *Error de política de ejecución en Windows (`PSSecurityException / UnauthorizedAccess`):* Node instala wrappers `.ps1` que Windows bloquea por defecto. Solución: invocar explícitamente `npx.cmd` en lugar de `npx`.
+  * *Falla de autenticación (`Authentication failed. Provide either apiKey OR accessToken + projectId`):* Verificar que la variable `GOOGLE_CLOUD_PROJECT` esté presente en el entorno o iniciar sesión previamente con `gcloud auth application-default login`.
+* **Privacidad y Seguridad (Ley 25.326 y R19):**
+  * El servidor MCP opera exclusivamente en la capa de presentación y prototipado visual. No accede a bases de datos ni manipula datos de pacientes; todos los prototipos usan información 100% sintética.

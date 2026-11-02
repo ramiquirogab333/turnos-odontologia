@@ -56,9 +56,32 @@ Fuente de verdad: `.atl/skill-registry.md` (project-local, `.agents/skills/` + `
 | **Integraciones** | WhatsApp / GCal / Mercado Pago / Redis workers | `gws-calendar-agenda` |
 | **Frontend** | React / TS / Vite mobile-first | `vercel-react-best-practices`, `frontend-design` |
 | **QA E2E** | Flujos de turnos (reserva, seña, 24h) | `playwright-cli` |
-| **Orquestación** | OPSX / SDD (propose → apply → archive) | `openspec-propose`, `openspec-apply-change`, `openspec-archive-change`, `openspec-explore` (en `.opencode/skills/`) |
+| **Orquestación y Specs** | OPSX / SDD / Auditoría de Reglas | `openspec-propose`, `openspec-apply-change`, `openspec-archive-change`, `openspec-explore` (en `.opencode/skills/`), `spec-rules-auditor` |
 
 Cargá la skill correspondiente al contexto ANTES de escribir código.
+
+### Skill Propia: `spec-rules-auditor`
+- **Ubicación:** `.agents/skills/spec-rules-auditor/SKILL.md` (registrada en `.atl/skill-registry.md`).
+- **Cuándo usarla:** Durante la preparación, exploración o revisión de un change (`/opsx:propose`, `/opsx:explore`) o al redactar/revisar `spec.md`, `proposal.md` y `design.md`.
+- **Qué necesita:** 
+  1. Fuente de verdad de negocio: `knowledge-base/05_reglas_de_negocio.md` y reglas duras (`AGENTS.md`).
+  2. Artefacto a auditar: borrador de la propuesta, diseño o especificación delta.
+- **Cómo revisar el resultado:**
+  1. Verificar que el dictamen (`APROBADO` / `OBSERVACIONES`) contenga la Matriz de Trazabilidad de reglas.
+  2. Comprobar que genere la terna de escenarios obligatorios (Esperado / Error de negocio / Caso de borde) en formato BDD.
+  3. Confirmar que los ejemplos utilicen información 100% sintética (R19).
+
+---
+
+## Servidores MCP (Integraciones Externas)
+
+> Los servidores MCP conectan al agente con herramientas y servicios externos del sistema; se documentan como integraciones de entorno y no se registran como skills.
+
+### Google Stitch MCP (`@_davideast/stitch-mcp`)
+- **Propósito:** Asistir en el prototipado visual y estructuración UI de pantallas mobile-first mediante la plataforma Google Stitch (Google Labs).
+- **Capacidades utilizadas:** Exploración de proyectos de diseño, lectura de especificaciones de diseño (`design.md`), descarga de layouts HTML/React y tokens de estilo.
+- **Momento de uso:** En la etapa de elaboración del `design.md` de changes que involucran interfaz de usuario (ej. `C-05`, `C-08`), asegurando cumplimiento estricto del viewport 360px (R3).
+- **Límites de acceso y seguridad:** Acceso exclusivo a artefactos visuales de presentación. Prohibido el acceso a bases de datos o datos sensibles de pacientes; uso exclusivo de datos de fantasía/sintéticos (Ley 25.326 y R19). Requiere credenciales de entorno (`GOOGLE_CLOUD_PROJECT`).
 
 > Los compact rules de cada skill los resuelve el orquestador desde `.atl/skill-registry.md` (generado por `skill-registry`; no versionado — no está en el repo). Esta tabla solo mapea skill→rol.
 
