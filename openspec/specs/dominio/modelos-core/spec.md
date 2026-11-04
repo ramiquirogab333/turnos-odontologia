@@ -1,9 +1,9 @@
-# Spec Delta: dominio/modelos-core
+# dominio/modelos-core Specification
 
 ## Purpose
 Establece los modelos de datos relacionales, tipos de datos estrictos, restricciones de integridad referencial, índices foráneos e inicialización idempotente para el núcleo del sistema odontológico (pacientes, usuarios, roles, disponibilidad, auditoría y coberturas).
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Modelado e integridad de entidades core
 El sistema SHALL proveer modelos relacionales para Paciente, Usuario, Rol, Disponibilidad, ObraSocial, Nomenclador y RegistroAuditoria, utilizando marcas temporales con zona horaria, tipos numéricos de punto fijo para aranceles e índices en todas las claves foráneas.
