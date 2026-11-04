@@ -116,10 +116,10 @@ turnos-odontologia/
 1. Clonar: `git clone <url-del-repo> && cd turnos-odontologia`.
 2. Crear y activar venv: `python -m venv .venv` → en Windows `cmd /c .venv\Scripts\activate` (nunca commitear el `.env` real — R17).
 3. Instalar (ver [`backend/requirements.txt`](backend/requirements.txt)): `pip install -r backend/requirements.txt`.
-4. Configurar entorno (ver [`.env.example`](.env.example)): copiar a `.env` (`DATABASE_URL=postgresql+asyncpg://turnos:turnos@localhost:5433/turnos`).
+4. Configurar entorno (ver [`.env.example`](.env.example)): copiar a `.env` (`DATABASE_URL=postgresql+asyncpg://turnos:turnos@localhost:5433/turnos`). **`JWT_SECRET_KEY` es obligatoria** y debe tener al menos 32 caracteres: el backend rechaza una variable ausente, vacía o más corta (R17). Generá una propia y no la commitees, por ejemplo con `python -c "import secrets; print(secrets.token_hex(32))"`. Con Docker Compose exportala en la terminal antes de levantar el backend (`JWT_SECRET_KEY=<TU_SECRETO_DE_32+_CARACTERES>`); `docker compose up -d postgres` funciona aunque no esté definida.
 5. Levantar Postgres (servicio `postgres` con healthcheck `pg_isready`, ver [`docker-compose.yml`](docker-compose.yml)): `docker compose up -d postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
 6. Migrar desde `backend/` (ver [`backend/alembic.ini`](backend/alembic.ini): `script_location = src/alembic`): `cd backend && alembic upgrade head`.
-7. Tests backend desde `backend/` (ver [`backend/pytest.ini`](backend/pytest.ini): `testpaths = tests`, `pythonpath = src`): `cd backend && python -m pytest tests -q` (27 tests).
+7. Tests backend desde `backend/` (ver [`backend/pytest.ini`](backend/pytest.ini): `testpaths = tests`, `pythonpath = src`): `cd backend && python -m pytest tests -q` (la suite completa necesita Postgres levantado; `JWT_SECRET_KEY` de test la define `backend/tests/conftest.py`).
 
 ### Cómo levantar (C-01)
 1. Crear y activar un venv, e instalar dependencias (desde la raíz):
@@ -127,8 +127,8 @@ turnos-odontologia/
 2. Copiar `.env.example` a `.env`.
 3. Levantar Postgres vía compose: `docker compose up -d postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
 4. Aplicar migraciones desde `backend/`: `cd backend && alembic upgrade head`.
-5. Levantar el backend: `docker compose up --build` (o local: `uvicorn app.main:app` con `PYTHONPATH=src` desde `backend/`) — `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
-6. Tests backend desde `backend/`: `cd backend && python -m pytest tests -q` (27 tests); E2E: `npm --prefix e2e install && npm --prefix e2e test` (carrera concurrente mismo slot → un `201` y un `409`).
+5. Levantar el backend (con `JWT_SECRET_KEY` exportada, 32+ caracteres; sin ella el backend arranca pero falla con un error claro al usar la configuración): `docker compose up --build` (o local: `uvicorn app.main:app` con `PYTHONPATH=src` desde `backend/`) — `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
+6. Tests backend desde `backend/`: `cd backend && python -m pytest tests -q`; E2E: `npm --prefix e2e install && npm --prefix e2e test` (carrera concurrente mismo slot → un `201` y un `409`).
 
 ---
 
@@ -179,33 +179,32 @@ Como parte de la evolución metodológica del entorno de desarrollo (TP Metodolo
 * **Entregable clave:** Genera la **Terna Canónica de Escenarios Verificables** (Comportamiento Esperado, Error de Negocio y Caso de Borde) en formato BDD/Gherkin y emite un dictamen formal con matriz de trazabilidad.
 
 ### 9.2. Servidor MCP: Google Stitch (`@_davideast/stitch-mcp`)
-* **Propósito:** Conectar al agente con la plataforma de diseño visual Google Stitch (Google Labs) para explorar proyectos, extraer código HTML/React de pantallas mobile-first y tokens de diseño para los documentos `design.md` (garantizando la regla **R3** de diseño funcional a 360px).
-* **Configuración reproducible en el cliente MCP:**
+* **Propósito:** Conectar al agente con la plataforma de diseño visual Google Stitch (Google Labs) para explorar proyectos, generar pantallas mobile-first, obtener su HTML y capturas y los tokens de diseño para los documentos `design.md` (garantizando la regla **R3** de diseño funcional a 360px).
+* **Estado de uso:** Stitch se conectó y se usó de verdad por primera vez el 2026-11-03 (tres pantallas generadas con `generate_screen_from_text`; evidencia en [`docs/skills-mcp/evidencia-stitch/`](docs/skills-mcp/evidencia-stitch/README.md)). Antes de esa fecha el repositorio solo conserva un `--help` de la herramienta, que no produce diseños; ver la corrección en [`docs/skills-mcp/aplicacion.md`](docs/skills-mcp/aplicacion.md).
+* **Configuración reproducible en el cliente MCP (Windows).** El paquete `stitch-mcp@0.9.0` en modo `proxy` solo le pasa `STITCH_API_KEY` al proxy: la autenticación OAuth no funciona directamente con esa configuración. Se resolvió con un script de arranque local, **fuera del repo**, que exporta un `STITCH_ACCESS_TOKEN` de vida corta antes de lanzar el servidor. El token dura alrededor de una hora; para renovarlo hay que reiniciar el cliente. Estructura (solo placeholders, nunca credenciales en el repo):
   ```json
   {
     "mcpServers": {
       "stitch": {
-        "command": "npx",
-        "args": ["-y", "@_davideast/stitch-mcp", "proxy"],
+        "command": "<RUTA_AL_SCRIPT_LOCAL_DE_ARRANQUE_FUERA_DEL_REPO>",
+        "args": [],
         "env": {
-          "GOOGLE_CLOUD_PROJECT": "TU_GOOGLE_CLOUD_PROJECT_ID"
+          "GOOGLE_CLOUD_PROJECT": "<TU_GOOGLE_CLOUD_PROJECT_ID>"
         }
       }
     }
   }
   ```
-* **Variables de entorno necesarias:**
-  * `GOOGLE_CLOUD_PROJECT`: ID del proyecto de Google Cloud con acceso habilitado a Google Labs / Stitch.
-  * Opcionalmente `STITCH_API_KEY` para autenticación directa por clave.
+  El script solo debe exportar `STITCH_ACCESS_TOKEN` (sin escribirlo en un archivo versionado) y luego lanzar `npx.cmd -y @_davideast/stitch-mcp proxy`. El proxy sí acepta `STITCH_API_KEY=<TU_API_KEY>` en `env`; esa vía no se probó en este proyecto.
+* **Pasos previos de configuración:**
+  1. Un proyecto de Google Cloud propio: `npx.cmd -y @_davideast/stitch-mcp init` lo necesita.
+  2. Habilitar la API de Stitch en ese proyecto: `gcloud services enable stitch.googleapis.com --project <TU_GOOGLE_CLOUD_PROJECT_ID>`. Sin este paso, las llamadas de generación devuelven `403`.
 * **Comprobación de conexión y ejecución de herramientas:**
-  * Verificar disponibilidad vía CLI:
-    ```bash
-    # En Windows PowerShell usar npx.cmd
-    npx.cmd -y @_davideast/stitch-mcp --help
-    ```
-  * Inspección de herramientas MCP: `npx.cmd -y @_davideast/stitch-mcp tool --help`
+  * `npx.cmd -y @_davideast/stitch-mcp --help` y `npx.cmd -y @_davideast/stitch-mcp tool --help` solo prueban que el paquete corre. **Listar las herramientas del servidor también funciona con la API deshabilitada, así que no prueba que la API sea utilizable.**
+  * La prueba real es generar una pantalla: invocar `generate_screen_from_text` (con `projectId`, `prompt` y `deviceType`) y recuperar el resultado con `get_screen` y `download_file`. Otras herramientas disponibles: `list_screens`, `list_projects`, `create_project`, `generate_variants`, `edit_screens`, `list_design_systems`.
 * **Resolución de problemas comunes detectados:**
   * *Error de política de ejecución en Windows (`PSSecurityException / UnauthorizedAccess`):* Node instala wrappers `.ps1` que Windows bloquea por defecto. Solución: invocar explícitamente `npx.cmd` en lugar de `npx`.
-  * *Falla de autenticación (`Authentication failed. Provide either apiKey OR accessToken + projectId`):* Verificar que la variable `GOOGLE_CLOUD_PROJECT` esté presente en el entorno o iniciar sesión previamente con `gcloud auth application-default login`.
+  * *`403` al generar pantallas:* la API de Stitch no está habilitada en el proyecto de Google Cloud (ver paso 2).
+  * *`Authentication failed. Provide either apiKey OR accessToken + projectId` o `401` tras un rato de uso:* el modo `proxy` no usa OAuth por sí solo; hace falta `STITCH_API_KEY` o el script con `STITCH_ACCESS_TOKEN`, y el token vence en aproximadamente una hora (reiniciar el cliente para renovarlo).
 * **Privacidad y Seguridad (Ley 25.326 y R19):**
   * El servidor MCP opera exclusivamente en la capa de presentación y prototipado visual. No accede a bases de datos ni manipula datos de pacientes; todos los prototipos usan información 100% sintética.

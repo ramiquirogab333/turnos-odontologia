@@ -3,7 +3,9 @@
 ## Context
 Ver motivación y alcance en `proposal.md`. C-01 estableció la base de integridad relacional en PostgreSQL mediante la constraint `EXCLUDE USING gist` que previene solapamientos por profesional y por sillón. C-05 construye la superficie pública de interacción (Frontend en React + Vite y Endpoints públicos en FastAPI) bajo la regla estricta **R3** (diseño funcional y optimizado a 360px) y las directivas **R1** (TypeScript strict, sin `any`) y **R2** (sin fetches en cascada, carga paralela con `Promise.all` y `Suspense`).
 
-Para el diseño de interfaz y la estructura de componentes visuales mobile-first, se utilizó la integración con el **Servidor MCP de Google Stitch** (`@_davideast/stitch-mcp`), extrayendo el layout de pantallas responsivas y los tokens de diseño clínico.
+Para el diseño de interfaz y la estructura de componentes visuales mobile-first se usó el **Servidor MCP de Google Stitch** (`@_davideast/stitch-mcp`). La invocación real está documentada desde el 2026-11-03: se generaron tres pantallas con `generate_screen_from_text` en el proyecto de Stitch `7294293124768754545`. La evidencia (HTML, capturas, prompts y tema devuelto) está en [`docs/skills-mcp/evidencia-stitch/`](../../../docs/skills-mcp/evidencia-stitch/README.md).
+
+> **Corrección (2026-11-03).** Las versiones anteriores de este documento decían que los tokens se habían extraído con Stitch (`#0E7490`, `#F8FAFC`, `#16A34A`, Inter). El repositorio no conserva evidencia de esa extracción: la única invocación documentada de esa fecha es `--help` de la herramienta, que no puede producir colores ni layouts, y no quedó ningún resultado, credencial ni referencia de proyecto. El origen de aquellos valores no está verificado. Los valores reales se obtuvieron recién el 2026-11-03, cuando Stitch se conectó y se usó por primera vez, y son los de la Decisión 1.
 
 ---
 
@@ -13,7 +15,7 @@ Para el diseño de interfaz y la estructura de componentes visuales mobile-first
 - Proporcionar una interfaz web pública para pacientes rápida, accesible y utilizable con una sola mano en pantallas de 360px (mobile-first).
 - Consultar y calcular en tiempo real los slots de atención disponibles según la duración del tratamiento (`GET /api/public/disponibilidad`).
 - Registrar la reserva sin requerir creación de cuenta ni contraseña (`POST /api/public/turnos`), solicitando exclusivamente nombre completo y teléfono/WhatsApp.
-- Entregar una confirmación inmediata con código único de reserva y enlace directo para futuras gestiones.
+- Entregar una confirmación inmediata con el código único de gestión. El enlace directo para gestionar el turno queda diferido a **C-07**.
 
 **Non-Goals:**
 - Cobro o procesamiento de pagos/señas online (diferido explícitamente a **C-06 `sena-pagos-turno`**).
@@ -26,12 +28,17 @@ Para el diseño de interfaz y la estructura de componentes visuales mobile-first
 
 ### Decision 1: Estructura de Pantallas y Componentes Mobile-First asistida por Google Stitch MCP
 * **Decisión:** Modelar el flujo de reserva pública en un wizard lineal de 3 pasos optimizado para pulgar (thumb-zone) en viewport de 360px × 800px:
-  1. *Paso 1: Selección de Especialidad / Tratamiento:* Lista de tarjetas compactas con nombre, descripción corta, duración en minutos y valor base orientativo.
-  2. *Paso 2: Selector de Fecha y Grilla de Horarios:* Calendario semanal deslizable horizontalmente y grilla de botones de slots de 48px de alto (touch-target accesible), diferenciando visualmente slots libres (`#2E7D32`), ocupados y no laborables.
-  3. *Paso 3: Identificación Básica y Confirmación:* Formulario de 2 campos (Nombre y Teléfono con prefijo internacional) y resumen con advertencia de confirmación por WhatsApp.
-* **Layout y Tokens extraídos vía Stitch MCP:**
-  * Paleta: Primario Clínico `#0E7490` (Cyan 700), Fondo Limpio `#F8FAFC`, Éxito/Disponible `#16A34A`, Superficie `#FFFFFF`.
-  * Tipografía: `Inter, system-ui, sans-serif` con jerarquía tipográfica legible sin zoom en 360px.
+  1. *Paso 1: Selección de Tratamiento y Profesional:* Lista de tarjetas con nombre, duración en minutos y valor base orientativo, y a continuación la elección de profesional (si hay uno solo, se informa quién atiende). El profesional se elige en este paso porque `GET /api/public/disponibilidad` se consulta por profesional: así los horarios se piden recién al elegir ambos (R2) y no en cascada. Los datos salen de dos endpoints públicos de solo lectura, `GET /api/public/tratamientos` y `GET /api/public/profesionales` (este último, solo con profesionales con franja vigente y sin matrícula). Se agregaron durante el apply porque el wizard no tenía catálogo público; están en la spec. No se adoptó la opción "Cualquier profesional disponible" que propone Stitch, porque la API no la soporta.
+  2. *Paso 2: Selector de Fecha y Grilla de Horarios:* Calendario semanal deslizable horizontalmente y grilla de botones de slots de 48px de alto (touch-target accesible), con slots libres, slot seleccionado y, cuando corresponde, el aviso de horario recién tomado con alternativas libres. Los slots libres se marcan con un borde izquierdo de 4px en el color de éxito `#16806B` (el `#2E7D32` anterior ya no se usa); el seleccionado lleva fondo `#0D5C75` y texto blanco. La API pública solo devuelve horarios libres, así que no hay slots "ocupados" que dibujar.
+  3. *Paso 3: Identificación Básica y Confirmación:* Formulario de 2 campos (Nombre y Teléfono con prefijo internacional), resumen del turno y, tras reservar, la confirmación con el código de gestión (solo el código, sin enlace).
+* **Tokens devueltos por Stitch (sistema "Clinical Clarity Dental System", proyecto `7294293124768754545`, 2026-11-03):**
+  * Paleta: primario `#0D5C75` (hover `#0A4659`), secundario `#2BB69F`, texto `#1B3B48`, lienzo `#F4F7F6`, superficie `#FFFFFF`, bordes `#D8E2E1` y `#B8CBC8`, éxito `#16806B`, error `#B3261E`.
+  * Tipografía: Plus Jakarta Sans, autoalojada con `@fontsource` (sin pedidos externos de fuentes).
+  * Forma: botones y campos de 48px, radio base 8px, radio de tarjeta 16px; tarjeta seleccionada con borde de 2px `#0D5C75` y tinte `rgba(43,182,159,0.05)`; espaciado de 4/8px.
+  * Desvíos deliberados respecto de Stitch: chips de horario de 48px (Stitch indica 40px; R3); anillo de foco `#0D5C75` en vez de `#2BB69F` (el menta da 2,35:1 sobre el lienzo, menos de 3:1); borde de campos `#70787D` (el `#B8CBC8` da 1,69:1 contra blanco); sin barra inferior fija, que tapa contenido a 360x800.
+  * No adoptado por no existir en el backend o no estar respaldado: "Cualquier profesional", especialidad por tratamiento, sede y consultorio, y textos tranquilizadores (bioseguridad, "confirmación inmediata", recordatorios por SMS).
+  * El detalle de contraste AA está en el comentario de cabecera de `frontend-paciente/src/estilos.css`.
+* **Código de gestión:** la confirmación muestra solo el código; no hay enlace directo. El enlace para gestionar el turno queda para **C-07** (`cancelacion-reprogramacion-24h`).
 * **Alternativas descartadas:** Formulario monolítico en una sola página (descartado por saturación cognitiva y scroll excesivo en móviles de 360px).
 
 ### Decision 2: Arquitectura Frontend sin Cascadas de Fetch (Regla R2)

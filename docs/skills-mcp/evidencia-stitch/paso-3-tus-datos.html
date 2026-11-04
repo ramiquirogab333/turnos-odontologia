@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+
+<html class="h-full bg-background" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Reserva de Turno Odontológico - Paso 3</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-container-lowest": "#ffffff",
+            "on-primary-fixed-variant": "#004d64",
+            "surface-tint": "#1e667f",
+            "background": "#f7faf9",
+            "secondary-fixed-dim": "#5bdbc2",
+            "on-error-container": "#93000a",
+            "on-error": "#ffffff",
+            "on-secondary-container": "#007262",
+            "on-primary-container": "#93d3ef",
+            "error-container": "#ffdad6",
+            "on-secondary": "#ffffff",
+            "tertiary": "#22424f",
+            "on-tertiary-container": "#aecfdf",
+            "on-surface-variant": "#40484c",
+            "error": "#ba1a1a",
+            "surface-bright": "#f7faf9",
+            "surface-container-low": "#f1f4f3",
+            "secondary-fixed": "#7af8de",
+            "surface-container-high": "#e6e9e8",
+            "on-tertiary-fixed": "#001f2a",
+            "on-surface": "#181c1c",
+            "tertiary-fixed": "#c7e7f8",
+            "on-secondary-fixed-variant": "#005045",
+            "primary-fixed-dim": "#90cfec",
+            "primary-fixed": "#bde9ff",
+            "outline-variant": "#bfc8cd",
+            "inverse-surface": "#2d3131",
+            "on-primary": "#ffffff",
+            "tertiary-fixed-dim": "#abcbdc",
+            "surface": "#f7faf9",
+            "primary-container": "#0d5c75",
+            "tertiary-container": "#3a5967",
+            "surface-variant": "#e0e3e2",
+            "primary": "#004357",
+            "on-tertiary-fixed-variant": "#2c4b58",
+            "inverse-on-surface": "#eef1f0",
+            "surface-container": "#ebeeed",
+            "secondary": "#006b5c",
+            "on-background": "#181c1c",
+            "surface-dim": "#d7dbda",
+            "on-primary-fixed": "#001f2a",
+            "surface-container-highest": "#e0e3e2",
+            "on-secondary-fixed": "#00201b",
+            "inverse-primary": "#90cfec",
+            "outline": "#70787d",
+            "secondary-container": "#7af8de",
+            "on-tertiary": "#ffffff"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-2xl": "3rem",
+            "space-xs": "0.25rem",
+            "space-xl": "2rem",
+            "margin-sm": "1rem",
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "gutter-sm": "1rem",
+            "gutter": "1.5rem",
+            "margin": "2rem",
+            "space-lg": "1.5rem"
+          },
+          "fontFamily": {
+            "label-md": ["Plus Jakarta Sans"],
+            "headline-xl": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "label-lg": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "headline-xl-mobile": ["Plus Jakarta Sans"],
+            "display-lg": ["Plus Jakarta Sans"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "body-sm": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"]
+          },
+          "fontSize": {
+            "label-md": ["0.875rem", { "lineHeight": "1.25rem", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "headline-xl": ["2.25rem", { "lineHeight": "2.75rem", "letterSpacing": "-0.015em", "fontWeight": "600" }],
+            "label-sm": ["0.75rem", { "lineHeight": "1rem", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "label-lg": ["1rem", { "lineHeight": "1.5rem", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "body-lg": ["1.125rem", { "lineHeight": "1.75rem", "fontWeight": "400" }],
+            "headline-xl-mobile": ["1.75rem", { "lineHeight": "2.25rem", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "display-lg": ["3rem", { "lineHeight": "3.5rem", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "headline-md": ["1.25rem", { "lineHeight": "1.75rem", "fontWeight": "600" }],
+            "headline-lg": ["1.5rem", { "lineHeight": "2rem", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "body-sm": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "400" }],
+            "body-md": ["1rem", { "lineHeight": "1.5rem", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface antialiased flex justify-center min-h-screen">
+<!-- Mobile Container: 360px locked width, aseptic clinic atmosphere -->
+<div class="w-[360px] max-w-[360px] min-h-screen bg-surface flex flex-col relative pb-28 border-x border-outline-variant/30">
+<!-- Top Navigation Anchor (Shared TopAppBar variant for Step 3) -->
+<header class="bg-surface docked full-width top-0 sticky z-40 border-b border-outline-variant/30">
+<div class="flex justify-between items-center w-full px-4 h-16">
+<button aria-label="Volver al paso previo" class="w-10 h-10 -ml-2 rounded-full flex items-center justify-center text-primary hover:bg-surface-container-low transition-colors duration-150 active:scale-[0.98]" type="button">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+</button>
+<div class="flex flex-col items-center">
+<span class="text-label-sm font-label-sm text-primary-container tracking-wider font-semibold uppercase">Paso 3 de 3</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant font-medium">Finalizar reserva</span>
+</div>
+<button aria-label="Ayuda" class="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors duration-150 active:scale-[0.98]" type="button">
+<span class="material-symbols-outlined text-[22px]">help_outline</span>
+</button>
+</div>
+<!-- Progress Bar Tracker -->
+<div class="w-full bg-surface-container-high h-1">
+<div class="bg-primary-container h-1 w-full rounded-r-full transition-all duration-300"></div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="px-4 pt-5 space-y-6 flex-1">
+<!-- Section: Heading & Clinical Trust Tone -->
+<section class="space-y-1.5">
+<h1 class="text-headline-lg font-headline-lg text-primary tracking-tight">Tus datos</h1>
+<p class="text-body-sm font-body-sm text-on-surface-variant leading-relaxed">
+          Completá tus datos de contacto para finalizar la reserva. No necesitás registrarte.
+        </p>
+</section>
+<!-- Section: Clinical Appointment Summary Card -->
+<section aria-label="Resumen del turno elegido" class="bg-surface-container-lowest rounded-xl border border-outline-variant/40 p-4 shadow-[0_2px_8px_-2px_rgba(13,92,117,0.06)] relative overflow-hidden">
+<div class="absolute top-0 left-0 bottom-0 w-1.5 bg-primary-container"></div>
+<div class="flex items-center justify-between pb-3 mb-3 border-b border-surface-container-high">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-primary-container text-[20px]" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
+<span class="text-label-md font-label-md text-primary font-bold">Resumen de la cita</span>
+</div>
+<span class="text-[11px] font-semibold text-secondary bg-secondary-container/30 px-2 py-0.5 rounded-full">Confirmación inmediata</span>
+</div>
+<div class="space-y-3">
+<!-- Treatment Item -->
+<div class="flex items-start space-x-2.5">
+<span class="material-symbols-outlined text-outline text-[18px] mt-0.5">dentistry</span>
+<div class="flex-1">
+<span class="block text-[11px] font-medium text-on-surface-variant">Tratamiento</span>
+<p class="text-body-sm font-body-sm text-on-surface font-semibold">Limpieza y profilaxis dental</p>
+</div>
+</div>
+<!-- Professional Item -->
+<div class="flex items-start space-x-2.5">
+<span class="material-symbols-outlined text-outline text-[18px] mt-0.5">badge</span>
+<div class="flex-1">
+<span class="block text-[11px] font-medium text-on-surface-variant">Especialista</span>
+<p class="text-body-sm font-body-sm text-on-surface font-semibold">Dra. Valeria Ramos</p>
+<span class="text-label-sm font-label-sm text-outline">Odontología General</span>
+</div>
+</div>
+<!-- Date & Time -->
+<div class="flex items-start space-x-2.5">
+<span class="material-symbols-outlined text-outline text-[18px] mt-0.5">schedule</span>
+<div class="flex-1">
+<span class="block text-[11px] font-medium text-on-surface-variant">Día y horario</span>
+<p class="text-body-sm font-body-sm text-on-surface font-semibold">Jueves 24 de Octubre, 15:30 hs</p>
+</div>
+</div>
+<!-- Location Item -->
+<div class="flex items-start space-x-2.5">
+<span class="material-symbols-outlined text-outline text-[18px] mt-0.5">location_on</span>
+<div class="flex-1">
+<span class="block text-[11px] font-medium text-on-surface-variant">Sede y consultorio</span>
+<p class="text-body-sm font-body-sm text-on-surface font-medium">Sede Belgrano - Consultorio 3</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section: Patient Form with Explicit Rioplantense Validation State -->
+<section aria-label="Formulario de contacto" class="space-y-4">
+<form class="space-y-4" onsubmit="event.preventDefault();">
+<!-- Name Field -->
+<div class="space-y-1.5">
+<label class="block text-label-md font-label-md text-on-surface" for="full_name">
+              Nombre y apellido
+            </label>
+<div class="relative">
+<input class="w-full h-12 px-3.5 bg-surface-container-lowest border border-outline-variant/60 rounded-lg text-body-md font-body-md text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-colors shadow-sm" id="full_name" name="full_name" type="text" value="Carlos Sintético"/>
+<span class="material-symbols-outlined absolute right-3.5 top-3 text-[20px] text-outline">person</span>
+</div>
+</div>
+<!-- Phone Field with Active Error State -->
+<div class="space-y-1.5">
+<label class="block text-label-md font-label-md text-on-surface" for="phone_number">
+              Teléfono celular
+            </label>
+<div class="relative">
+<input aria-describedby="phone_error" aria-invalid="true" class="w-full h-12 px-3.5 pr-10 bg-surface-container-lowest border-2 border-error rounded-lg text-body-md font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-error/20 transition-colors shadow-sm" id="phone_number" name="phone_number" type="tel" value="+5491144445555"/>
+<span class="material-symbols-outlined absolute right-3 top-3 text-error text-[22px]">error</span>
+</div>
+<!-- Detailed Rioplantense Clinical Error Message Card -->
+<div class="p-3 bg-error-container/40 border border-error/30 rounded-lg text-error flex items-start space-x-2.5 mt-2" id="phone_error">
+<span class="material-symbols-outlined text-[18px] mt-0.5 shrink-0 text-error">info</span>
+<p class="text-label-sm font-label-sm text-on-error-container leading-snug">
+                Ingresá un número de celular válido sin el 9 inicial (ej: +54 11 4444-5555 o 11 4444-5555). No pudimos validar el formato con el prefijo internacional ingresado.
+              </p>
+</div>
+</div>
+<!-- CTA Button -->
+<div class="pt-2">
+<button class="w-full h-12 bg-primary-container hover:bg-primary text-surface-container-lowest rounded-lg font-label-md text-label-md flex items-center justify-center space-x-2 shadow-sm active:scale-[0.98] transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-container" type="submit">
+<span class="material-symbols-outlined text-[20px]">check_circle</span>
+<span>Reservar turno</span>
+</button>
+<p class="text-[11px] text-center text-outline mt-2">
+              Al tocar el botón confirmás la asignación directa de tu espacio.
+            </p>
+</div>
+</form>
+</section>
+<!-- Section: Integrated Confirmation Preview Card (Previsualización de Estado Posterior) -->
+<section aria-label="Estado de turno confirmado" class="mt-6 pt-5 border-t border-outline-variant/30">
+<div class="text-[11px] font-semibold uppercase tracking-wider text-outline mb-2.5 text-center">
+          Previsualización del estado confirmado
+        </div>
+<div class="bg-surface-container-lowest rounded-xl border border-secondary/40 p-4 shadow-[0_4px_16px_-2px_rgba(0,107,92,0.08)] space-y-3">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-full bg-secondary-container/40 flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">task_alt</span>
+</div>
+<div>
+<span class="text-label-md font-label-md text-secondary font-bold block">Turno reservado</span>
+<span class="text-[11px] text-on-surface-variant">Código de gestión: <strong class="text-primary font-bold">TUR-EJEMPLO</strong></span>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-3 text-body-sm font-body-sm text-on-surface leading-relaxed border border-outline-variant/20">
+            Te enviamos un recordatorio por WhatsApp y SMS. Presentate 10 minutos antes en recepción.
+          </div>
+<div class="flex items-center space-x-1.5 text-[11px] text-outline pt-1 justify-center">
+<span class="material-symbols-outlined text-[15px]">medical_services</span>
+<span>Recordatorio clínico programado automáticamente</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Conforme al Shared Component JSON: Step 3 Activo = "Confirmar") -->
+<nav aria-label="Navegación del proceso de reserva" class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 border-t border-outline-variant/30 max-w-[360px] mx-auto inset-x-0 bg-surface-container-lowest shadow-[0_-4px_16px_-2px_rgba(13,92,117,0.06)]">
+<!-- Paso 1: Tratamiento (Inactivo) -->
+<div class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1.5">
+<span class="material-symbols-outlined text-[20px]">dentistry</span>
+<span class="text-label-sm font-label-sm">Tratamiento</span>
+</div>
+<!-- Paso 2: Especialista (Inactivo) -->
+<div class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1.5">
+<span class="material-symbols-outlined text-[20px]">badge</span>
+<span class="text-label-sm font-label-sm">Especialista</span>
+</div>
+<!-- Paso 3: Confirmar (Activo - Según style_active_navigation del JSON) -->
+<div class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl px-4 py-1.5 transition-colors">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">event_available</span>
+<span class="text-label-sm font-label-sm font-semibold">Confirmar</span>
+</div>
+</nav>
+</div>
+</body></html>

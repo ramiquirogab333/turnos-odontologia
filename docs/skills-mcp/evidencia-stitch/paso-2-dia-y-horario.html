@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+
+<html class="h-full bg-surface-container-low" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Paso 2 de 3: Elegí día y horario</title>
+<!-- Plus Jakarta Sans Font -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-variant": "#e0e3e2",
+            "background": "#f7faf9",
+            "on-error": "#ffffff",
+            "primary-container": "#0d5c75",
+            "on-tertiary-fixed": "#001f2a",
+            "tertiary-container": "#3a5967",
+            "secondary-fixed-dim": "#5bdbc2",
+            "on-tertiary-container": "#aecfdf",
+            "surface-container-highest": "#e0e3e2",
+            "primary-fixed-dim": "#90cfec",
+            "on-primary": "#ffffff",
+            "surface-container-low": "#f1f4f3",
+            "surface-container-high": "#e6e9e8",
+            "on-error-container": "#93000a",
+            "primary-fixed": "#bde9ff",
+            "outline": "#70787d",
+            "surface-dim": "#d7dbda",
+            "surface-container": "#ebeeed",
+            "tertiary-fixed-dim": "#abcbdc",
+            "on-tertiary-fixed-variant": "#2c4b58",
+            "on-secondary-fixed": "#00201b",
+            "on-primary-fixed-variant": "#004d64",
+            "on-background": "#181c1c",
+            "inverse-surface": "#2d3131",
+            "secondary-container": "#7af8de",
+            "inverse-on-surface": "#eef1f0",
+            "surface-tint": "#1e667f",
+            "on-secondary-container": "#007262",
+            "on-surface": "#181c1c",
+            "surface": "#f7faf9",
+            "on-secondary-fixed-variant": "#005045",
+            "primary": "#004357",
+            "secondary": "#006b5c",
+            "inverse-primary": "#90cfec",
+            "on-secondary": "#ffffff",
+            "tertiary-fixed": "#c7e7f8",
+            "surface-container-lowest": "#ffffff",
+            "outline-variant": "#bfc8cd",
+            "error": "#ba1a1a",
+            "on-surface-variant": "#40484c",
+            "on-primary-fixed": "#001f2a",
+            "surface-bright": "#f7faf9",
+            "tertiary": "#22424f",
+            "on-primary-container": "#93d3ef",
+            "error-container": "#ffdad6",
+            "secondary-fixed": "#7af8de",
+            "on-tertiary": "#ffffff"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "gutter-sm": "1rem",
+            "space-xl": "2rem",
+            "margin-sm": "1rem",
+            "gutter": "1.5rem",
+            "space-2xl": "3rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "margin": "2rem",
+            "space-md": "1rem",
+            "space-lg": "1.5rem"
+          },
+          "fontFamily": {
+            "headline-md": ["Plus Jakarta Sans"],
+            "body-sm": ["Plus Jakarta Sans"],
+            "headline-xl": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "headline-xl-mobile": ["Plus Jakarta Sans"],
+            "label-md": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "display-lg": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "label-lg": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"]
+          },
+          "fontSize": {
+            "headline-md": ["1.25rem", { lineHeight: "1.75rem", fontWeight: "600" }],
+            "body-sm": ["0.875rem", { lineHeight: "1.25rem", fontWeight: "400" }],
+            "headline-xl": ["2.25rem", { lineHeight: "2.75rem", letterSpacing: "-0.015em", fontWeight: "600" }],
+            "headline-lg": ["1.5rem", { lineHeight: "2rem", letterSpacing: "-0.01em", fontWeight: "600" }],
+            "headline-xl-mobile": ["1.75rem", { lineHeight: "2.25rem", letterSpacing: "-0.01em", fontWeight: "600" }],
+            "label-md": ["0.875rem", { lineHeight: "1.25rem", letterSpacing: "0.01em", fontWeight: "600" }],
+            "label-sm": ["0.75rem", { lineHeight: "1rem", letterSpacing: "0.02em", fontWeight: "500" }],
+            "display-lg": ["3rem", { lineHeight: "3.5rem", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "body-lg": ["1.125rem", { lineHeight: "1.75rem", fontWeight: "400" }],
+            "label-lg": ["1rem", { lineHeight: "1.5rem", letterSpacing: "0.01em", fontWeight: "600" }],
+            "body-md": ["1rem", { lineHeight: "1.5rem", fontWeight: "400" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-container-low text-on-surface antialiased flex justify-center min-h-screen selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- Mobile Frame Container (Strict 360px max width representation) -->
+<main class="w-full max-w-[360px] min-h-screen bg-background flex flex-col relative shadow-[0_0_40px_rgba(0,0,0,0.06)] border-x border-outline-variant/30">
+<!-- TopAppBar (Linear wizard header: task-focused navigation) -->
+<header class="sticky top-0 z-40 bg-surface border-b border-outline-variant/30 px-4 h-16 flex items-center justify-between">
+<button aria-label="Volver al paso anterior" class="w-10 h-10 -ml-2 rounded-full flex items-center justify-center text-primary hover:bg-surface-container-low transition-colors duration-150 active:scale-[0.98]" type="button">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+</button>
+<div class="flex flex-col items-center">
+<span class="text-label-sm font-label-sm text-primary tracking-wide">Paso 2 de 3</span>
+<span class="text-label-md font-label-md text-on-surface">Día y horario</span>
+</div>
+<button aria-label="Ayuda e información" class="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors duration-150 active:scale-[0.98]" type="button">
+<span class="material-symbols-outlined text-[22px]">help_outline</span>
+</button>
+</header>
+<!-- Stepper Indicator Component -->
+<section aria-label="Progreso de reserva" class="bg-surface px-4 pt-2 pb-3.5 border-b border-outline-variant/20">
+<div class="grid grid-cols-3 gap-2 items-center">
+<!-- Step 1 Done -->
+<div class="flex flex-col gap-1.5">
+<div class="h-1.5 w-full bg-secondary rounded-full"></div>
+<div class="flex items-center gap-1 text-[11px] font-semibold text-secondary">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span>Tratamiento</span>
+</div>
+</div>
+<!-- Step 2 Active -->
+<div class="flex flex-col gap-1.5">
+<div class="h-1.5 w-full bg-primary rounded-full"></div>
+<div class="flex items-center gap-1 text-[11px] font-semibold text-primary">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span>Horario</span>
+</div>
+</div>
+<!-- Step 3 Pending -->
+<div class="flex flex-col gap-1.5 opacity-60">
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full"></div>
+<div class="flex items-center gap-1 text-[11px] font-medium text-on-surface-variant">
+<span class="w-2 h-2 rounded-full border border-outline"></span>
+<span>Confirmar</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Scrollable Content Canvas -->
+<div class="flex-1 px-4 pt-4 pb-28 flex flex-col gap-5 overflow-y-auto">
+<!-- Headline & Explanatory Context -->
+<section class="space-y-1">
+<h1 class="text-headline-lg font-headline-lg text-primary tracking-tight">
+          Elegí día y horario
+        </h1>
+<p class="text-body-sm font-body-sm text-on-surface-variant leading-relaxed">
+          Seleccioná la fecha y la hora que mejor te quede para tu consulta odontológica.
+        </p>
+</section>
+<!-- Chosen Treatment Capsule from Step 1 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-xl border border-outline-variant/40 shadow-sm">
+<div class="flex items-center gap-2.5 min-w-0">
+<div class="w-8 h-8 rounded-lg bg-surface-container-low text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">dentistry</span>
+</div>
+<div class="min-w-0">
+<span class="text-[11px] font-semibold tracking-wider text-outline uppercase block leading-none mb-0.5">Tratamiento elegido</span>
+<p class="text-label-md font-label-md text-on-surface truncate">Limpieza y profilaxis profunda</p>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-1 text-[12px] font-medium text-on-surface-variant bg-surface-container-low px-2 py-1 rounded-md ml-2 border border-outline-variant/20">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+<span>45 min</span>
+</div>
+</div>
+<!-- Month Selector Header & Horizontal Week Strip -->
+<section class="space-y-2.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]">calendar_today</span>
+<h2 class="text-label-md font-label-md text-on-surface">Marzo 2025</h2>
+</div>
+<div class="flex items-center gap-1 text-[12px] text-primary font-medium">
+<span>Zona horaria: ART</span>
+</div>
+</div>
+<!-- Horizontal scrollable week strip with touch-friendly pill cards -->
+<div class="overflow-x-auto no-scrollbar -mx-4 px-4 py-1 flex gap-2.5 scroll-smooth">
+<!-- Lun 9 -->
+<button class="shrink-0 w-14 py-2.5 px-1 rounded-xl bg-surface-container-lowest border border-outline-variant/40 flex flex-col items-center justify-center transition-all duration-150 hover:bg-surface-container-low active:scale-[0.98]" type="button">
+<span class="text-label-sm font-label-sm text-on-surface-variant">lun</span>
+<span class="text-headline-md font-headline-md text-on-surface mt-0.5">9</span>
+<span class="w-1.5 h-1.5 rounded-full bg-secondary mt-1"></span>
+</button>
+<!-- Mar 10 (Selected Date Chip) -->
+<button aria-current="date" class="shrink-0 w-14 py-2.5 px-1 rounded-xl bg-primary text-on-primary border-2 border-primary flex flex-col items-center justify-center shadow-[0_4px_12px_rgba(13,92,117,0.18)] ring-2 ring-primary/20 ring-offset-1 active:scale-[0.98]" type="button">
+<span class="text-label-sm font-label-sm text-primary-fixed">mar</span>
+<span class="text-headline-md font-headline-md text-on-primary mt-0.5">10</span>
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed mt-1"></span>
+</button>
+<!-- Mié 11 -->
+<button class="shrink-0 w-14 py-2.5 px-1 rounded-xl bg-surface-container-lowest border border-outline-variant/40 flex flex-col items-center justify-center transition-all duration-150 hover:bg-surface-container-low active:scale-[0.98]" type="button">
+<span class="text-label-sm font-label-sm text-on-surface-variant">mié</span>
+<span class="text-headline-md font-headline-md text-on-surface mt-0.5">11</span>
+<span class="w-1.5 h-1.5 rounded-full bg-secondary mt-1"></span>
+</button>
+<!-- Jue 12 -->
+<button class="shrink-0 w-14 py-2.5 px-1 rounded-xl bg-surface-container-lowest border border-outline-variant/40 flex flex-col items-center justify-center transition-all duration-150 hover:bg-surface-container-low active:scale-[0.98]" type="button">
+<span class="text-label-sm font-label-sm text-on-surface-variant">jue</span>
+<span class="text-headline-md font-headline-md text-on-surface mt-0.5">12</span>
+<span class="w-1.5 h-1.5 rounded-full bg-secondary mt-1"></span>
+</button>
+<!-- Vie 13 -->
+<button class="shrink-0 w-14 py-2.5 px-1 rounded-xl bg-surface-container-lowest border border-outline-variant/40 flex flex-col items-center justify-center transition-all duration-150 hover:bg-surface-container-low active:scale-[0.98]" type="button">
+<span class="text-label-sm font-label-sm text-on-surface-variant">vie</span>
+<span class="text-headline-md font-headline-md text-on-surface mt-0.5">13</span>
+<span class="w-1.5 h-1.5 rounded-full bg-secondary mt-1"></span>
+</button>
+<!-- Sáb 14 -->
+<button class="shrink-0 w-14 py-2.5 px-1 rounded-xl bg-surface-container-lowest border border-outline-variant/40 flex flex-col items-center justify-center transition-all duration-150 hover:bg-surface-container-low active:scale-[0.98]" type="button">
+<span class="text-label-sm font-label-sm text-on-surface-variant">sáb</span>
+<span class="text-headline-md font-headline-md text-on-surface mt-0.5">14</span>
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant mt-1"></span>
+</button>
+</div>
+</section>
+<!-- Alert Banner: Conflict / Taken slot notification with suggestion -->
+<div class="rounded-xl border border-secondary/30 bg-surface-container-low p-3 flex flex-col gap-2" role="alert">
+<div class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[20px] text-secondary shrink-0 mt-0.5">info</span>
+<div class="space-y-0.5">
+<p class="text-label-md font-label-md text-on-surface leading-tight">
+              Ese horario ya fue tomado. Elegí otro de los libres.
+            </p>
+<p class="text-[12px] text-on-surface-variant leading-snug">
+              El turno de las 10:30 se reservó recién. Podés optar por las 11:00 o revisar la tarde.
+            </p>
+</div>
+</div>
+</div>
+<!-- Time Slots Grid Section -->
+<section class="space-y-3">
+<div class="flex items-center justify-between">
+<h2 class="text-label-md font-label-md text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-secondary text-[18px]">wb_sunny</span>
+            Turnos de la mañana
+          </h2>
+<span class="text-[12px] text-on-surface-variant font-medium">Martes 10 Mar</span>
+</div>
+<!-- Morning Slots Grid (min-h-[48px] touch targets) -->
+<div class="grid grid-cols-3 gap-2">
+<!-- 09:00 Available -->
+<button class="h-12 min-h-[48px] rounded-lg bg-surface-container-lowest border border-outline-variant/50 text-on-surface font-label-md text-label-md flex items-center justify-center hover:border-secondary hover:bg-surface-container-low transition-all duration-150 active:scale-[0.97]" type="button">
+            09:00
+          </button>
+<!-- 09:30 Available -->
+<button class="h-12 min-h-[48px] rounded-lg bg-surface-container-lowest border border-outline-variant/50 text-on-surface font-label-md text-label-md flex items-center justify-center hover:border-secondary hover:bg-surface-container-low transition-all duration-150 active:scale-[0.97]" type="button">
+            09:30
+          </button>
+<!-- 10:00 Available -->
+<button class="h-12 min-h-[48px] rounded-lg bg-surface-container-lowest border border-outline-variant/50 text-on-surface font-label-md text-label-md flex items-center justify-center hover:border-secondary hover:bg-surface-container-low transition-all duration-150 active:scale-[0.97]" type="button">
+            10:00
+          </button>
+<!-- 10:30 Occupied / Disabled -->
+<button aria-disabled="true" class="h-12 min-h-[48px] rounded-lg bg-surface-container-high/60 border border-outline-variant/30 text-outline-variant font-label-md text-label-md flex flex-col items-center justify-center cursor-not-allowed line-through relative select-none" disabled="" type="button">
+<span>10:30</span>
+<span class="text-[9px] uppercase tracking-wider text-outline font-semibold leading-none -mt-0.5 no-underline">Ocupado</span>
+</button>
+<!-- 11:00 Actively Selected Slot -->
+<button aria-pressed="true" class="h-12 min-h-[48px] rounded-lg bg-primary text-on-primary border-2 border-primary font-label-md text-label-md flex items-center justify-center shadow-[0_4px_12px_rgba(13,92,117,0.22)] ring-2 ring-primary/20 ring-offset-1 font-semibold active:scale-[0.97]" type="button">
+<span class="material-symbols-outlined text-[16px] mr-1">check</span>
+            11:00
+          </button>
+<!-- 11:30 Available -->
+<button class="h-12 min-h-[48px] rounded-lg bg-surface-container-lowest border border-outline-variant/50 text-on-surface font-label-md text-label-md flex items-center justify-center hover:border-secondary hover:bg-surface-container-low transition-all duration-150 active:scale-[0.97]" type="button">
+            11:30
+          </button>
+</div>
+<div class="pt-2 flex items-center justify-between">
+<h2 class="text-label-md font-label-md text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-secondary text-[18px]">routine</span>
+            Turnos de la tarde
+          </h2>
+</div>
+<!-- Afternoon Slots Grid -->
+<div class="grid grid-cols-3 gap-2">
+<!-- 14:00 Available -->
+<button class="h-12 min-h-[48px] rounded-lg bg-surface-container-lowest border border-outline-variant/50 text-on-surface font-label-md text-label-md flex items-center justify-center hover:border-secondary hover:bg-surface-container-low transition-all duration-150 active:scale-[0.97]" type="button">
+            14:00
+          </button>
+<!-- 14:30 Available -->
+<button class="h-12 min-h-[48px] rounded-lg bg-surface-container-lowest border border-outline-variant/50 text-on-surface font-label-md text-label-md flex items-center justify-center hover:border-secondary hover:bg-surface-container-low transition-all duration-150 active:scale-[0.97]" type="button">
+            14:30
+          </button>
+<!-- 15:00 Available -->
+<button class="h-12 min-h-[48px] rounded-lg bg-surface-container-lowest border border-outline-variant/50 text-on-surface font-label-md text-label-md flex items-center justify-center hover:border-secondary hover:bg-surface-container-low transition-all duration-150 active:scale-[0.97]" type="button">
+            15:00
+          </button>
+</div>
+</section>
+<!-- Reassurance / Policy Note -->
+<section class="mt-1 p-3 bg-surface-container-lowest rounded-xl border border-outline-variant/30 flex items-start gap-2.5">
+<span class="material-symbols-outlined text-secondary text-[20px] shrink-0 mt-0.5">event_repeat</span>
+<div class="space-y-0.5">
+<p class="text-label-sm font-label-sm text-on-surface">Flexibilidad en tu atención</p>
+<p class="text-[12px] font-body-sm text-on-surface-variant leading-relaxed">
+            Podés cancelar o reprogramar sin cargo hasta 24 h antes. No te pediremos tarjeta ni datos bancarios ahora.
+          </p>
+</div>
+</section>
+</div>
+<!-- Pinned Bottom Action Bar -->
+<div class="fixed bottom-0 max-w-[360px] w-full bg-surface-container-lowest border-t border-outline-variant/30 p-4 shadow-[0_-4px_16px_-2px_rgba(13,92,117,0.08)] z-50">
+<div class="flex flex-col gap-2">
+<button class="w-full h-12 min-h-[48px] bg-primary text-on-primary rounded-xl font-label-lg text-label-lg flex items-center justify-center gap-2 hover:bg-primary-container transition-all duration-150 shadow-sm active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2" type="button">
+<span>Continuar</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+<button class="w-full py-1 text-center text-label-sm font-label-sm text-primary hover:text-on-surface-variant transition-colors duration-150" type="button">
+          Cambiar tratamiento seleccionado
+        </button>
+</div>
+</div>
+</main>
+<script>
+    // Lightweight touch selection micro-interaction
+    document.addEventListener('DOMContentLoaded', () => {
+      const slotButtons = document.querySelectorAll('.grid button:not([disabled])');
+      
+      slotButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          slotButtons.forEach(btn => {
+            btn.classList.remove('bg-primary', 'text-on-primary', 'border-2', 'border-primary', 'shadow-[0_4px_12px_rgba(13,92,117,0.22)]', 'ring-2', 'ring-primary/20', 'ring-offset-1', 'font-semibold');
+            btn.classList.add('bg-surface-container-lowest', 'text-on-surface', 'border', 'border-outline-variant/50');
+            btn.removeAttribute('aria-pressed');
+            
+            const checkIcon = btn.querySelector('.material-symbols-outlined');
+            if (checkIcon) checkIcon.remove();
+          });
+          
+          button.classList.remove('bg-surface-container-lowest', 'text-on-surface', 'border', 'border-outline-variant/50');
+          button.classList.add('bg-primary', 'text-on-primary', 'border-2', 'border-primary', 'shadow-[0_4px_12px_rgba(13,92,117,0.22)]', 'ring-2', 'ring-primary/20', 'ring-offset-1', 'font-semibold');
+          button.setAttribute('aria-pressed', 'true');
+          
+          const rawText = button.textContent.trim();
+          button.innerHTML = `<span class="material-symbols-outlined text-[16px] mr-1">check</span>${rawText}`;
+        });
+      });
+    });
+  </script>
+</body></html>

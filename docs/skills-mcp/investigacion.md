@@ -4,6 +4,8 @@
 > **Materia:** Metodología I — Tecnicatura Universitaria en Programación (UTN)  
 > **Fecha:** 2 de Noviembre de 2026  
 > **Alcance:** Parte 1 — Investigación y Planificación en Clase (máximo 2 páginas)
+>
+> **Nota de corrección (2026-11-03):** Esta ficha es la planificación del 2026-11-02 y se conserva como tal. Dos cosas que decía eran incorrectas o estaban sin verificar y se corrigen abajo: (1) las herramientas de Stitch se llaman, entre otras, `generate_screen_from_text`, `get_screen`, `list_screens` y `download_file` (no existe `get_screen_code`); (2) la configuración con `proxy` y `GOOGLE_CLOUD_PROJECT` no alcanza para autenticar. La configuración real y la corrección completa están en [`README.md`](../../README.md) sección 9.2 y en [`aplicacion.md`](aplicacion.md) sección 2.1.
 
 ---
 
@@ -24,7 +26,7 @@ Al analizar el ciclo de vida del proyecto bajo la metodología **Spec-Driven Dev
 * **Por qué puede prepararse sin depender de código inexistente:**
   La fase de preparación en SDD comprende el análisis del problema, el diseño técnico (`design.md`) y la especificación de comportamiento con escenarios verificables (`spec.md`). Aunque la implementación posterior de `C-05` requiera los modelos base de `C-02` a `C-04`, su contrato funcional (pantalla mobile de 360px, datos de paciente sin login, selección de tratamiento y cálculo de horarios) puede especificarse exhaustivamente de manera anticipada.
 * **Aporte conjunto de la Skill y el MCP en la preparación de C-05:**
-  * **Stitch MCP:** Conecta al agente con la plataforma de prototipado Google Stitch, permitiendo generar e importar los layouts visuales, jerarquía visual y tokens CSS a 360px requeridos en `design.md`.
+  * **Stitch MCP:** Conecta al agente con la plataforma de prototipado Google Stitch, con la intención de generar los layouts visuales, la jerarquía visual y los tokens a 360px requeridos en `design.md` (el uso real de Stitch ocurrió el 2026-11-03; ver `aplicacion.md` sección 2.1).
   * **Skill propia (`spec-rules-auditor`):** Audita el borrador de `spec.md` de C-05 contrastándolo contra `knowledge-base/05_reglas_de_negocio.md`, obligando a definir con exactitud los 3 escenarios verificables (reserva exitosa, intento de solape/bloqueo de agenda y límites de validación de WhatsApp).
 
 ---
@@ -63,10 +65,10 @@ Al analizar el ciclo de vida del proyecto bajo la metodología **Spec-Driven Dev
 | :--- | :--- | :--- |
 | **Nombre / Paquete** | `@_davideast/stitch-mcp` (David East / Google Labs) | `@modelcontextprotocol/server-playwright` |
 | **Propósito** | Puente de diseño: conecta con Google Stitch para importar prototipos UI, pantallas y tokens. | Automatización de navegador web para scraping, inspección DOM y ejecución de tests E2E. |
-| **Capacidades** | Listar proyectos UI, extraer código HTML/React, descargar capturas visuales, leer `design.md`. | Navegar URLs, hacer click, rellenar formularios, tomar screenshots de páginas activas, leer consola. |
+| **Capacidades** | Listar proyectos y pantallas, generar pantallas desde texto, descargar el HTML y la captura de cada pantalla (`download_file`), leer y crear sistemas de diseño. | Navegar URLs, hacer click, rellenar formularios, tomar screenshots de páginas activas, leer consola. |
 | **Compatibilidad** | Compatible vía protocolo MCP stdio / proxy npx. | Compatible nativo MCP sobre Node.js y navegadores Chromium. |
-| **Requisitos / Conexión** | Node.js (npx), autenticación Google Cloud (`GOOGLE_CLOUD_PROJECT`). | Node.js (npx), instalación de navegadores Chromium/Firefox (`npx playwright install`). |
-| **Permisos / Credenciales**| Token/Auth de Google Cloud / Google Labs Stitch. | Sin credenciales externas; requiere permisos de ejecución de procesos locales y acceso a red local. |
+| **Requisitos / Conexión** | Node.js (npx), proyecto de Google Cloud con la API de Stitch habilitada y una credencial válida (`STITCH_API_KEY` o un `STITCH_ACCESS_TOKEN` de vida corta; ver README 9.2). | Node.js (npx), instalación de navegadores Chromium/Firefox (`npx playwright install`). |
+| **Permisos / Credenciales**| Token OAuth de corta duración o clave de API de Stitch; nunca se versionan. | Sin credenciales externas; requiere permisos de ejecución de procesos locales y acceso a red local. |
 | **Costos** | Gratuito en fase preview / experimental de Google Labs. | 100% de código abierto y gratuito (sin costos de API). |
 
 ### 4.1. Elección Justificada
@@ -80,26 +82,13 @@ Se elige **Google Stitch MCP** porque el objetivo en esta etapa del proyecto es 
 
 ## 5. Pasos de Instalación y Configuración del MCP
 
-1. **Requisitos previos:** Node.js (v18+) instalado en el sistema y proyecto activo en Google Cloud.
+1. **Requisitos previos:** Node.js instalado en el sistema (la versión mínima no se verificó) y proyecto activo en Google Cloud con la API de Stitch habilitada (`gcloud services enable stitch.googleapis.com`).
 2. **Configuración del servidor en el cliente MCP:**
-   Registrar en el archivo de configuración del cliente MCP (o entorno de ejecución):
-   ```json
-   {
-     "mcpServers": {
-       "stitch": {
-         "command": "npx",
-         "args": ["-y", "@_davideast/stitch-mcp", "proxy"],
-         "env": {
-           "GOOGLE_CLOUD_PROJECT": "TU_GOOGLE_CLOUD_PROJECT_ID"
-         }
-       }
-     }
-   }
-   ```
+   Lo planificado el 2026-11-02 era registrar `npx -y @_davideast/stitch-mcp proxy` con `GOOGLE_CLOUD_PROJECT`. Eso **no alcanza**: el `proxy` de `stitch-mcp@0.9.0` solo pasa `STITCH_API_KEY`. La configuración que funcionó (script local fuera del repo con `STITCH_ACCESS_TOKEN`) está en [`README.md`](../../README.md) sección 9.2.
 3. **Comprobación de la conexión y ejecución:**
-   * Ejecutar la inicialización interactiva si se requiere: `npx @_davideast/stitch-mcp init`.
-   * Verificar en el cliente la disponibilidad de las herramientas expuestas (`list_screens`, `get_screen_code`, etc.).
-   * Ejecución de prueba: invocar una herramienta de consulta para listar los componentes visuales disponibles.
+   * La inicialización interactiva (`npx.cmd @_davideast/stitch-mcp init`) necesita un proyecto de Google Cloud.
+   * Listar las herramientas expuestas (`list_screens`, `get_screen`, `generate_screen_from_text`, etc.) funciona incluso con la API deshabilitada, así que **no** prueba que la API sea utilizable.
+   * Ejecución de prueba válida: invocar `generate_screen_from_text` y recuperar el resultado con `get_screen`.
 
 ---
 

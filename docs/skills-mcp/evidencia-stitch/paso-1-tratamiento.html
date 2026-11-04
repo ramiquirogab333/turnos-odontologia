@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+
+<html class="h-full bg-background" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Reserva de Turno Odontológico</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-container-highest": "#e0e3e2",
+            "tertiary-fixed-dim": "#abcbdc",
+            "inverse-primary": "#90cfec",
+            "surface-container": "#ebeeed",
+            "on-tertiary-container": "#aecfdf",
+            "surface-variant": "#e0e3e2",
+            "primary": "#004357",
+            "secondary-fixed": "#7af8de",
+            "tertiary": "#22424f",
+            "secondary-container": "#7af8de",
+            "on-secondary-container": "#007262",
+            "background": "#f7faf9",
+            "tertiary-fixed": "#c7e7f8",
+            "on-error": "#ffffff",
+            "on-surface": "#181c1c",
+            "on-primary-container": "#93d3ef",
+            "inverse-surface": "#2d3131",
+            "inverse-on-surface": "#eef1f0",
+            "surface-tint": "#1e667f",
+            "secondary-fixed-dim": "#5bdbc2",
+            "on-surface-variant": "#40484c",
+            "secondary": "#006b5c",
+            "on-primary": "#ffffff",
+            "primary-container": "#0d5c75",
+            "surface-dim": "#d7dbda",
+            "on-tertiary": "#ffffff",
+            "surface": "#f7faf9",
+            "on-primary-fixed": "#001f2a",
+            "on-primary-fixed-variant": "#004d64",
+            "outline": "#70787d",
+            "on-secondary-fixed": "#00201b",
+            "on-error-container": "#93000a",
+            "on-background": "#181c1c",
+            "primary-fixed": "#bde9ff",
+            "error": "#ba1a1a",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-high": "#e6e9e8",
+            "on-secondary-fixed-variant": "#005045",
+            "surface-bright": "#f7faf9",
+            "on-tertiary-fixed-variant": "#2c4b58",
+            "error-container": "#ffdad6",
+            "on-tertiary-fixed": "#001f2a",
+            "primary-fixed-dim": "#90cfec",
+            "on-secondary": "#ffffff",
+            "surface-container-low": "#f1f4f3",
+            "tertiary-container": "#3a5967",
+            "outline-variant": "#bfc8cd"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "gutter": "1.5rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2rem",
+            "space-md": "1rem",
+            "margin": "2rem",
+            "space-2xl": "3rem",
+            "space-xs": "0.25rem",
+            "margin-sm": "1rem",
+            "gutter-sm": "1rem"
+          },
+          "fontFamily": {
+            "body-sm": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "display-lg": ["Plus Jakarta Sans"],
+            "label-md": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "headline-xl": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "label-lg": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "headline-xl-mobile": ["Plus Jakarta Sans"]
+          },
+          "fontSize": {
+            "body-sm": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "400" }],
+            "label-sm": ["0.75rem", { "lineHeight": "1rem", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "display-lg": ["3rem", { "lineHeight": "3.5rem", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "label-md": ["0.875rem", { "lineHeight": "1.25rem", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "body-lg": ["1.125rem", { "lineHeight": "1.75rem", "fontWeight": "400" }],
+            "headline-xl": ["2.25rem", { "lineHeight": "2.75rem", "letterSpacing": "-0.015em", "fontWeight": "600" }],
+            "body-md": ["1rem", { "lineHeight": "1.5rem", "fontWeight": "400" }],
+            "headline-md": ["1.25rem", { "lineHeight": "1.75rem", "fontWeight": "600" }],
+            "label-lg": ["1rem", { "lineHeight": "1.5rem", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "headline-lg": ["1.5rem", { "lineHeight": "2rem", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "headline-xl-mobile": ["1.75rem", { "lineHeight": "2.25rem", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface antialiased selection:bg-secondary-container selection:text-on-secondary-container min-h-screen">
+<!-- Container Mobile Viewport Restricted to 360px -->
+<div class="w-full max-w-[360px] mx-auto min-h-screen bg-surface flex flex-col relative overflow-x-hidden shadow-sm">
+<!-- TopAppBar (from Shared Components JSON) -->
+<header class="bg-surface dark:bg-inverse-surface border-b border-outline-variant/30 dark:border-outline/20 docked full-width top-0 sticky z-40">
+<div class="flex justify-between items-center w-full px-4 h-16 max-w-2xl mx-auto">
+<button aria-label="Volver" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low active:scale-[0.98] transition-transform duration-100" type="button">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+</button>
+<h1 class="text-headline-md font-headline-md font-semibold text-primary dark:text-inverse-primary tracking-tight">
+          Paso 1 de 3: Reserva
+        </h1>
+<button aria-label="Ayuda" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low active:scale-[0.98] transition-transform duration-100" type="button">
+<span class="material-symbols-outlined text-[24px]">help_outline</span>
+</button>
+</div>
+<!-- Linear Progress (Step 1 of 3: 33.33%) -->
+<div aria-valuemax="100" aria-valuemin="0" aria-valuenow="33" class="w-full bg-surface-container-high h-1 overflow-hidden" role="progressbar">
+<div class="bg-primary h-full w-1/3 transition-all duration-300 ease-out"></div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 px-4 pt-5 pb-36 flex flex-col gap-6">
+<!-- Screen Header Intro -->
+<section class="space-y-1">
+<div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-container text-secondary text-label-sm font-label-sm mb-1">
+<span class="material-symbols-outlined text-[14px]">format_image_left</span>
+<span>Atención protegida y sin registro</span>
+</div>
+<h2 class="text-headline-lg font-headline-lg text-primary tracking-tight">
+          Elegí el tratamiento
+        </h2>
+<p class="text-body-sm font-body-sm text-on-surface-variant leading-relaxed">
+          Seleccioná la atención que necesitás para coordinar tu consulta
+        </p>
+</section>
+<!-- Treatments Section (Interactive List) -->
+<section aria-labelledby="section-treatments">
+<div class="sr-only" id="section-treatments">Listado de tratamientos disponibles</div>
+<div aria-label="Seleccionar tratamiento" class="flex flex-col gap-3" role="radiogroup">
+<!-- Treatment Card 1 (Selected by default) -->
+<label class="group relative flex items-center justify-between p-3.5 bg-surface-container-lowest border-2 border-primary rounded-xl cursor-pointer transition-all duration-150 active:scale-[0.99] shadow-[0_2px_8px_-2px_rgba(13,92,117,0.06)] bg-[rgba(43,182,159,0.03)]">
+<input checked="" class="sr-only peer" name="treatment" type="radio" value="consulta"/>
+<div class="flex items-start gap-3 min-w-0 pr-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0 transition-colors peer-checked:bg-primary peer-checked:text-surface">
+<span class="material-symbols-outlined text-[22px]">dentistry</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-lg font-label-lg text-on-surface font-semibold truncate leading-snug">
+                  Consulta odontológica
+                </span>
+<div class="flex items-center gap-2 mt-1">
+<span class="inline-flex items-center gap-1 text-label-sm font-label-sm text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-md">
+<span class="material-symbols-outlined text-[14px] text-outline">schedule</span>
+                    30 min
+                  </span>
+<span class="text-label-sm font-label-sm text-secondary font-medium">Revisión clínica</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0 pl-1">
+<span class="text-label-lg font-label-lg text-primary font-bold">
+                $15.000
+              </span>
+<div class="mt-2 w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
+<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+</div>
+</div>
+</label>
+<!-- Treatment Card 2 -->
+<label class="group relative flex items-center justify-between p-3.5 bg-surface-container-lowest border border-outline-variant/50 hover:border-outline-variant rounded-xl cursor-pointer transition-all duration-150 active:scale-[0.99]">
+<input class="sr-only peer" name="treatment" type="radio" value="limpieza"/>
+<div class="flex items-start gap-3 min-w-0 pr-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-on-surface-variant shrink-0">
+<span class="material-symbols-outlined text-[22px]">clean_hands</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-lg font-label-lg text-on-surface font-semibold truncate leading-snug">
+                  Limpieza dental
+                </span>
+<div class="flex items-center gap-2 mt-1">
+<span class="inline-flex items-center gap-1 text-label-sm font-label-sm text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-md">
+<span class="material-symbols-outlined text-[14px] text-outline">schedule</span>
+                    45 min
+                  </span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Profilaxis</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0 pl-1">
+<span class="text-label-lg font-label-lg text-primary font-bold">
+                $25.000
+              </span>
+<div class="mt-2 w-5 h-5 rounded-full border border-outline-variant flex items-center justify-center">
+<div class="w-2.5 h-2.5 rounded-full bg-transparent"></div>
+</div>
+</div>
+</label>
+<!-- Treatment Card 3 -->
+<label class="group relative flex items-center justify-between p-3.5 bg-surface-container-lowest border border-outline-variant/50 hover:border-outline-variant rounded-xl cursor-pointer transition-all duration-150 active:scale-[0.99]">
+<input class="sr-only peer" name="treatment" type="radio" value="empaste"/>
+<div class="flex items-start gap-3 min-w-0 pr-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-on-surface-variant shrink-0">
+<span class="material-symbols-outlined text-[22px]">healing</span>
+</div>
+<div class="flex flex-col">
+<span class="text-label-lg font-label-lg text-on-surface font-semibold truncate leading-snug">
+                  Empaste
+                </span>
+<div class="flex items-center gap-2 mt-1">
+<span class="inline-flex items-center gap-1 text-label-sm font-label-sm text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-md">
+<span class="material-symbols-outlined text-[14px] text-outline">schedule</span>
+                    45 min
+                  </span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Restauración</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0 pl-1">
+<span class="text-label-lg font-label-lg text-primary font-bold">
+                $30.000
+              </span>
+<div class="mt-2 w-5 h-5 rounded-full border border-outline-variant flex items-center justify-center">
+<div class="w-2.5 h-2.5 rounded-full bg-transparent"></div>
+</div>
+</div>
+</label>
+</div>
+</section>
+<!-- Professional Section -->
+<section aria-labelledby="section-professionals" class="space-y-3">
+<div>
+<h3 class="text-label-lg font-label-lg text-primary font-semibold" id="section-professionals">
+            Profesional a cargo
+          </h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+            Elegí quién te va a atender
+          </p>
+</div>
+<div aria-label="Elegir profesional" class="flex flex-col gap-2.5" role="radiogroup">
+<!-- Professional Option: Any (Fastest) -->
+<label class="flex items-center p-3 bg-surface-container-lowest border border-outline-variant/60 rounded-xl cursor-pointer transition-colors active:scale-[0.99] min-h-[52px]">
+<input checked="" class="sr-only peer" name="dentist" type="radio" value="any"/>
+<div class="w-9 h-9 rounded-full bg-secondary-container/40 text-on-secondary-container flex items-center justify-center font-bold text-label-md shrink-0">
+<span class="material-symbols-outlined text-[18px]">group</span>
+</div>
+<div class="ml-3 flex-1 min-w-0">
+<p class="text-body-sm font-body-sm font-semibold text-on-surface truncate">
+                Cualquier profesional disponible
+              </p>
+<p class="text-label-sm font-label-sm text-secondary font-medium truncate">
+                Mayor disponibilidad de horarios
+              </p>
+</div>
+<div class="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center shrink-0 ml-2">
+<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+</div>
+</label>
+<!-- Professional Option 1: Dra. Ana Ficticia -->
+<label class="flex items-center p-3 bg-surface-container-lowest border border-outline-variant/40 rounded-xl cursor-pointer transition-colors active:scale-[0.99] min-h-[52px]">
+<input class="sr-only peer" name="dentist" type="radio" value="ana"/>
+<!-- Minimalist Monogram without personal photo -->
+<div class="w-9 h-9 rounded-full bg-surface-container-high text-primary flex items-center justify-center font-semibold text-label-md tracking-tight shrink-0">
+              AF
+            </div>
+<div class="ml-3 flex-1 min-w-0">
+<p class="text-body-sm font-body-sm font-semibold text-on-surface truncate">
+                Dra. Ana Ficticia
+              </p>
+<p class="text-label-sm font-label-sm text-on-surface-variant truncate">
+                Odontología General
+              </p>
+</div>
+<div class="w-5 h-5 rounded-full border border-outline-variant flex items-center justify-center shrink-0 ml-2">
+<div class="w-2.5 h-2.5 rounded-full bg-transparent"></div>
+</div>
+</label>
+<!-- Professional Option 2: Dr. Bruno Ejemplo -->
+<label class="flex items-center p-3 bg-surface-container-lowest border border-outline-variant/40 rounded-xl cursor-pointer transition-colors active:scale-[0.99] min-h-[52px]">
+<input class="sr-only peer" name="dentist" type="radio" value="bruno"/>
+<!-- Minimalist Monogram without personal photo -->
+<div class="w-9 h-9 rounded-full bg-surface-container-high text-primary flex items-center justify-center font-semibold text-label-md tracking-tight shrink-0">
+              BE
+            </div>
+<div class="ml-3 flex-1 min-w-0">
+<p class="text-body-sm font-body-sm font-semibold text-on-surface truncate">
+                Dr. Bruno Ejemplo
+              </p>
+<p class="text-label-sm font-label-sm text-on-surface-variant truncate">
+                Operatoria y Prevención
+              </p>
+</div>
+<div class="w-5 h-5 rounded-full border border-outline-variant flex items-center justify-center shrink-0 ml-2">
+<div class="w-2.5 h-2.5 rounded-full bg-transparent"></div>
+</div>
+</label>
+</div>
+</section>
+<!-- Trust & Clinical Notice (calm tone) -->
+<div class="p-3 bg-surface-container-low rounded-lg border border-outline-variant/30 flex items-start gap-2.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px] text-secondary shrink-0 mt-0.5">verified_user</span>
+<p class="text-label-sm font-label-sm leading-normal">
+          Cumplimos con normas de bioseguridad y esterilización de instrumental clase hospitalaria.
+        </p>
+</div>
+</main>
+<!-- BottomNavBar (from Shared Components JSON - Contextually mapping current stage) -->
+<nav aria-label="Progreso del turno" class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 border-t max-w-2xl mx-auto inset-x-0 bg-surface-container-lowest dark:bg-inverse-surface border-t border-outline-variant/30 dark:border-outline/20 shadow-[0_-4px_16px_-2px_rgba(13,92,117,0.06)]">
+<!-- Tratamiento (Active tab as per current screen) -->
+<a class="flex flex-col items-center justify-center bg-secondary-container dark:bg-primary text-on-secondary-container dark:text-on-primary rounded-xl px-4 py-1.5 transition-colors active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]">dentistry</span>
+<span class="text-label-sm font-label-sm font-semibold mt-0.5">Tratamiento</span>
+</a>
+<!-- Especialista -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-3 py-1.5 hover:bg-surface-container-low transition-colors duration-150 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]">badge</span>
+<span class="text-label-sm font-label-sm mt-0.5">Especialista</span>
+</a>
+<!-- Confirmar -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant px-3 py-1.5 hover:bg-surface-container-low transition-colors duration-150 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]">event_available</span>
+<span class="text-label-sm font-label-sm mt-0.5">Confirmar</span>
+</a>
+</nav>
+<!-- Fixed Action Bar above the Navigation Shell (Safe area mobile wrapper) -->
+<div class="fixed bottom-[60px] left-0 right-0 z-40 px-4 py-3 bg-surface/95 backdrop-blur-md border-t border-outline-variant/30 max-w-[360px] mx-auto">
+<button class="w-full h-12 bg-primary text-on-primary rounded-xl font-label-md text-label-md flex items-center justify-center gap-2 shadow-sm hover:bg-primary-container active:scale-[0.98] transition-all" type="button">
+<span>Continuar</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+<p class="text-center text-[11px] text-on-surface-variant mt-1.5 font-label-sm">
+        No necesitás cuenta ni pagar ahora
+      </p>
+</div>
+</div>
+<script>
+    // Micro-interactions for accessible card selection
+    document.addEventListener('DOMContentLoaded', () => {
+      // Treatments logic
+      const treatmentCards = document.querySelectorAll('input[name="treatment"]');
+      treatmentCards.forEach(input => {
+        input.addEventListener('change', (e) => {
+          treatmentCards.forEach(item => {
+            const card = item.closest('label');
+            const dot = card.querySelector('.rounded-full.border-2, .rounded-full.border');
+            const innerDot = dot ? dot.querySelector('div') : null;
+            const iconContainer = card.querySelector('.w-10');
+
+            if (item.checked) {
+              card.className = "group relative flex items-center justify-between p-3.5 bg-surface-container-lowest border-2 border-primary rounded-xl cursor-pointer transition-all duration-150 active:scale-[0.99] shadow-[0_2px_8px_-2px_rgba(13,92,117,0.06)] bg-[rgba(43,182,159,0.03)]";
+              if (dot) dot.className = "mt-2 w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center";
+              if (innerDot) innerDot.className = "w-2.5 h-2.5 rounded-full bg-primary";
+              if (iconContainer) iconContainer.className = "w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0 transition-colors";
+            } else {
+              card.className = "group relative flex items-center justify-between p-3.5 bg-surface-container-lowest border border-outline-variant/50 hover:border-outline-variant rounded-xl cursor-pointer transition-all duration-150 active:scale-[0.99]";
+              if (dot) dot.className = "mt-2 w-5 h-5 rounded-full border border-outline-variant flex items-center justify-center";
+              if (innerDot) innerDot.className = "w-2.5 h-2.5 rounded-full bg-transparent";
+              if (iconContainer) iconContainer.className = "w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-on-surface-variant shrink-0";
+            }
+          });
+        });
+      });
+
+      // Doctors logic
+      const dentistCards = document.querySelectorAll('input[name="dentist"]');
+      dentistCards.forEach(input => {
+        input.addEventListener('change', () => {
+          dentistCards.forEach(item => {
+            const card = item.closest('label');
+            const dot = card.querySelector('.w-5');
+            const innerDot = dot ? dot.querySelector('div') : null;
+
+            if (item.checked) {
+              card.classList.remove('border-outline-variant/40');
+              card.classList.add('border-primary', 'bg-[rgba(43,182,159,0.02)]');
+              if (dot) {
+                dot.className = "w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center shrink-0 ml-2";
+              }
+              if (innerDot) innerDot.className = "w-2.5 h-2.5 rounded-full bg-primary";
+            } else {
+              card.classList.remove('border-primary', 'bg-[rgba(43,182,159,0.02)]');
+              card.classList.add('border-outline-variant/40');
+              if (dot) {
+                dot.className = "w-5 h-5 rounded-full border border-outline-variant flex items-center justify-center shrink-0 ml-2";
+              }
+              if (innerDot) innerDot.className = "w-2.5 h-2.5 rounded-full bg-transparent";
+            }
+          });
+        });
+      });
+    });
+  </script>
+</body></html>

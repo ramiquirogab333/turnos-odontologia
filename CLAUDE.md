@@ -79,9 +79,9 @@ Cargá la skill correspondiente al contexto ANTES de escribir código.
 
 ### Google Stitch MCP (`@_davideast/stitch-mcp`)
 - **Propósito:** Asistir en el prototipado visual y estructuración UI de pantallas mobile-first mediante la plataforma Google Stitch (Google Labs).
-- **Capacidades utilizadas:** Exploración de proyectos de diseño, lectura de especificaciones de diseño (`design.md`), descarga de layouts HTML/React y tokens de estilo.
+- **Capacidades utilizadas:** Generación de pantallas con `generate_screen_from_text`, consulta con `get_screen` y `list_screens`, y descarga del HTML y la captura de cada pantalla con `download_file`. Primer uso real: 2026-11-03 (evidencia en `docs/skills-mcp/evidencia-stitch/`).
 - **Momento de uso:** En la etapa de elaboración del `design.md` de changes que involucran interfaz de usuario (ej. `C-05`, `C-08`), asegurando cumplimiento estricto del viewport 360px (R3).
-- **Límites de acceso y seguridad:** Acceso exclusivo a artefactos visuales de presentación. Prohibido el acceso a bases de datos o datos sensibles de pacientes; uso exclusivo de datos de fantasía/sintéticos (Ley 25.326 y R19). Requiere credenciales de entorno (`GOOGLE_CLOUD_PROJECT`).
+- **Límites de acceso y seguridad:** Acceso exclusivo a artefactos visuales de presentación. Prohibido el acceso a bases de datos o datos sensibles de pacientes; uso exclusivo de datos de fantasía/sintéticos (Ley 25.326 y R19). Requiere un proyecto de Google Cloud con la API de Stitch habilitada y una credencial de vida corta (`STITCH_ACCESS_TOKEN`) o `STITCH_API_KEY`, fuera del repo; ver README sección 9.2.
 
 > Los compact rules de cada skill los resuelve el orquestador desde `.atl/skill-registry.md` (generado por `skill-registry`; no versionado — no está en el repo). Esta tabla solo mapea skill→rol.
 
@@ -94,7 +94,7 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 - **Total**: 13 changes en 5 fases.
 - **Camino crítico** (9): detalle en `CHANGES.md` (eje `C-01 → … → C-13` con `C-06 sena-pagos-turno` como change propio de la restricción de seña).
 - **Primer change**: `C-01` (foundation-setup) → arrancar con `/opsx:propose C-01-foundation-setup`.
-- Estado actual: C-01 archivado 2026-10-01; cambio crítico de seguimiento: C-12 (panel-admin-caja-ausentismo); próximo por árbol: C-02.
+- Estado actual: C-01 a C-04 archivados; C-05 (reserva-publica-horarios) en implementación; cambio crítico de seguimiento: C-12 (panel-admin-caja-ausentismo); próximo por árbol: C-06 y su paralelo del GATE 5.
 
 **Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md), identificá las dependencias del change y los archivos de "Leer antes".
 
