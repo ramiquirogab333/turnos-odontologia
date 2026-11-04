@@ -156,7 +156,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ## FASE 1 — Acceso y catálogo
 
 ### [C-03] `auth-panel-rbac`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado 2026-11-03 (`openspec/changes/archive/2026-11-02-c-03-auth-panel-rbac/`, la carpeta conserva la fecha 11-02; spec en `openspec/specs/auth/panel-login/spec.md`)
 - **Scope**: Autenticación del panel interno + RBAC + gestión pública sin login (stack congelado: JWT expiración corta + refresh, backend FastAPI)
   - `POST /api/auth/login` — JWT access + refresh, rate limiting por IP+email
   - `POST /api/auth/refresh` — rotación con blacklist del anterior; `POST /api/auth/logout` — blacklist; `GET /api/auth/me`

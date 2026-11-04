@@ -6,6 +6,13 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+# JWT settings son requeridos por Settings (R17: solo env vars). Valores sintéticos
+# solo para el entorno de test; en producción deben venir del entorno real.
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-c-03-synthetic-do-not-use-prod")
+os.environ.setdefault("JWT_ALGORITHM", "HS256")
+os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "15")
+os.environ.setdefault("REFRESH_TOKEN_EXPIRE_MINUTES", "10080")
+
 # El código vive en src/ (layout canónico de la cátedra): exponerlo en sys.path
 # para que `from app...` resuelva sin instalar el paquete. Vía estándar mínima
 # (alternativa: `pythonpath = src` en pytest.ini; se eligió conftest para que
@@ -18,6 +25,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.models.auth import TokenBlacklist
 from app.models.core import RegistroAuditoria, Usuario, UsuarioRol, Rol
 from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 
@@ -77,6 +85,7 @@ async def clean_db(
 
     async with session_factory() as session:
         for model in (
+            TokenBlacklist,
             RegistroAuditoria,
             UsuarioRol,
             Usuario,
