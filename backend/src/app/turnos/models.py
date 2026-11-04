@@ -9,8 +9,7 @@ from sqlalchemy.dialects.postgresql import TSTZRANGE
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-class Base(DeclarativeBase):
-    """Base declarativa del dominio."""
+from app.models.base import Base
 
 
 class Profesional(Base):
@@ -77,6 +76,9 @@ class Turno(Base):
     tratamiento_id: Mapped[int] = mapped_column(
         ForeignKey("tratamiento.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    paciente_id: Mapped[int | None] = mapped_column(
+        ForeignKey("paciente.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     inicio: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     fin: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     estado: Mapped[str] = mapped_column(Text, nullable=False, default="reservado")
@@ -92,4 +94,5 @@ class Turno(Base):
         ),
         Index("ix_turno_profesional_inicio", "profesional_id", "inicio"),
         Index("ix_turno_sillon_inicio", "sillon_id", "inicio"),
+        Index("ix_turno_paciente_inicio", "paciente_id", "inicio"),
     )

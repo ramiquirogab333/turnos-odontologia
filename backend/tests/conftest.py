@@ -18,7 +18,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.turnos.models import Profesional, Sillon, Tratamiento
+from app.models.core import RegistroAuditoria, Usuario, UsuarioRol, Rol
+from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL", "postgresql+asyncpg://turnos:turnos@localhost:5433/turnos"
@@ -67,7 +68,7 @@ async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
         await engine.dispose()
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(autouse=True)
 async def clean_db(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> AsyncIterator[None]:
@@ -75,7 +76,16 @@ async def clean_db(
     from app.turnos.models import Turno
 
     async with session_factory() as session:
-        for model in (Turno, Profesional, Sillon, Tratamiento):
+        for model in (
+            RegistroAuditoria,
+            UsuarioRol,
+            Usuario,
+            Rol,
+            Turno,
+            Profesional,
+            Sillon,
+            Tratamiento,
+        ):
             await session.execute(delete(model))
         await session.commit()
     yield

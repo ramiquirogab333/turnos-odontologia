@@ -132,7 +132,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-02] `core-models`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado 2026-11-02 (`openspec/changes/archive/2026-11-02-c-02-core-models/`, spec en `openspec/specs/dominio/modelos-core/spec.md`)
 - **Scope**: Resto de modelos base + migraciones + seed mínimo, sobre las 4 tablas de C-01 (stack congelado: SQLAlchemy + Alembic + PostgreSQL)
   - Resoluciones 2026-09-30: multi-odontólogo/multi-sillón desde el día 1 — `Turno` siempre asigna `profesional_id` + `sillon_id`; seed con VARIOS profesionales y sillones (no uno solo); Tratamientos como entidad con `duracion_minutos` (seed inicial de tabla tratamiento→duración aportada por la clínica; si falta, seed mínimo documentado como placeholder explícito)
   - Modelos nuevos: `Paciente` (nombre + teléfono requerido, unicidad operativa por teléfono a confirmar), `Disponibilidad` (franjas por día_semana + excepciones/feriados), `Usuario`, `Rol`, `RegistroAuditoria`, `ObraSocial`, `Nomenclador`
