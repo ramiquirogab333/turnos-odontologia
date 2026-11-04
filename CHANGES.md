@@ -178,7 +178,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-04] `catalogo-tratamientos-disponibilidad`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado 2026-11-03 (`openspec/changes/archive/2026-11-02-c-04-catalogo-tratamientos-disponibilidad/`, la carpeta conserva la fecha 11-02; spec en `openspec/specs/catalogo/tratamientos-disponibilidad/spec.md`)
 - **Scope**: Catálogo administrable que alimenta el cálculo de horarios libres (US-008) — backend admin puro, sin frontend (el panel UI llega en C-08)
   - Resoluciones 2026-09-30: Tratamientos con duración — CRUD admin `Tratamiento` (nombre, `duracion_minutos` > 0 con `CHECK`, precio base `Numeric`); multi-odontólogo/multi-sillón día 1 — CRUD admin `Profesional`, `Sillon`, `Disponibilidad` (franjas + excepciones/feriados)
   - Endpoints admin CRUD: `/api/admin/tratamientos`, `/profesionales`, `/sillones`, `/disponibilidad` (protegidos por C-03, rol recepción/admin; Pydantic in/out, R15)

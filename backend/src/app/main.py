@@ -14,12 +14,22 @@ from app.turnos.router import (
 from app.turnos.schemas import HealthRead
 
 from app.auth.router import router as auth_router
+from app.catalogo.router import (
+    router_disponibilidad,
+    router_profesionales,
+    router_sillones,
+    router_tratamientos,
+)
 
 logger = get_logger(__name__)
 
 app = FastAPI(title="Turnos Odontología — C-01", version="0.1.0")
 app.include_router(turnos_router)
 app.include_router(auth_router)
+app.include_router(router_tratamientos)
+app.include_router(router_profesionales)
+app.include_router(router_sillones)
+app.include_router(router_disponibilidad)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ReferenceNotFoundError, referencia_handler)  # type: ignore[arg-type]
 
