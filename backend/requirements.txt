@@ -11,3 +11,6 @@ httpx==0.28.1
 pytest==9.1.1
 pytest-asyncio==1.4.0
 anyio==4.15.1
+# C-03: autenticacion del panel
+bcrypt==5.0.0
+PyJWT==2.15.1
