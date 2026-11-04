@@ -20,6 +20,7 @@ from app.catalogo.router import (
     router_sillones,
     router_tratamientos,
 )
+from app.public.router import router as public_router
 
 logger = get_logger(__name__)
 
@@ -30,6 +31,7 @@ app.include_router(router_tratamientos)
 app.include_router(router_profesionales)
 app.include_router(router_sillones)
 app.include_router(router_disponibilidad)
+app.include_router(public_router)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ReferenceNotFoundError, referencia_handler)  # type: ignore[arg-type]
 

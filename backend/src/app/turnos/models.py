@@ -82,6 +82,11 @@ class Turno(Base):
     inicio: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     fin: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     estado: Mapped[str] = mapped_column(Text, nullable=False, default="reservado")
+    # Reserva pública (C-05): código de gestión + contacto del solicitante, sin crear Paciente
+    # (Paciente exige DNI, que la reserva pública no pide - RN-TU-06).
+    codigo_gestion: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    contacto_nombre: Mapped[str | None] = mapped_column(Text, nullable=True)
+    contacto_telefono: Mapped[str | None] = mapped_column(Text, nullable=True)
     periodo: Mapped[Any] = mapped_column(
         TSTZRANGE, Computed("tstzrange(inicio, fin, '[)')", persisted=True)
     )
@@ -95,4 +100,16 @@ class Turno(Base):
         Index("ix_turno_profesional_inicio", "profesional_id", "inicio"),
         Index("ix_turno_sillon_inicio", "sillon_id", "inicio"),
         Index("ix_turno_paciente_inicio", "paciente_id", "inicio"),
+        CheckConstraint(
+            "codigo_gestion IS NULL OR LENGTH(codigo_gestion) BETWEEN 8 AND 64",
+            name="ck_turno_codigo_gestion_len",
+        ),
+        CheckConstraint(
+            "contacto_nombre IS NULL OR LENGTH(contacto_nombre) BETWEEN 1 AND 200",
+            name="ck_turno_contacto_nombre_len",
+        ),
+        CheckConstraint(
+            r"contacto_telefono IS NULL OR contacto_telefono ~ '^\+[1-9][0-9]{1,14}$'",
+            name="ck_turno_contacto_telefono_e164",
+        ),
     )
