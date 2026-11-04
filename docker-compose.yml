@@ -25,6 +25,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://turnos:turnos@postgres:5432/turnos
       APP_TZ: America/Argentina/Buenos_Aires
+      # R17: el secreto JWT llega por variable de entorno del host (nunca en el repo).
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
