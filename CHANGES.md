@@ -202,7 +202,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 > C-06 es el change de la restricción de usuario (GAP contra la KB). C-07 depende de C-06 porque cancelar/reprogramar debe contemplar `en_espera` y la seña no reembolsable.
 
 ### [C-05] `reserva-publica-horarios`
-- **Estado**: `[ ]` preparado para implementar (SDD completo: `proposal.md`, `design.md` con layouts mobile-first asistidos por Stitch MCP, `spec.md` con 3 escenarios verificables auditados por `spec-rules-auditor`, `tasks.md`; implementación en curso desde 2026-11-03, progreso en `tasks.md`)
+- **Estado**: `[x]` archivado 2026-11-03 (`openspec/changes/archive/2026-11-03-c-05-reserva-publica-horarios/`, spec en `openspec/specs/turnos/reserva-publica/spec.md`; E2E a 360px y CI en verde, run 41762187593)
 - **Scope**: Reserva pública mobile-first + cálculo de horarios libres con anti-solape (US-001), sobre el constraint de C-01 (stack congelado: React + TypeScript + Vite estricto, Playwright)
   - MOVIDO desde el viejo C-01: scaffolding `frontend-paciente/` (Vite + React + TS strict, sin `any`, componentes PascalCase — R1) + CI GitHub Actions con jobs paralelos backend/frontend (primera change con superficie usuario real)
   - `GET /api/public/disponibilidad?profesional_id&tratamiento_id&desde&hasta` — libres = disponibilidad vigente − turnos que BLOQUEAN agenda (nota: `en_espera` NO bloquea desde C-06; hasta entonces bloquean `reservado/confirmado`)

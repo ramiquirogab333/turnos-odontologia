@@ -12,7 +12,7 @@
 - [x] 2.2 Construir wizard de 3 pasos (Tratamiento → Calendario/Slots → Contacto) garantizando botones de 48px y usabilidad completa en viewport de 360px (R3).
 - [x] 2.3 Implementar consumo de API sin fetches en cascada mediante carga paralela con `Promise.all` y límites `Suspense` (R2), verificando renderizado sin waterfalls de red.
 - [x] 2.4 Implementar E2E Playwright del flujo completo de reserva a viewport 360px contra el backend real en Docker Compose, incluyendo slot ocupado con alternativas y teléfono inválido, sin scroll horizontal (R3, R7; done-criteria de C-05 en `CHANGES.md`).
-- [ ] 2.5 Configurar CI en GitHub Actions con jobs paralelos backend y frontend (alcance de C-05 en `CHANGES.md`).
+- [x] 2.5 Configurar CI en GitHub Actions con jobs paralelos backend y frontend (alcance de C-05 en `CHANGES.md`).
 
 ## 3. Verificación de la Terna de Escenarios (Auditoría `spec-rules-auditor`)
 
@@ -24,8 +24,7 @@
 > (`frontend-paciente/e2e/reserva.spec.ts`, Playwright + Docker Compose + PostgreSQL; 7 tests en verde, repetidos x3. El test R2 fallaba de forma intermitente por pedidos en vuelo de la carga del `beforeEach`: se aisló y se reescribió sin depender del orden de eventos, 120/120 en verde) y, además,
 > a nivel API (`backend/tests/test_public_endpoints_integration.py`). 2.1: el frontend se armó primero con tokens de origen no verificado (sin Stitch) y el 2026-11-03 se
 > ajustó con los tokens reales de Stitch (tres pantallas generadas con `generate_screen_from_text`; evidencia en
-> `docs/skills-mcp/evidencia-stitch/`; desvíos por R3 y contraste documentados en `design.md` Decisión 1 y en `estilos.css`). 2.5 queda sin tildar: `.github/workflows/ci.yml` está escrito y su YAML validado, pero
-> **no se ejecutó** en GitHub Actions; confirmar en el primer push/PR. Para 2.3 se agregaron `GET /api/public/tratamientos` y
+> `docs/skills-mcp/evidencia-stitch/`; desvíos por R3 y contraste documentados en `design.md` Decisión 1 y en `estilos.css`). 2.5: `.github/workflows/ci.yml` corrió en verde en GitHub Actions (run 41762187593, commit 7a31f34; jobs backend, frontend y e2e). Para 2.3 se agregaron `GET /api/public/tratamientos` y
 > `GET /api/public/profesionales` (el wizard no tenía catálogo público).
 
 ## Workflow follow-up
