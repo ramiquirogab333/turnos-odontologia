@@ -13,7 +13,8 @@
 **Impacto**: cambia qué se construye primero.
 **Resolución propuesta**: adoptar el orden de §3 (paciente primero) salvo indicación contraria del decisor.
 
-### IN-02 — Reprogramación y ventana de 24 hs
+### IN-02 — Reprogramación y ventana de 24 hs (RESUELTA 2026-11-06, C-07)
+**Resolución**: el Product Owner confirmó la misma ventana de 24 h para reprogramar (RN-TU-02 confirmada).
 **Documento A dice**: discovery §7 fija 24 hs solo para cancelación.
 **Documento B dice**: casos de uso (§3, punto 2) piden cancelar o reprogramar "respetando la anticipación mínima".
 **Impacto**: RN-TU-02 quedó asumida, no explícita.

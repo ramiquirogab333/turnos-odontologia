@@ -60,6 +60,18 @@
 **Justificación**: devolver la seña cuando se avisa con tiempo es más justo para el paciente y deja el castigo solo para el ausentismo. La devolución manual evita automatizar reembolsos en v1.
 **Trade-offs aceptados**: los reembolsos son manuales (`a_reembolsar` visible en caja desde C-12); `a_reembolsar` agrega un estado que la KB original no tenía.
 
+### DD-08 — Gestión del turno por el paciente (C-07, decisión del Product Owner 2026-11-06)
+**Decisión**: se aprueban los defaults O1 a O10 de `openspec/changes/c-07-cancelacion-reprogramacion-24h/design.md`.
+- O1: el código de gestión viaja en la cabecera `X-Codigo-Gestion` sobre `/api/public/gestion/*` (no en la ruta como decía `CHANGES.md`), para que no quede en logs ni en el `Referer`. El enlace del paciente es `/gestionar#<código>` (el fragmento no llega al servidor).
+- O8: la entrega de eventos a Google Calendar y recordatorios usa el puerto `NotificadorTurnos` post-commit más la auditoría transaccional como fuente reconciliable; sin tabla outbox ni migración (C-09 puede sumarla junto con Redis).
+- Reglas de negocio derivadas (O2 a O7, O10): RN-TU-08 a RN-TU-11 en `05_reglas_de_negocio.md`. IN-02 queda resuelta.
+- O9: el borde exacto de 24 h se prueba en integración con reloj inyectado; el E2E usa márgenes de 5 min (sin reloj manipulable por entorno).
+
+**Contexto**: cancelar y reprogramar por el paciente necesitaba definir credencial, alcance del cambio y semántica de la ventana.
+**Alternativas consideradas**: código en la ruta; reprogramar `en_espera`; límite de reprogramaciones; outbox; reloj falso del backend para E2E.
+**Justificación**: mínima superficie de ataque y de infraestructura; la base sigue siendo la garantía del anti-solape (R5).
+**Trade-offs aceptados**: quien tenga el código puede gestionar el turno (rate limiting llega con Redis en C-09); un evento puede perderse entre el commit y la publicación (se reconcilia desde la auditoría).
+
 ## Supuestos inferidos
 
 ### SU-01 — El PDF equivale a los .md

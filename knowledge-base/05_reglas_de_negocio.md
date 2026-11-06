@@ -5,12 +5,16 @@ Cada regla tiene código único `RN-{DOMINIO}-{NN}` para trazabilidad. Fuente: d
 ## Dominio: Turnos (RN-TU)
 
 - **RN-TU-01**: No se puede cancelar un turno con menos de 24 horas de anticipación.
-- **RN-TU-02**: No se puede reprogramar un turno con menos de 24 horas de anticipación (aplica la misma ventana que cancelación; confirmar si la ventana es idéntica — ver `10_preguntas_abiertas.md`).
+- **RN-TU-02** (confirmada, cierra IN-02): No se puede reprogramar un turno con menos de 24 horas de anticipación. Es la misma ventana que RN-TU-01 (decisión del Product Owner 2026-11-06, C-07).
 - **RN-TU-03**: Ningún PROFESIONAL ni ningún SILLÓN/BOX puede tener dos turnos superpuestos desde el día 1 (multi-odontólogo/multi-sillón día 1, Resolución 2026-09-30 nº1 — cierra SU-03). Garantía en DB con dos `EXCLUDE USING gist` parciales por estado (estrategia A del DDL de C-01: `WHERE estado IN ('reservado','confirmado')`); el pre-chequeo por rango en aplicación es solo fast-fail, la DB decide. Estado `en_espera` (C-06) NO bloquea y queda fuera de los EXCLUDE (R8).
 - **RN-TU-04**: La duración del turno la determina el tratamiento (fin = inicio + duración configurada), no un valor fijo global.
 - **RN-TU-05**: La tabla tratamiento→duración es configurable por el admin; no va fija en código.
 - **RN-TU-06**: La reserva pública no exige registro ni login: alcanza con nombre + teléfono por turno.
 - **RN-TU-07**: Solo se puede reservar sobre horarios libres calculados desde disponibilidad vigente del profesional (más sillón, si aplica).
+- **RN-TU-08** (decisión 2026-11-06, C-07, O1/O2): el paciente gestiona su turno solo con el código de gestión, enviado en la cabecera `X-Codigo-Gestion` (nunca en la ruta ni en la query). Al reprogramar solo cambia día y hora: mismo tratamiento y misma profesional.
+- **RN-TU-09** (decisión 2026-11-06, C-07, O3): un turno `en_espera` no se reprograma (409 `sena_pendiente`); se cancela y se reserva otro horario. Cancelar un `en_espera` se acepta en cualquier momento, sin ventana de 24 h (O10).
+- **RN-TU-10** (decisión 2026-11-06, C-07, O4/O5): no hay límite de reprogramaciones por turno (cada cambio queda auditado); un `confirmado` que se reprograma vuelve a `reservado`.
+- **RN-TU-11** (decisión 2026-11-06, C-07, O6/O7): la ventana se compara en instantes absolutos; exactamente 24 h se acepta. Se mide contra el inicio actual del turno: el nuevo horario puede estar a menos de 24 h si está libre.
 
 ## Dominio: WhatsApp (RN-WA)
 
