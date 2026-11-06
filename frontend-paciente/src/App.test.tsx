@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { cargarCatalogo } from './lib/api';
+import type { Catalogo } from './lib/tipos';
 
 const TRATAMIENTOS = [
   { id: 1, nombre: 'Limpieza', duracion_minutos: 30, precio_base: '1000.00' },
@@ -67,10 +68,10 @@ function nuevoUsuario() {
 }
 type Usuario = ReturnType<typeof nuevoUsuario>;
 
-async function montar(): Promise<void> {
+async function montar(inicial: Promise<Catalogo> = cargarCatalogo()): Promise<void> {
   // `use()` suspende: React 19 pide montar dentro de un act asíncrono.
   await act(() => {
-    render(<App inicial={cargarCatalogo()} recargar={cargarCatalogo} />);
+    render(<App inicial={inicial} recargar={cargarCatalogo} />);
     return Promise.resolve();
   });
 }
@@ -481,11 +482,13 @@ describe('App: ruta /gestionar (C-07)', () => {
       Promise.resolve(entrada === '/api/public/gestion' ? json({ detail: 'No encontramos un turno con ese código' }, 404) : json({}, 500)),
     );
     vi.stubGlobal('fetch', mock);
-    await montar();
+    // Igual que main.tsx: en /gestionar el catálogo no se pide (si se pidiera, el 500 sería un rechazo sin manejar).
+    await montar(Promise.resolve({ tratamientos: [], profesionales: [] }));
 
     expect(await screen.findByText(/No encontramos un turno con ese código/)).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /limpieza/i })).not.toBeInTheDocument();
     expect(mock.mock.calls.filter(([u]) => u === '/api/public/gestion')).toHaveLength(1);
+    expect(mock).toHaveBeenCalledTimes(1);
   });
 
   it('en la ruta raíz sigue mostrando la reserva', async () => {
