@@ -565,3 +565,12 @@ fieldset.grupo legend {
 .copiado:empty {
   display: none;
 }
+
+/* Enlaces con aspecto de botón (p. ej. "Gestionar mi turno"). */
+a.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+}

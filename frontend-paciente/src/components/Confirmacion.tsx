@@ -32,7 +32,11 @@ export function Confirmacion({ inicio, fin, codigoGestion, tratamientoNombre, pr
         <strong>{codigoGestion}</strong>
       </div>
       <p>Guardá el código. La clínica te confirma el turno por WhatsApp.</p>
+      <p className="nota">Podés cancelar o cambiar el horario hasta 24 h antes.</p>
       <div className="acciones">
+        <a className="boton boton-primario" href={`/gestionar#${encodeURIComponent(codigoGestion)}`}>
+          Gestionar mi turno
+        </a>
         <button type="button" className="boton boton-secundario" onClick={onNueva}>
           Reservar otro turno
         </button>

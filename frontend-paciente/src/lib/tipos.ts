@@ -115,3 +115,51 @@ export interface ReservaRequest {
   readonly profesional_id: number;
   readonly inicio: string;
 }
+
+// --- Gestión del turno por el paciente (C-07) --------------------------------------------------
+
+export type MotivoNoModificable = 'fuera_de_plazo' | 'turno_no_modificable' | 'sena_pendiente';
+
+/** Seña tal como la ve la gestión: el monto es un decimal serializado como texto (R4). */
+export interface SenaGestion {
+  readonly monto: string;
+  readonly estado: EstadoPago;
+}
+
+export interface GestionTurno {
+  readonly estado: EstadoTurno;
+  readonly inicio: string;
+  readonly fin: string;
+  readonly tratamiento: { readonly id: number; readonly nombre: string; readonly duracion_minutos: number };
+  readonly profesional: { readonly id: number; readonly nombre: string };
+  readonly sena: SenaGestion | null;
+  /** Inicio menos 24 h, con el offset de la clínica. */
+  readonly limite_cambios: string;
+  readonly puede_cancelar: boolean;
+  readonly puede_reprogramar: boolean;
+  readonly motivo_no_cancelable: MotivoNoModificable | null;
+  readonly motivo_no_reprogramable: MotivoNoModificable | null;
+  readonly texto_politica_reembolso: string;
+}
+
+export interface TurnoCancelado {
+  readonly estado: 'cancelado';
+  readonly estado_sena: EstadoPago | null;
+}
+
+export interface TurnoReprogramado {
+  readonly estado: EstadoTurno;
+  readonly inicio: string;
+  readonly fin: string;
+  readonly estado_sena: EstadoPago | null;
+}
+
+/** Errores tipados de los endpoints de gestión. */
+export type ErrorGestion =
+  | { readonly tipo: 'no_encontrado' }
+  | { readonly tipo: 'fuera_de_plazo'; readonly limite_cambios: string | null }
+  | { readonly tipo: 'turno_no_modificable' }
+  | { readonly tipo: 'sena_pendiente' }
+  | { readonly tipo: 'conflicto'; readonly motivo: 'profesional' | 'sillon'; readonly alternativas: readonly Alternativa[] }
+  | { readonly tipo: 'horario_invalido'; readonly mensaje: string }
+  | { readonly tipo: 'desconocido'; readonly mensaje: string };

@@ -3,6 +3,7 @@ import { Cargando } from './components/Cargando';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ErrorCarga } from './components/ErrorCarga';
 import { EsperaAcreditacion } from './components/EsperaAcreditacion';
+import { GestionTurno } from './components/GestionTurno';
 import { Reserva } from './components/Reserva';
 import { borrarPendiente, leerPendiente, type SenaPendiente } from './lib/almacen';
 import type { Catalogo } from './lib/tipos';
@@ -29,10 +30,24 @@ function limpiarRetorno(): void {
   window.history.replaceState(null, '', window.location.pathname);
 }
 
+/** Ruta de gestión del turno: `/gestionar#<código>` (C-07). */
+export const RUTA_GESTION = '/gestionar';
+
 export function App({ inicial, recargar }: Props) {
   const [catalogo, setCatalogo] = useState(inicial);
   const [ronda, setRonda] = useState(0);
   const [retorno, setRetorno] = useState<Retorno | null>(leerRetorno);
+
+  if (window.location.pathname === RUTA_GESTION) {
+    return (
+      <main className="app">
+        <header className="cabecera">
+          <h1>Tu turno</h1>
+        </header>
+        <GestionTurno />
+      </main>
+    );
+  }
 
   if (retorno !== null) {
     const empezarDeNuevo = (): void => {

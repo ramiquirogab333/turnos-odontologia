@@ -1,6 +1,12 @@
 import { interpretarRespuestaError, type ErrorApi } from './errores';
 import { esNumero, esRegistro, esTexto, type Registro } from './guardas';
 import type {
+  Alternativa,
+  ErrorGestion,
+  GestionTurno,
+  MotivoNoModificable,
+  TurnoCancelado,
+  TurnoReprogramado,
   Catalogo,
   ErrorSena,
   EstadoPago,
@@ -282,4 +288,140 @@ export async function consultarSena(turnoId: number, codigoGestion: string): Pro
   const json = await leerJson(respuesta);
   if (respuesta.status === 200 && esEstadoSena(json)) return { ok: true, estado: json };
   return { ok: false, error: interpretarErrorSena(respuesta.status, json) };
+}
+
+// --- Gestión del turno (C-07) ------------------------------------------------------------------
+
+const ERROR_GESTION_DESCONOCIDO: ErrorGestion = {
+  tipo: 'desconocido',
+  mensaje: 'No pudimos conectar con la clínica. Revisá tu conexión e intentá de nuevo.',
+};
+
+const MOTIVOS: readonly string[] = ['fuera_de_plazo', 'turno_no_modificable', 'sena_pendiente'];
+
+function esMotivoONulo(v: unknown): v is MotivoNoModificable | null {
+  return v === null || (esTexto(v) && MOTIVOS.includes(v));
+}
+
+function esAlternativa(v: unknown): v is Alternativa {
+  return esRegistro(v) && esTexto(v['inicio']) && esTexto(v['fin']) && esNumero(v['sillon_id']);
+}
+
+function esGestionTurno(v: unknown): v is GestionTurno {
+  if (!esRegistro(v)) return false;
+  const t = v['tratamiento'];
+  const p = v['profesional'];
+  const s = v['sena'];
+  return (
+    esEstadoTurno(v['estado']) &&
+    esTexto(v['inicio']) &&
+    esTexto(v['fin']) &&
+    esRegistro(t) &&
+    esNumero(t['id']) &&
+    esTexto(t['nombre']) &&
+    esNumero(t['duracion_minutos']) &&
+    esRegistro(p) &&
+    esNumero(p['id']) &&
+    esTexto(p['nombre']) &&
+    (s === null || (esRegistro(s) && esTexto(s['monto']) && esEstadoPago(s['estado']))) &&
+    esTexto(v['limite_cambios']) &&
+    typeof v['puede_cancelar'] === 'boolean' &&
+    typeof v['puede_reprogramar'] === 'boolean' &&
+    esMotivoONulo(v['motivo_no_cancelable']) &&
+    esMotivoONulo(v['motivo_no_reprogramable']) &&
+    esTexto(v['texto_politica_reembolso'])
+  );
+}
+
+function estadoSenaONulo(v: unknown): boolean {
+  return v === null || v === undefined || esEstadoPago(v);
+}
+
+function esTurnoCancelado(v: unknown): v is TurnoCancelado {
+  return esRegistro(v) && v['estado'] === 'cancelado' && estadoSenaONulo(v['estado_sena']);
+}
+
+function esTurnoReprogramado(v: unknown): v is TurnoReprogramado {
+  return (
+    esRegistro(v) && esEstadoTurno(v['estado']) && esTexto(v['inicio']) && esTexto(v['fin']) && estadoSenaONulo(v['estado_sena'])
+  );
+}
+
+function interpretarErrorGestion(status: number, cuerpo: unknown): ErrorGestion {
+  if (status === 404) return { tipo: 'no_encontrado' };
+  if (status === 409 && esRegistro(cuerpo)) {
+    const motivo = cuerpo['motivo'];
+    if (motivo === 'fuera_de_plazo') {
+      return { tipo: 'fuera_de_plazo', limite_cambios: esTexto(cuerpo['limite_cambios']) ? cuerpo['limite_cambios'] : null };
+    }
+    if (motivo === 'turno_no_modificable') return { tipo: 'turno_no_modificable' };
+    if (motivo === 'sena_pendiente') return { tipo: 'sena_pendiente' };
+    if (motivo === 'profesional' || motivo === 'sillon') {
+      const lista = Array.isArray(cuerpo['alternativas']) ? (cuerpo['alternativas'] as unknown[]).filter(esAlternativa) : [];
+      return { tipo: 'conflicto', motivo, alternativas: lista };
+    }
+  }
+  if (status === 422) {
+    return { tipo: 'horario_invalido', mensaje: 'Ese horario no está disponible. Elegí otro horario.' };
+  }
+  return { tipo: 'desconocido', mensaje: 'No pudimos completar la operación. Intentá de nuevo en unos minutos.' };
+}
+
+interface RespuestaCruda {
+  readonly status: number;
+  readonly json: unknown;
+}
+
+async function pedirGestion(
+  metodo: 'GET' | 'POST',
+  ruta: string,
+  codigoGestion: string,
+  cuerpo?: unknown,
+): Promise<RespuestaCruda | null> {
+  const headers: Record<string, string> = { 'X-Codigo-Gestion': codigoGestion };
+  if (cuerpo !== undefined) headers['Content-Type'] = 'application/json';
+  try {
+    const respuesta = await fetch(`${BASE}/gestion${ruta}`, {
+      method: metodo,
+      headers,
+      ...(cuerpo !== undefined ? { body: JSON.stringify(cuerpo) } : {}),
+    });
+    return { status: respuesta.status, json: await leerJson(respuesta) };
+  } catch {
+    return null;
+  }
+}
+
+export type ResultadoGestion =
+  | { readonly ok: true; readonly gestion: GestionTurno }
+  | { readonly ok: false; readonly error: ErrorGestion };
+
+/** Datos del turno para gestionarlo. El código viaja en una cabecera, nunca en la URL (no queda en logs). */
+export async function consultarGestion(codigoGestion: string): Promise<ResultadoGestion> {
+  const r = await pedirGestion('GET', '', codigoGestion);
+  if (r === null) return { ok: false, error: ERROR_GESTION_DESCONOCIDO };
+  if (r.status === 200 && esGestionTurno(r.json)) return { ok: true, gestion: r.json };
+  return { ok: false, error: interpretarErrorGestion(r.status, r.json) };
+}
+
+export type ResultadoCancelacion =
+  | { readonly ok: true; readonly cancelacion: TurnoCancelado }
+  | { readonly ok: false; readonly error: ErrorGestion };
+
+export async function cancelarTurno(codigoGestion: string): Promise<ResultadoCancelacion> {
+  const r = await pedirGestion('POST', '/cancelar', codigoGestion);
+  if (r === null) return { ok: false, error: ERROR_GESTION_DESCONOCIDO };
+  if (r.status === 200 && esTurnoCancelado(r.json)) return { ok: true, cancelacion: r.json };
+  return { ok: false, error: interpretarErrorGestion(r.status, r.json) };
+}
+
+export type ResultadoReprogramacion =
+  | { readonly ok: true; readonly reprogramacion: TurnoReprogramado }
+  | { readonly ok: false; readonly error: ErrorGestion };
+
+export async function reprogramarTurno(codigoGestion: string, inicio: string): Promise<ResultadoReprogramacion> {
+  const r = await pedirGestion('POST', '/reprogramar', codigoGestion, { inicio });
+  if (r === null) return { ok: false, error: ERROR_GESTION_DESCONOCIDO };
+  if (r.status === 200 && esTurnoReprogramado(r.json)) return { ok: true, reprogramacion: r.json };
+  return { ok: false, error: interpretarErrorGestion(r.status, r.json) };
 }
