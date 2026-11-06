@@ -247,7 +247,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-07] `cancelacion-reprogramacion-24h`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado 2026-11-06 (`openspec/changes/archive/2026-11-06-c-07-cancelacion-reprogramacion-24h/`, specs en `openspec/specs/turnos/gestion-paciente/spec.md` (nuevo) y `openspec/specs/pagos/sena-turno/spec.md` (modificado))
 - **Scope**: Cancelación y reprogramación por el paciente con ventana de 24 hs + interacción con seña (US-002, US-003)
   - `GET /api/public/gestion`, `POST /api/public/gestion/cancelar` y `POST /api/public/gestion/reprogramar` con el código de gestión en la cabecera `X-Codigo-Gestion` (sin login; el código no va en la ruta para que no quede en logs, decisión O1 del 2026-11-06). Enlace del paciente: `/gestionar#<código>`
   - Validación backend: anticipación ≥ 24 hs (RN-TU-01, RN-TU-02/DD-02); < 24 hs → rechazo con motivo claro; reprogramación solo a horario libre vigente (RN-TU-07), con anti-solape (hereda `EXCLUDE` de C-01)
