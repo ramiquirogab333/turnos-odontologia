@@ -176,3 +176,37 @@ export async function sembrarTurnoReservado(semilla: Semilla, inicioIso: string,
     ),
   );
 }
+
+export interface TurnoSembrado {
+  readonly id: number;
+  readonly codigo: string;
+}
+
+/**
+ * Siembra un turno público (con código de gestión conocido) y su seña, con `inicio` EXACTO (C-07).
+ * El reloj del servidor no se puede inyectar desde el navegador, así que los E2E de la ventana de 24 h
+ * siembran turnos a cada lado del borde con margen (decisión O9).
+ */
+export async function sembrarTurnoGestion(
+  semilla: Semilla,
+  opciones: { inicio: Date; estado: 'reservado' | 'en_espera'; codigo: string; minutos?: number },
+): Promise<TurnoSembrado> {
+  const minutos = opciones.minutos ?? 30;
+  return ejecutar(async (c) => {
+    const t = await c.query<{ id: string }>(
+      `INSERT INTO turno (profesional_id, sillon_id, tratamiento_id, inicio, fin, estado, codigo_gestion,
+                          contacto_nombre, contacto_telefono, en_espera_vence_en)
+       VALUES ($1, $2, $3, $4::timestamptz, $4::timestamptz + make_interval(mins => $5), $6, $7,
+               'Carlos Sintético', '+5491144445555', CASE WHEN $6 = 'en_espera' THEN now() + interval '1 hour' END)
+       RETURNING id`,
+      [semilla.profesionalId, semilla.sillonId, semilla.limpiezaId, opciones.inicio.toISOString(), minutos, opciones.estado, opciones.codigo],
+    );
+    const id = Number(t.rows[0]?.id);
+    await c.query(
+      `INSERT INTO pago_sena (turno_id, medio, monto, porcentaje_aplicado, estado, referencia_externa, vence_en, acreditado_en)
+       VALUES ($1, 'mercadopago', 4500.00, 30.00, $2, $3, now() + interval '1 day', CASE WHEN $2 = 'acreditado' THEN now() END)`,
+      [id, opciones.estado === 'reservado' ? 'acreditado' : 'pendiente', `SENA-E2E-${String(id)}`],
+    );
+    return { id, codigo: opciones.codigo };
+  });
+}

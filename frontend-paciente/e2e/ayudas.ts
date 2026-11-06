@@ -162,3 +162,23 @@ export async function reservarHastaLaSena(page: Page, dia: string, hhmm: string,
   await page.getByRole('button', { name: 'Confirmar turno' }).click();
   await expect(page.getByRole('heading', { name: 'Pagá la seña para confirmar tu turno' })).toBeVisible();
 }
+
+/** Código de gestión sintético y único por prueba (8..64 caracteres, como exige la base). */
+export function codigoSintetico(sufijo: string): string {
+  return `E2E-GESTION-${sufijo}-${String(Date.now())}`;
+}
+
+/** Instante `delta` ms en el futuro, sin segundos ni milisegundos (los E2E dejan margen de minutos al borde de 24 h). */
+export function enMs(delta: number): Date {
+  const d = new Date(Date.now() + delta);
+  d.setUTCSeconds(0, 0);
+  return d;
+}
+
+export const HORA = 3_600_000;
+export const MINUTO = 60_000;
+
+/** Abre la pantalla de gestión con el código en el fragmento, como el enlace de la confirmación. */
+export async function abrirGestion(page: Page, codigo: string): Promise<void> {
+  await page.goto(`/gestionar#${encodeURIComponent(codigo)}`);
+}
