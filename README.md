@@ -142,6 +142,15 @@ Un turno reservado por la web nace `en_espera` (no bloquea la agenda) y pasa a `
 
 ---
 
+### Gestión del turno por el paciente (C-07)
+El paciente cancela o cambia el horario de su turno sin cuenta, solo con el código de gestión que recibió al reservar. Enlace: `/gestionar#<código>` (desde la confirmación, "Gestionar mi turno"); el código va en el fragmento de la URL, así que no llega a los logs del servidor.
+
+- `GET /api/public/gestion`: datos del turno, límite para hacer cambios (inicio menos 24 h) y qué acciones están permitidas.
+- `POST /api/public/gestion/cancelar`: cancela. Con seña acreditada se acepta con 24 h o más de anticipación (la seña queda `a_reembolsar`, devolución manual); una pre-reserva `en_espera` se cancela en cualquier momento, sin cobro.
+- `POST /api/public/gestion/reprogramar` con `{ "inicio": "<fecha-hora con zona>" }`: mueve el turno (mismo tratamiento y profesional, con 24 h o más de anticipación) conservando id, código y seña. Si el horario está ocupado, 409 con alternativas.
+
+Todas leen el código de la cabecera `X-Codigo-Gestion`; un código desconocido responde siempre el mismo 404. Menos de 24 h: 409 `fuera_de_plazo`.
+
 ## 6. Metodología de Trabajo
 
 El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenSpec**:

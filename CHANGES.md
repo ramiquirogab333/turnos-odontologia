@@ -249,12 +249,12 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ### [C-07] `cancelacion-reprogramacion-24h`
 - **Estado**: `[ ]` pendiente
 - **Scope**: Cancelación y reprogramación por el paciente con ventana de 24 hs + interacción con seña (US-002, US-003)
-  - `POST /api/public/turnos/{codigo}/cancelar` y `POST /api/public/turnos/{codigo}/reprogramar` (código de gestión pública, sin login)
+  - `GET /api/public/gestion`, `POST /api/public/gestion/cancelar` y `POST /api/public/gestion/reprogramar` con el código de gestión en la cabecera `X-Codigo-Gestion` (sin login; el código no va en la ruta para que no quede en logs, decisión O1 del 2026-11-06). Enlace del paciente: `/gestionar#<código>`
   - Validación backend: anticipación ≥ 24 hs (RN-TU-01, RN-TU-02/DD-02); < 24 hs → rechazo con motivo claro; reprogramación solo a horario libre vigente (RN-TU-07), con anti-solape (hereda `EXCLUDE` de C-01)
   - Si el turno está `en_espera`: cancelar libera la pre-reserva y vence el intento de seña pendiente (sin movimiento de caja); si está `reservado/confirmado`: cancelar (solo con ≥ 24 h, RN-TU-01) libera el slot y la seña pasa a `a_reembolsar` con devolución manual (RN-SN-04, decisión 2026-11-06); reprogramar conserva la seña acreditada sobre el nuevo horario
-  - Al cancelar/reprogramar: actualiza Google Calendar y cancela/reprograma recordatorios pendientes (Flujo 2, paso 4)
-  - Reglas verificables: RN-TU-01, RN-TU-02, RN-TU-07, R8 (liberación de `en_espera` sin caja), R9 (seña retenida en cancelación de `reservado`)
-  - Done-criteria (test): E2E Playwright ventana 24h exacta/borde, reprogramación a slot ocupado → alternativas, seña retenida vs. liberada según estado (R7)
+  - Al cancelar/reprogramar: publica un evento por el puerto `NotificadorTurnos` (post-commit, sin PII); C-09 lo implementa para cancelar/reprogramar recordatorios y C-10 para borrar o mover el evento de Google Calendar (Flujo 2, paso 4). C-07 solo deja el puerto y una implementación nula con log
+  - Reglas verificables: RN-TU-01, RN-TU-02, RN-TU-07, R8 (liberación de `en_espera` sin caja), RN-SN-04 (cancelación de `reservado`/`confirmado` con ≥ 24 h: la seña se devuelve, `a_reembolsar`; R9 aplica solo al ausente, cuya seña queda `no_reembolsado`)
+  - Done-criteria (test): E2E Playwright ventana 24h exacta/borde, reprogramación a slot ocupado → alternativas, seña devuelta (`a_reembolsar`) en `reservado`, sin caja en `en_espera` y ausente sin reembolso (R7)
 - **Dependencias**: C-05, C-06
 - **Governance**: MEDIO
 - **Leer antes**:
