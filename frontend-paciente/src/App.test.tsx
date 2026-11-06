@@ -369,3 +369,103 @@ describe('paso 3: contacto y confirmación', () => {
     expect(await screen.findByRole('heading', { name: /turno reservado/i })).toBeInTheDocument();
   });
 });
+
+
+const SENA = {
+  monto: '300.00',
+  vence_en: '2026-11-16T09:30:00-03:00',
+  medios_habilitados: ['mercadopago', 'transferencia'],
+  texto_politica_reembolso: 'Si cancelás con 24 h o más de anticipación, te devolvemos la seña. Si no asistís, la seña no se devuelve.',
+};
+const EN_ESPERA = { ...CREADA, estado: 'en_espera', sena: SENA };
+const ESTADO_RESERVADO = {
+  turno_id: 5,
+  estado_turno: 'reservado',
+  estado_pago: 'acreditado',
+  vencida: false,
+  medios_habilitados: ['mercadopago'],
+  pago_id: 11,
+  medio: 'mercadopago',
+  monto: '300.00',
+  vence_en: null,
+  texto_politica_reembolso: SENA.texto_politica_reembolso,
+  referencia_externa: 'abc123abc123abc123abc123abc123ab',
+  checkout_url: null,
+  alias: null,
+  cbu: null,
+  titular: null,
+  referencia_concepto: null,
+  inicio: '2026-11-16T10:00:00-03:00',
+  fin: '2026-11-16T10:30:00-03:00',
+  tratamiento_nombre: 'Limpieza',
+  profesional_nombre: 'Dra. Sintética',
+};
+
+describe('seña (C-06): del paso 3 al pago', () => {
+  afterEach(() => {
+    window.history.replaceState(null, '', '/');
+    localStorage.clear();
+  });
+
+  it('una reserva en_espera lleva a la pantalla de pago y NO a "Turno reservado"', async () => {
+    servidor({ turnos: () => json(EN_ESPERA, 201) });
+    const usuario = nuevoUsuario();
+    await montar();
+    await hastaElPaso3(usuario);
+    await completar(usuario);
+    await usuario.click(screen.getByRole('button', { name: 'Confirmar turno' }));
+
+    expect(await screen.findByRole('heading', { name: 'Pagá la seña para confirmar tu turno' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /turno reservado/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/300,00/)).toBeInTheDocument();
+    expect(screen.getByText('Tu reserva vence a las 09:30')).toBeInTheDocument();
+  });
+
+  it('una reserva ya reservada (precio 0) va directo a "Turno reservado"', async () => {
+    servidor({ turnos: () => json({ ...CREADA, sena: null }, 201) });
+    const usuario = nuevoUsuario();
+    await montar();
+    await hastaElPaso3(usuario);
+    await completar(usuario);
+    await usuario.click(screen.getByRole('button', { name: 'Confirmar turno' }));
+    expect(await screen.findByRole('heading', { name: /turno reservado/i })).toBeInTheDocument();
+  });
+
+  it('al volver del checkout (?pago=retorno) retoma la espera con el código guardado y llega a "Turno reservado"', async () => {
+    window.history.replaceState(null, '', '/?pago=retorno&turno=5');
+    localStorage.setItem('sena-pendiente-v2', JSON.stringify({ v: 2, turnoId: 5, codigoGestion: 'ABCD2345', expira: Date.now() + 3_600_000 }));
+    const mock = vi.fn((entrada: string, init?: RequestInit) => {
+      const url = new URL(entrada, 'http://clinica.test');
+      if (url.pathname === '/api/public/turnos/5/sena') {
+        expect(new Headers(init?.headers).get('X-Codigo-Gestion')).toBe('ABCD2345');
+        return Promise.resolve(json(ESTADO_RESERVADO));
+      }
+      return Promise.resolve(json([]));
+    });
+    vi.stubGlobal('fetch', mock);
+    await montar();
+
+    expect(await screen.findByRole('heading', { name: 'Turno reservado' })).toBeInTheDocument();
+    expect(screen.getByText('ABCD2345')).toBeInTheDocument();
+    expect(mock.mock.calls.filter(([u]) => u.includes('/sena'))).toHaveLength(1);
+  });
+
+  it('al volver del checkout sin datos guardados avisa y permite reservar de nuevo', async () => {
+    window.history.replaceState(null, '', '/?pago=retorno&turno=5');
+    servidor();
+    const usuario = nuevoUsuario();
+    await montar();
+    expect(await screen.findByRole('heading', { name: /no encontramos tu reserva/i })).toBeInTheDocument();
+    await usuario.click(screen.getByRole('button', { name: 'Reservar un turno' }));
+    expect(await screen.findByRole('radio', { name: /limpieza/i })).toBeInTheDocument();
+    expect(window.location.search).toBe('');
+  });
+
+  it('el turno guardado de otro turno no se usa para el retorno', async () => {
+    window.history.replaceState(null, '', '/?pago=retorno&turno=9');
+    localStorage.setItem('sena-pendiente-v2', JSON.stringify({ v: 2, turnoId: 5, codigoGestion: 'ABCD2345', expira: Date.now() + 3_600_000 }));
+    servidor();
+    await montar();
+    expect(await screen.findByRole('heading', { name: /no encontramos tu reserva/i })).toBeInTheDocument();
+  });
+});

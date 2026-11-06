@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cargarCatalogo, obtenerDisponibilidad, reservarTurno } from './api';
+import { cargarCatalogo, consultarSena, iniciarSena, obtenerDisponibilidad, reservarTurno } from './api';
 
 const TRATAMIENTO = { id: 1, nombre: 'Limpieza', duracion_minutos: 30, precio_base: '1000.00' };
 const PROFESIONAL = { id: 7, nombre: 'Dra. Sintética', especialidad: 'General' };
@@ -177,5 +177,196 @@ describe('reservarTurno', () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('<html>Bad Gateway</html>', { status: 502 }))));
     const r = await reservarTurno(peticion);
     expect(r.ok === false && r.error.tipo).toBe('desconocido');
+  });
+});
+
+
+const SENA_INFO = {
+  monto: '3000.00',
+  vence_en: '2026-11-16T09:30:00-03:00',
+  medios_habilitados: ['mercadopago', 'transferencia'],
+  texto_politica_reembolso: 'Si cancelás con 24 h o más de anticipación, te devolvemos la seña. Si no asistís, la seña no se devuelve.',
+};
+
+describe('reservarTurno con seña (C-06)', () => {
+  it('acepta la respuesta en_espera con el bloque sena y conserva el monto como texto decimal', async () => {
+    const creada = {
+      turno_id: 5,
+      codigo_gestion: 'ABCD2345',
+      estado: 'en_espera',
+      inicio: '2026-11-16T10:00:00-03:00',
+      fin: '2026-11-16T10:30:00-03:00',
+      sena: SENA_INFO,
+    };
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json(creada, 201))));
+    const r = await reservarTurno({
+      nombre: 'Carlos Sintético',
+      telefono: '+5491144445555',
+      tratamiento_id: 1,
+      profesional_id: 7,
+      inicio: creada.inicio,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.reserva.estado).toBe('en_espera');
+    if (r.reserva.estado === 'en_espera') {
+      expect(r.reserva.sena.monto).toBe('3000.00');
+      expect(typeof r.reserva.sena.monto).toBe('string');
+      expect(r.reserva.sena.medios_habilitados).toEqual(['mercadopago', 'transferencia']);
+    }
+  });
+
+  it('acepta una reserva exenta de seña (reservado, sena null)', async () => {
+    const creada = { turno_id: 6, codigo_gestion: 'ZZZZ2345', estado: 'reservado', inicio: 'a', fin: 'b', sena: null };
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json(creada, 201))));
+    const r = await reservarTurno({ nombre: 'Ana Ficticia', telefono: '+5491155556666', tratamiento_id: 1, profesional_id: 7, inicio: 'a' });
+    expect(r.ok && r.reserva.estado).toBe('reservado');
+  });
+
+  it('rechaza un en_espera sin bloque sena (contrato roto)', async () => {
+    const rota = { turno_id: 5, codigo_gestion: 'ABCD2345', estado: 'en_espera', inicio: 'a', fin: 'b', sena: null };
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json(rota, 201))));
+    const r = await reservarTurno({ nombre: 'Ana Ficticia', telefono: '+5491155556666', tratamiento_id: 1, profesional_id: 7, inicio: 'a' });
+    expect(r.ok).toBe(false);
+  });
+});
+
+const INICIO_MP = {
+  turno_id: 5,
+  pago_id: 11,
+  estado: 'pendiente',
+  medio: 'mercadopago',
+  monto: '3000.00',
+  vence_en: SENA_INFO.vence_en,
+  texto_politica_reembolso: SENA_INFO.texto_politica_reembolso,
+  referencia_externa: 'abc123abc123abc123abc123abc123ab',
+  checkout_url: 'http://localhost:5173/?pago=retorno&turno=5',
+  alias: null,
+  cbu: null,
+  titular: null,
+  referencia_concepto: null,
+};
+
+describe('iniciarSena', () => {
+  it('envía el medio con la cabecera X-Codigo-Gestion y devuelve la seña pendiente (201)', async () => {
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => Promise.resolve(url && init ? json(INICIO_MP, 201) : json({}, 500)));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const r = await iniciarSena(5, 'ABCD2345', 'mercadopago');
+
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.creada).toBe(true);
+    expect(r.sena.monto).toBe('3000.00');
+    expect(r.sena.checkout_url).toBe(INICIO_MP.checkout_url);
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe('/api/public/turnos/5/sena');
+    expect(init?.method).toBe('POST');
+    const cabeceras = new Headers(init?.headers);
+    expect(cabeceras.get('X-Codigo-Gestion')).toBe('ABCD2345');
+    expect(JSON.parse(typeof init?.body === 'string' ? init.body : 'null') as unknown).toEqual({ medio: 'mercadopago' });
+  });
+
+  it('un 200 es el reintento idempotente: misma seña, creada=false', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json(INICIO_MP, 200))));
+    const r = await iniciarSena(5, 'ABCD2345', 'mercadopago');
+    expect(r.ok && r.creada).toBe(false);
+  });
+
+  it('transferencia: devuelve alias, CBU y código de referencia', async () => {
+    const tr = {
+      ...INICIO_MP,
+      medio: 'transferencia',
+      checkout_url: null,
+      alias: 'clinica.demo.sintetica',
+      cbu: '0000003100000000000043',
+      titular: 'Clínica Demo',
+      referencia_concepto: 'SENA-5-A1B2C3',
+    };
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json(tr, 201))));
+    const r = await iniciarSena(5, 'ABCD2345', 'transferencia');
+    expect(r.ok && r.sena.alias).toBe('clinica.demo.sintetica');
+    expect(r.ok && r.sena.referencia_concepto).toBe('SENA-5-A1B2C3');
+  });
+
+  it.each([
+    [409, { detail: 'La reserva venció', motivo: 'estado_invalido' }, 'vencida'],
+    [409, { detail: 'Solape por profesional', motivo: 'profesional', alternativas: [] }, 'horario_tomado'],
+    [404, { detail: 'Turno no encontrado' }, 'no_encontrada'],
+    [422, { detail: 'Medio no habilitado: transferencia', medios_habilitados: ['mercadopago'] }, 'medio'],
+    [502, { detail: 'No pudimos conectar con Mercado Pago.' }, 'pasarela'],
+    [500, { detail: 'x' }, 'desconocido'],
+  ])('traduce el %i a un error de seña tipado (%#)', async (status, cuerpo, tipo) => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json(cuerpo, status))));
+    const r = await iniciarSena(5, 'ABCD2345', 'mercadopago');
+    expect(r.ok === false && r.error.tipo).toBe(tipo);
+  });
+
+  it('si la red falla devuelve error desconocido en vez de lanzar', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))));
+    const r = await iniciarSena(5, 'ABCD2345', 'mercadopago');
+    expect(r.ok === false && r.error.tipo).toBe('desconocido');
+  });
+});
+
+const ESTADO = {
+  turno_id: 5,
+  estado_turno: 'en_espera',
+  estado_pago: null,
+  vencida: false,
+  medios_habilitados: ['mercadopago'],
+  pago_id: null,
+  medio: null,
+  monto: '3000.00',
+  vence_en: SENA_INFO.vence_en,
+  texto_politica_reembolso: SENA_INFO.texto_politica_reembolso,
+  referencia_externa: null,
+  checkout_url: null,
+  alias: null,
+  cbu: null,
+  titular: null,
+  referencia_concepto: null,
+  inicio: '2026-11-16T10:00:00-03:00',
+  fin: '2026-11-16T10:30:00-03:00',
+  tratamiento_nombre: 'Limpieza',
+  profesional_nombre: 'Dra. Sintética',
+};
+
+describe('consultarSena', () => {
+  it('pide el estado con la cabecera X-Codigo-Gestion; sin pago iniciado estado_pago es null', async () => {
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => Promise.resolve(url && init ? json(ESTADO) : json({}, 500)));
+    vi.stubGlobal('fetch', fetchMock);
+    const r = await consultarSena(5, 'ABCD2345');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.estado.estado_turno).toBe('en_espera');
+    expect(r.estado.estado_pago).toBeNull();
+    expect(r.estado.monto).toBe('3000.00');
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe('/api/public/turnos/5/sena');
+    expect(new Headers(init?.headers).get('X-Codigo-Gestion')).toBe('ABCD2345');
+  });
+
+  it.each(['pendiente', 'acreditado', 'vencido', 'a_reembolsar', 'en_revision', 'no_reembolsado'] as const)('entiende el estado de pago %s', async (pago) => {
+    const estadoTurno = pago === 'acreditado' ? 'reservado' : 'en_espera';
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json({ ...ESTADO, estado_turno: estadoTurno, estado_pago: pago }))));
+    const r = await consultarSena(5, 'ABCD2345');
+    expect(r.ok && r.estado.estado_pago).toBe(pago);
+    expect(r.ok && r.estado.estado_turno).toBe(estadoTurno);
+  });
+
+  it('un estado desconocido rompe el contrato: error, no un valor inventado', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json({ ...ESTADO, estado_pago: 'inventado' }))));
+    const r = await consultarSena(5, 'ABCD2345');
+    expect(r.ok).toBe(false);
+  });
+
+  it('404 es no_encontrada y la red caída es desconocido', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json({ detail: 'x' }, 404))));
+    const r404 = await consultarSena(5, 'X');
+    expect(r404.ok === false && r404.error.tipo).toBe('no_encontrada');
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))));
+    const rRed = await consultarSena(5, 'X');
+    expect(rRed.ok === false && rRed.error.tipo).toBe('desconocido');
   });
 });

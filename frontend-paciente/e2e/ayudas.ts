@@ -1,6 +1,7 @@
-import { expect, type Browser, type Page } from '@playwright/test';
+import { createHmac } from 'node:crypto';
+import { expect, type APIRequestContext, type Browser, type Page } from '@playwright/test';
 import { etiquetaDiaLarga, hoyClinica, sumarDias } from '../src/lib/tiempo';
-import type { Semilla } from './datos';
+import { CLAVE_RECEPCION, EMAIL_RECEPCION, type Semilla } from './datos';
 
 export const NOMBRE = 'Carlos Sintético';
 export const TELEFONO = '+5491144445555';
@@ -92,3 +93,72 @@ export async function llegarAlPaso3(page: Page, dia: string, hhmm: string): Prom
 }
 
 export type { Semilla };
+
+
+/** Secreto SINTÉTICO del webhook del entorno E2E (mismo default que docker-compose.yml; nunca uno real). */
+export const SECRETO_WEBHOOK = process.env['E2E_MP_WEBHOOK_SECRET'] ?? 'secreto-webhook-sintetico-e2e';
+
+/** Firma igual que Mercado Pago: HMAC-SHA256 del manifest `id:{data.id};request-id:{x-request-id};ts:{ts};`. */
+export function firmarWebhook(
+  dataId: string,
+  opciones: { secreto?: string; requestId?: string; tsMs?: number } = {},
+): Record<string, string> {
+  const requestId = opciones.requestId ?? `req-e2e-${String(Date.now())}`;
+  const ts = String(opciones.tsMs ?? Date.now());
+  const idFirmado = /^[a-zA-Z0-9]+$/.test(dataId) ? dataId.toLowerCase() : dataId; // como Mercado Pago: minúsculas solo si es alfanumérico
+  const manifest = `id:${idFirmado};request-id:${requestId};ts:${ts};`;
+  const firma = createHmac('sha256', opciones.secreto ?? SECRETO_WEBHOOK).update(manifest).digest('hex');
+  return { 'x-signature': `ts=${ts},v1=${firma}`, 'x-request-id': requestId };
+}
+
+/** Envía el webhook de un pago aprobado (la pasarela falsa decodifica estado y referencia del propio id). */
+export async function enviarWebhook(
+  request: APIRequestContext,
+  referencia: string,
+  monto: string,
+  opciones: { secreto?: string; estado?: string } = {},
+) {
+  // La pasarela falsa informa monto y moneda codificados en el id; sin ellos la acreditación va a revisión (RN-SN-09).
+  const dataId = `fake-${opciones.estado ?? 'approved'}-${referencia}@${monto}@ARS`;
+  return request.post(`${API}/api/webhooks/mercadopago`, {
+    params: { 'data.id': dataId, type: 'payment' },
+    headers: firmarWebhook(dataId, opciones.secreto === undefined ? {} : { secreto: opciones.secreto }),
+    data: { type: 'payment', data: { id: dataId } },
+  });
+}
+
+/** Login del usuario de recepción sintético; devuelve la cabecera Authorization. */
+export async function loginRecepcion(request: APIRequestContext): Promise<Record<string, string>> {
+  const r = await request.post(`${API}/api/auth/login`, { data: { email: EMAIL_RECEPCION, password: CLAVE_RECEPCION } });
+  expect(r.status(), 'el login de recepción sintética debe funcionar').toBe(200);
+  const { access_token: token } = (await r.json()) as { access_token: string };
+  return { Authorization: `Bearer ${token}` };
+}
+
+/** Recepción acredita a mano una transferencia (RN-SN-08). */
+export async function acreditarTransferencia(request: APIRequestContext, pagoId: number) {
+  return request.post(`${API}/api/admin/pagos-sena/${String(pagoId)}/acreditar`, { headers: await loginRecepcion(request) });
+}
+
+/** Reserva el horario como un paciente (por la API real) y devuelve el JSON de la respuesta. */
+export async function reservarPorApi(
+  semilla: Semilla,
+  inicio: string,
+  nombre: string,
+  telefono = '+5491155556666',
+): Promise<{ status: number; cuerpo: { turno_id: number; codigo_gestion: string; estado: string } }> {
+  const r = await fetch(`${API}/api/public/turnos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre, telefono, tratamiento_id: semilla.limpiezaId, profesional_id: semilla.profesionalId, inicio }),
+  });
+  return { status: r.status, cuerpo: (await r.json()) as { turno_id: number; codigo_gestion: string; estado: string } };
+}
+
+/** Lleva al paciente desde "Confirmar turno" hasta la pantalla de pago de la seña. */
+export async function reservarHastaLaSena(page: Page, dia: string, hhmm: string, nombre = NOMBRE): Promise<void> {
+  await llegarAlPaso3(page, dia, hhmm);
+  await completarContacto(page, TELEFONO, nombre);
+  await page.getByRole('button', { name: 'Confirmar turno' }).click();
+  await expect(page.getByRole('heading', { name: 'Pagá la seña para confirmar tu turno' })).toBeVisible();
+}

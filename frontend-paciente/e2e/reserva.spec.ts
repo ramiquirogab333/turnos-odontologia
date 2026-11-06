@@ -12,7 +12,7 @@ import {
   llegarAlPaso3,
   verificarPantalla,
 } from './ayudas';
-import { contarPacientes, leerTurnos, sembrar, vaciarTurnos, type Semilla } from './datos';
+import { contarPacientes, leerTurnos, sembrar, sembrarTurnoReservado, vaciarTurnos, type Semilla } from './datos';
 import { etiquetaDiaLarga } from '../src/lib/tiempo';
 
 let semilla: Semilla;
@@ -30,21 +30,6 @@ test.beforeEach(async ({ page }) => {
 
 const esPostTurnos = (r: Response): boolean =>
   r.url().endsWith('/api/public/turnos') && r.request().method() === 'POST';
-
-async function reservarComoOtraPersona(inicio: string): Promise<number> {
-  const r = await fetch(`${API}/api/public/turnos`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      nombre: 'María Sintética',
-      telefono: '+5491155556666',
-      tratamiento_id: semilla.limpiezaId,
-      profesional_id: semilla.profesionalId,
-      inicio,
-    }),
-  });
-  return r.status;
-}
 
 test.describe('R2: la carga inicial no hace cascadas', () => {
   test('tratamientos y profesionales salen juntos y los horarios recién al elegir', async ({ page }) => {
@@ -76,6 +61,8 @@ test.describe('R2: la carga inicial no hace cascadas', () => {
     expect(consultasDisponibilidad).toHaveLength(0);
 
     await elegirTratamiento(page);
+    // Se elige el día objetivo (siempre futuro): "hoy" puede no tener ya el horario de las 10:00.
+    await page.getByRole('button', { name: etiquetaDiaLarga(diaObjetivo()), exact: true }).click();
     await expect(page.getByRole('button', { name: '10:00', exact: true }).first()).toBeVisible();
     expect(consultasDisponibilidad).toHaveLength(1); // una sola consulta para todo el rango
   });
@@ -97,18 +84,30 @@ test.describe('3.1 reserva exitosa (happy path) a 360px', () => {
       page.getByRole('button', { name: 'Confirmar turno' }).click(),
     ]);
     expect(respuesta.status()).toBe(201);
-    const cuerpo = (await respuesta.json()) as { codigo_gestion: string; inicio: string; fin: string; estado: string };
-    expect(cuerpo.estado).toBe('reservado');
+    const cuerpo = (await respuesta.json()) as {
+      codigo_gestion: string;
+      inicio: string;
+      fin: string;
+      estado: string;
+      sena: { monto: string; medios_habilitados: string[] };
+    };
+    expect(cuerpo.estado).toBe('en_espera'); // P7: ya no nace reservado
+    expect(cuerpo.sena.monto).toBe('4500.00'); // 30 % de 15000.00
     expect(new Date(cuerpo.fin).getTime() - new Date(cuerpo.inicio).getTime()).toBe(30 * 60_000);
 
-    await expect(page.getByRole('heading', { name: 'Turno reservado' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Pagá la seña para confirmar tu turno' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Turno reservado' })).toHaveCount(0);
     await expect(page.getByText(/10:00 a 10:30/)).toBeVisible(); // hora de la clínica aunque el navegador esté en Tokyo
-    await expect(page.getByText(cuerpo.codigo_gestion)).toBeVisible();
-    await verificarPantalla(page, 'confirmación');
+    await expect(page.getByText(/4\.500,00/)).toBeVisible();
+    await expect(page.getByText(/^Tu reserva vence a las \d{2}:\d{2}$/)).toBeVisible();
+    await expect(page.getByText('Tu turno no está confirmado hasta acreditar la seña.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Pagar con Mercado Pago' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Pagar por transferencia' })).toBeVisible();
+    await verificarPantalla(page, 'pantalla de seña');
 
     const turnos = await leerTurnos();
     expect(turnos).toHaveLength(1);
-    expect(turnos[0]).toMatchObject({ estado: 'reservado', contacto_nombre: NOMBRE, contacto_telefono: TELEFONO });
+    expect(turnos[0]).toMatchObject({ estado: 'en_espera', contacto_nombre: NOMBRE, contacto_telefono: TELEFONO });
     expect(turnos[0]?.codigo_gestion).toBe(cuerpo.codigo_gestion);
     expect(turnos[0]?.inicio.toISOString()).toBe(new Date(inicioClinica(dia, '10:00')).toISOString());
     expect((turnos[0]?.fin.getTime() ?? 0) - (turnos[0]?.inicio.getTime() ?? 0)).toBe(30 * 60_000);
@@ -136,8 +135,8 @@ test.describe('3.2 horario ocupado: alternativas y carrera', () => {
     await llegarAlPaso3(page, dia, '10:00');
     await completarContacto(page);
 
-    // Mientras tanto, otra persona reserva ese mismo horario por la API real.
-    expect(await reservarComoOtraPersona(inicioClinica(dia, '10:00'))).toBe(201);
+    // Mientras tanto, otra persona acredita su seña en ese horario: queda `reservado` y bloquea la agenda.
+    await sembrarTurnoReservado(semilla, inicioClinica(dia, '10:00'));
 
     const [respuesta] = await Promise.all([
       page.waitForResponse(esPostTurnos),
@@ -163,14 +162,18 @@ test.describe('3.2 horario ocupado: alternativas y carrera', () => {
       page.getByRole('button', { name: 'Confirmar turno' }).click(),
     ]);
     expect(segunda.status()).toBe(201);
+    await expect(page.getByRole('heading', { name: 'Pagá la seña para confirmar tu turno' })).toBeVisible();
     await expect(page.getByText(/10:30 a 11:00/)).toBeVisible();
 
     const turnos = await leerTurnos();
-    expect(turnos.map((t) => t.contacto_nombre)).toEqual(['María Sintética', NOMBRE]);
+    expect(turnos.map((t) => [t.contacto_nombre, t.estado])).toEqual([
+      [null, 'reservado'],
+      [NOMBRE, 'en_espera'],
+    ]);
     expect(turnos[1]?.inicio.toISOString()).toBe(new Date(inicioClinica(dia, '10:30')).toISOString());
   });
 
-  test('dos pacientes confirman el mismo horario al mismo tiempo: uno obtiene 201 y el otro 409 con alternativas', async ({ browser }) => {
+  test('dos pacientes confirman el mismo horario al mismo tiempo: ambos obtienen 201 en_espera (la competencia es al acreditar)', async ({ browser }) => {
     const dia = diaObjetivo();
     const paginas: Page[] = [await abrirPaciente(browser), await abrirPaciente(browser)];
     try {
@@ -178,24 +181,21 @@ test.describe('3.2 horario ocupado: alternativas y carrera', () => {
         await llegarAlPaso3(p, dia, '11:00');
         await completarContacto(p);
       }
-      const resultados = await Promise.all(
+      const estados = await Promise.all(
         paginas.map(async (p) => {
           const [r] = await Promise.all([
             p.waitForResponse(esPostTurnos),
             p.getByRole('button', { name: 'Confirmar turno' }).click(),
           ]);
-          return { pagina: p, estado: r.status() };
+          return r.status();
         }),
       );
-      expect(resultados.map((r) => r.estado).sort()).toEqual([201, 409]);
-
-      const ganadora = resultados.find((r) => r.estado === 201)?.pagina;
-      const perdedora = resultados.find((r) => r.estado === 409)?.pagina;
-      if (!ganadora || !perdedora) throw new Error('Se esperaba una ganadora y una perdedora');
-      await expect(ganadora.getByRole('heading', { name: 'Turno reservado' })).toBeVisible();
-      await expect(perdedora.getByRole('alert')).toContainText('ya fue reservado');
-      await expect(perdedora.getByRole('alert').getByRole('button').first()).toBeVisible();
-      expect(await leerTurnos()).toHaveLength(1);
+      expect(estados).toEqual([201, 201]); // P7 / R8: un en_espera no bloquea agenda
+      for (const p of paginas) {
+        await expect(p.getByRole('heading', { name: 'Pagá la seña para confirmar tu turno' })).toBeVisible();
+      }
+      const turnos = await leerTurnos();
+      expect(turnos.map((t) => t.estado)).toEqual(['en_espera', 'en_espera']);
     } finally {
       await Promise.all(paginas.map((p) => p.context().close()));
     }
@@ -226,6 +226,7 @@ test.describe('3.3 teléfono inválido en el último horario de atención', () =
     await campo.fill('+54 9 11 4444-5555');
     const [r] = await Promise.all([page.waitForResponse(esPostTurnos), page.getByRole('button', { name: 'Confirmar turno' }).click()]);
     expect(r.status()).toBe(201);
+    await expect(page.getByRole('heading', { name: 'Pagá la seña para confirmar tu turno' })).toBeVisible();
     await expect(page.getByText(/16:30 a 17:00/)).toBeVisible();
   });
 

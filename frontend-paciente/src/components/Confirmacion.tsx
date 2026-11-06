@@ -1,15 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { diaClinica, etiquetaDiaLarga, horaClinica } from '../lib/tiempo';
-import type { Profesional, ReservaCreada, Tratamiento } from '../lib/tipos';
 
 interface Props {
-  readonly reserva: ReservaCreada;
-  readonly tratamiento: Tratamiento;
-  readonly profesional: Profesional;
+  readonly inicio: string;
+  readonly fin: string;
+  readonly codigoGestion: string;
+  readonly tratamientoNombre: string;
+  readonly profesionalNombre: string;
   readonly onNueva: () => void;
 }
 
-export function Confirmacion({ reserva, tratamiento, profesional, onNueva }: Props) {
+export function Confirmacion({ inicio, fin, codigoGestion, tratamientoNombre, profesionalNombre, onNueva }: Props) {
   const titulo = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     titulo.current?.focus();
@@ -21,14 +22,14 @@ export function Confirmacion({ reserva, tratamiento, profesional, onNueva }: Pro
         Turno reservado
       </h2>
       <p>
-        {etiquetaDiaLarga(diaClinica(reserva.inicio))}, {horaClinica(reserva.inicio)} a {horaClinica(reserva.fin)}
+        {etiquetaDiaLarga(diaClinica(inicio))}, {horaClinica(inicio)} a {horaClinica(fin)}
       </p>
       <p className="nota">
-        {tratamiento.nombre} con {profesional.nombre}. Hora de Buenos Aires.
+        {tratamientoNombre} con {profesionalNombre}. Hora de Buenos Aires.
       </p>
       <div className="codigo">
         <span>Tu código de gestión</span>
-        <strong>{reserva.codigo_gestion}</strong>
+        <strong>{codigoGestion}</strong>
       </div>
       <p>Guardá el código. La clínica te confirma el turno por WhatsApp.</p>
       <div className="acciones">

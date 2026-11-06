@@ -10,6 +10,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { ErrorCarga } from './ErrorCarga';
 import { PasoContacto } from './PasoContacto';
 import { PasoHorario } from './PasoHorario';
+import { PagoSena } from './PagoSena';
 import { PasoTratamiento } from './PasoTratamiento';
 import { Progreso } from './Progreso';
 
@@ -115,7 +116,20 @@ export function Reserva({ catalogo: promesa, onNueva }: Props) {
   }
 
   if (reserva && tratamiento && profesional) {
-    return <Confirmacion reserva={reserva} tratamiento={tratamiento} profesional={profesional} onNueva={onNueva} />;
+    // En espera: la agenda no se bloquea hasta acreditar la seña (R8), así que primero se paga.
+    if (reserva.estado === 'en_espera') {
+      return <PagoSena reserva={reserva} tratamiento={tratamiento} profesional={profesional} onNueva={onNueva} />;
+    }
+    return (
+      <Confirmacion
+        inicio={reserva.inicio}
+        fin={reserva.fin}
+        codigoGestion={reserva.codigo_gestion}
+        tratamientoNombre={tratamiento.nombre}
+        profesionalNombre={profesional.nombre}
+        onNueva={onNueva}
+      />
+    );
   }
 
   return (
