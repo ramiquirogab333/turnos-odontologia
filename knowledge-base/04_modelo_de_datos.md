@@ -58,10 +58,19 @@ ObraSocial 1───* Nomenclador (precargado AR)
 - Constraints: fin = inicio + duración del tratamiento; no solape por profesional NI por sillón/box desde día 1 (RN-TU-03, EXCLUDE parciales por estado, estrategia A); cancelación/reprogramación solo con ≥ 24 hs de anticipación. Estado `en_espera` (C-06): pre-reserva con seña pendiente que NO bloquea agenda ni genera recordatorio/calendario; solo la seña acreditada (`reservado`) bloquea el slot (R8).
 - Índices: (profesional_id, inicio), (sillon_id, inicio), (paciente_id, inicio), estado; índice sobre cada FK.
 
-### PagoSena (desde C-06 — solo modelado documental; no implementado antes de C-06)
-- Atributos: id, turno_id, medio (Mercado Pago / transferencia), monto (`Numeric`, seña fija configurable ej. 30% del valor de la consulta), estado (pendiente / acreditado / vencido / no_reembolsado), referencia externa única (`ref_unica`, idempotencia del webhook).
+### PagoSena (desde C-06)
+- Atributos: id, turno_id, medio (Mercado Pago / transferencia), monto (`Numeric`, seña fija configurable, 30% del precio base por defecto), estado (pendiente / acreditado / vencido / no_reembolsado / a_reembolsar / en_revision), monto_reportado y moneda_reportada (lo que informó la pasarela cuando no coincidió con la seña, RN-SN-09), referencia externa única (`ref_unica`, idempotencia del webhook; en transferencia es el código corto del concepto).
 - Relaciones: *───1 Turno.
-- Constraints: referencia externa única; ausente NO reembolsa (queda como recupero/no_reembolsado, R9).
+- Constraints: referencia externa única; ausente NO reembolsa (queda como recupero/no_reembolsado, R9); `a_reembolsar` = devolución manual pendiente por cancelación con ≥ 24 h (RN-SN-04) o por un pago aprobado tardío o un horario perdido (RN-SN-05). `en_revision` = la pasarela aprobó un monto o una moneda distintos de la seña: no bloquea agenda y espera acreditación manual o devolución (RN-SN-09).
+
+### PagoSenaAprobacion (desde C-06, RN-SN-10)
+- Atributos: id, pago_id (FK indexada), mp_payment_id (único), estado (aplicado / en_revision / a_reembolsar), monto_reportado (`Numeric`), moneda_reportada, created_at.
+- Un registro por cada pago aprobado de la pasarela: garantiza la idempotencia por id y deja trazabilidad de los sobrantes y de los pagos en revisión para la devolución manual.
+
+### ConfiguracionSena (desde C-06)
+- Singleton (`id = 1`, migración `006_sena_pagos`) editable por recepción/admin con auditoría: `sena_porcentaje` (`Numeric(5,2)`, 30.00 por defecto, mayor que 0 y hasta 100), `medios_habilitados` (subconjunto no vacío de `mercadopago` y `transferencia`, RN-PG-01), `texto_politica_reembolso`, `expiracion_mp_minutos` (30) y `expiracion_transferencia_minutos` (1440) —RN-SN-07—, y los datos de la cuenta para transferir (`transferencia_alias`, `transferencia_cbu` de 22 dígitos, `transferencia_titular`; RN-SN-08).
+- El `PagoSena` guarda `porcentaje_aplicado` y `monto` al iniciar la seña: cambiar la configuración después no altera las señas ya iniciadas (RN-SN-03). La transferencia solo se ofrece al paciente si alias y CBU están cargados.
+- Turno agrega `en_espera_vence_en` (`TIMESTAMPTZ`, obligatorio mientras el turno está `en_espera`).
 
 ### Disponibilidad
 - Atributos: id, profesional_id, día_semana, hora_desde, hora_hasta, excepciones/feriados.
@@ -80,7 +89,7 @@ ObraSocial 1───* Nomenclador (precargado AR)
 - Nota: el pago de SEÑA del turno vive en `PagoSena` (entidad propia desde C-06), no en `Pago` (atado a `Presupuesto`).
 
 ```
-Turno 1───* PagoSena (seña: pendiente → acreditado/bloquea → vencido/no_reembolsado)
+Turno 1───* PagoSena (seña: pendiente → acreditado/bloquea → vencido/no_reembolsado/a_reembolsar)
 ```
 
 ### ObraSocial / Nomenclador

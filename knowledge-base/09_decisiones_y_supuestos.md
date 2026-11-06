@@ -44,6 +44,22 @@
 **Justificación**: cubre operación diaria sin el costo de facturación electrónica nativa.
 **Trade-offs aceptados**: facturación completa queda fuera de v1.
 
+### DD-07 — Política de la seña (C-06, decisión del Product Owner 2026-11-06)
+**Decisión**: se aprueban los defaults de C-06 con un cambio en la cancelación:
+- Vencimiento de `en_espera`: 30 min con Mercado Pago y 24 h con transferencia, nunca después del inicio del turno; editable por el admin (RN-SN-07).
+- Cancelación con 24 h o más: la seña se devuelve (`a_reembolsar`, devolución manual). El ausente no se reembolsa (RN-SN-04, RN-SN-02).
+- Pago aprobado tardío u horario ganado por otro: `a_reembolsar`, y el turno no revive (RN-SN-05).
+- Precio base 0: exento de seña, nace `reservado` (RN-SN-06).
+- Seña inicial: 30% del precio base (RN-SN-03).
+- Transferencia: acreditación manual de recepción/admin por la API (la UI llega en C-12), con alias, CBU y un código de referencia del turno en el concepto (RN-SN-08).
+- Se reescriben los tests y E2E de C-05 dentro de C-06.
+- El barrido de vencimiento es una tarea asyncio del lifespan, cada 60 s y sin Redis; C-09 lo consolida.
+
+**Contexto**: el diseño de C-06 (`openspec/changes/c-06-sena-pagos-turno/design.md`, §Decisiones aprobadas, P1 a P8) dejó estas decisiones para el usuario por la governance CRÍTICA de pagos.
+**Alternativas consideradas**: seña no reembolsable también al cancelar (era el default original de `CHANGES.md`); revivir el turno ante un pago tardío; rechazar la reserva de tratamientos sin precio; Redis + worker para el vencimiento.
+**Justificación**: devolver la seña cuando se avisa con tiempo es más justo para el paciente y deja el castigo solo para el ausentismo. La devolución manual evita automatizar reembolsos en v1.
+**Trade-offs aceptados**: los reembolsos son manuales (`a_reembolsar` visible en caja desde C-12); `a_reembolsar` agrega un estado que la KB original no tenía.
+
 ## Supuestos inferidos
 
 ### SU-01 — El PDF equivale a los .md
