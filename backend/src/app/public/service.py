@@ -5,7 +5,8 @@ Todo el I/O es asíncrono. Reglas aplicadas:
 - RN-TU-04: ``fin = inicio + duracion_minutos`` derivado en el servidor.
 - RN-TU-07: solo se reserva dentro de la ``Disponibilidad`` vigente (``is_active``).
 - Las ``Disponibilidad.hora_*`` son horas locales de la clínica (``APP_TZ``).
-- Bloquean agenda ``reservado``/``confirmado`` (R8; ``en_espera`` llega con C-06).
+- Bloquean agenda ``reservado``/``confirmado`` (R8): un ``en_espera`` (seña pendiente) NO bloquea.
+- C-06: la reserva nace ``en_espera`` con vencimiento y bloque ``sena``; precio 0 nace ``reservado`` (RN-SN-06).
 
 Concurrencia: las reservas se serializan con ``pg_advisory_xact_lock``. Sin él, dos
 inserciones simultáneas del mismo slot violan a la vez EXCLUDE profesional y EXCLUDE
@@ -16,7 +17,7 @@ el EXCLUDE sigue siendo la garantía final en base de datos (R5).
 
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -25,6 +26,8 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.core import Disponibilidad, RegistroAuditoria
+from app.pagos.calculo import monto_sena, vencimiento
+from app.pagos.config import medios_disponibles, obtener_configuracion
 from app.public.schemas import ReservaPublicaRequest
 from app.shared.exceptions import ReferenceNotFoundError
 from app.shared.settings import get_settings
@@ -218,9 +221,16 @@ async def reservar_turno_publico(session: AsyncSession, data: ReservaPublicaRequ
     if sillon is None:
         raise await _conflicto(session, "sillon", data, tratamiento.duracion_minutos)
 
+    config = await obtener_configuracion(session)
+    monto = monto_sena(tratamiento.precio_base, config.sena_porcentaje)  # RN-SN-03
+    exento = monto <= 0  # RN-SN-06: precio 0 -> sin seña, nace reservado
+    vence_en = None if exento else vencimiento(
+        datetime.now(timezone.utc), config.expiracion_mp_minutos, inicio)  # RN-SN-07
+
     turno = Turno(
         profesional_id=data.profesional_id, sillon_id=sillon.id, tratamiento_id=data.tratamiento_id,
-        paciente_id=None, inicio=inicio, fin=fin, estado="reservado",
+        paciente_id=None, inicio=inicio, fin=fin, estado="reservado" if exento else "en_espera",
+        en_espera_vence_en=vence_en,
         codigo_gestion=str(uuid.uuid4()), contacto_nombre=data.nombre, contacto_telefono=data.telefono,
     )
     session.add(turno)
@@ -245,8 +255,11 @@ async def reservar_turno_publico(session: AsyncSession, data: ReservaPublicaRequ
             raise await _conflicto(session, motivo, data, tratamiento.duracion_minutos) from exc
         raise
 
+    sena = None if exento or vence_en is None else {
+        "monto": monto, "vence_en": vence_en, "medios_habilitados": medios_disponibles(config),
+        "texto_politica_reembolso": config.texto_politica_reembolso}
     return {"turno_id": int(turno.id), "codigo_gestion": turno.codigo_gestion or "",
-            "estado": turno.estado, "inicio": turno.inicio, "fin": turno.fin}
+            "estado": turno.estado, "inicio": turno.inicio, "fin": turno.fin, "sena": sena}
 
 
 async def _conflicto(session: AsyncSession, motivo: str, data: ReservaPublicaRequest,

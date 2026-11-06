@@ -5,6 +5,7 @@ import sys
 from collections.abc import AsyncIterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # JWT settings son requeridos por Settings (R17: solo env vars). Valores sintéticos
 # solo para el entorno de test; en producción deben venir del entorno real.
@@ -12,6 +13,11 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-c-03-synthetic-do-not-use-p
 os.environ.setdefault("JWT_ALGORITHM", "HS256")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "15")
 os.environ.setdefault("REFRESH_TOKEN_EXPIRE_MINUTES", "10080")
+# C-06: pasarela falsa (sin red), secreto de webhook sintético y barrido desactivado en tests.
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("MP_GATEWAY", "fake")
+os.environ.setdefault("MP_WEBHOOK_SECRET", "secreto-webhook-sintetico-tests")
+os.environ.setdefault("SENA_BARRIDO_HABILITADO", "false")
 
 # El código vive en src/ (layout canónico de la cátedra): exponerlo en sys.path
 # para que `from app...` resuelva sin instalar el paquete. Vía estándar mínima
@@ -21,14 +27,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import pytest
 import pytest_asyncio
+
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete
+from decimal import Decimal
+
+from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.models.auth import TokenBlacklist
 from app.models.core import RegistroAuditoria, Usuario, UsuarioRol, Rol
 from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 
+if TYPE_CHECKING:
+    from tests.sena_helpers import PasarelaEspia
+
+POLITICA_REEMBOLSO_DEFECTO = (
+    "Si cancelás con 24 h o más de anticipación, te devolvemos la seña. "
+    "Si no asistís, la seña no se devuelve."
+)
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL", "postgresql+asyncpg://turnos:turnos@localhost:5433/turnos"
 )
@@ -81,10 +97,13 @@ async def clean_db(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> AsyncIterator[None]:
     """Delete all rows before each test via ORM (child first, R14; fixture harness)."""
+    from app.pagos.models import AprobacionPago, ConfiguracionSena, PagoSena
     from app.turnos.models import Turno
 
     async with session_factory() as session:
         for model in (
+            AprobacionPago,
+            PagoSena,
             TokenBlacklist,
             RegistroAuditoria,
             UsuarioRol,
@@ -96,6 +115,12 @@ async def clean_db(
             Tratamiento,
         ):
             await session.execute(delete(model))
+        # Singleton de la seña: vuelve a los valores por defecto de la migración 006.
+        await session.execute(update(ConfiguracionSena).values(
+            sena_porcentaje=Decimal("30.00"), medios_habilitados=["mercadopago", "transferencia"],
+            texto_politica_reembolso=POLITICA_REEMBOLSO_DEFECTO, expiracion_mp_minutos=30,
+            expiracion_transferencia_minutos=1440, transferencia_alias=None, transferencia_cbu=None,
+            transferencia_titular=None))
         await session.commit()
     yield
 
@@ -160,3 +185,18 @@ def future_iso(minutes_ahead: int = 60) -> str:
 def past_iso(minutes_back: int = 60) -> str:
     """ISO-8601 UTC timestamp `minutes_back` in the past."""
     return (datetime.now(timezone.utc) - timedelta(minutes=minutes_back)).isoformat()
+
+
+@pytest_asyncio.fixture
+async def pasarela() -> AsyncIterator["PasarelaEspia"]:
+    """Sobreescribe ``get_pasarela`` con una pasarela falsa que registra llamadas (nunca hay red)."""
+    from app.main import app
+    from app.pagos.deps import get_pasarela
+    from tests.sena_helpers import PasarelaEspia
+
+    espia = PasarelaEspia()
+    app.dependency_overrides[get_pasarela] = lambda: espia
+    try:
+        yield espia
+    finally:
+        app.dependency_overrides.pop(get_pasarela, None)

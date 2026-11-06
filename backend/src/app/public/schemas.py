@@ -99,16 +99,32 @@ class ReservaPublicaRequest(BaseModel):
         return value
 
 
+class SenaPublica(BaseModel):
+    """Seña a pagar para confirmar la pre-reserva (C-06). El monto viaja como string decimal (R4)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    monto: Decimal
+    vence_en: datetime
+    medios_habilitados: list[str]
+    texto_politica_reembolso: str
+
+    @field_serializer("monto")
+    def _monto_como_texto(self, v: Decimal) -> str:
+        return f"{v:.2f}"
+
+
 class ReservaPublicaResponse(BaseModel):
-    """Respuesta 201 de POST /api/public/turnos."""
+    """Respuesta 201 de POST /api/public/turnos: ``en_espera`` con seña, o ``reservado`` si está exento."""
 
     model_config = ConfigDict(extra="forbid")
 
     turno_id: int
     codigo_gestion: str
-    estado: str
+    estado: Literal["en_espera", "reservado"]
     inicio: datetime
     fin: datetime
+    sena: SenaPublica | None = None
 
 
 class ReservaConflictoBody(BaseModel):

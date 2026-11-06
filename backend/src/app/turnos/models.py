@@ -87,6 +87,8 @@ class Turno(Base):
     codigo_gestion: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
     contacto_nombre: Mapped[str | None] = mapped_column(Text, nullable=True)
     contacto_telefono: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Seña (C-06): vencimiento de la pre-reserva; obligatorio mientras el turno está en_espera.
+    en_espera_vence_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     periodo: Mapped[Any] = mapped_column(
         TSTZRANGE, Computed("tstzrange(inicio, fin, '[)')", persisted=True)
     )
@@ -100,6 +102,9 @@ class Turno(Base):
         Index("ix_turno_profesional_inicio", "profesional_id", "inicio"),
         Index("ix_turno_sillon_inicio", "sillon_id", "inicio"),
         Index("ix_turno_paciente_inicio", "paciente_id", "inicio"),
+        CheckConstraint(
+            "estado <> 'en_espera' OR en_espera_vence_en IS NOT NULL", name="ck_turno_en_espera_vence"
+        ),
         CheckConstraint(
             "codigo_gestion IS NULL OR LENGTH(codigo_gestion) BETWEEN 8 AND 64",
             name="ck_turno_codigo_gestion_len",

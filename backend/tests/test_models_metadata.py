@@ -51,3 +51,22 @@ def test_tratamiento_checks() -> None:
     checks = [str(c.sqltext) for c in Tratamiento.__table__.constraints if isinstance(c, CheckConstraint)]
     assert any("duracion_minutos" in sql for sql in checks)
     assert any("precio_base" in sql for sql in checks)
+
+
+def test_pago_sena_fk_indexes_y_tipos_de_dinero() -> None:
+    """C-06 (R4/R6): FK de pago_sena indexadas, monto NUMERIC y fechas con zona horaria."""
+    from app.pagos.models import ConfiguracionSena, PagoSena
+
+    indexados = {c.name for idx in PagoSena.__table__.indexes for c in idx.columns}
+    assert {"turno_id", "acreditado_por_usuario_id"} <= indexados
+    assert isinstance(PagoSena.__table__.c.monto.type, Numeric)
+    assert (PagoSena.__table__.c.monto.type.precision, PagoSena.__table__.c.monto.type.scale) == (10, 2)
+    assert PagoSena.__table__.c.vence_en.type.timezone is True
+    assert isinstance(ConfiguracionSena.__table__.c.sena_porcentaje.type, Numeric)
+
+
+def test_turno_expone_en_espera_vence_en_con_zona_horaria() -> None:
+    from app.turnos.models import Turno
+
+    assert Turno.__table__.c.en_espera_vence_en.type.timezone is True
+    assert Turno.__table__.c.en_espera_vence_en.nullable is True

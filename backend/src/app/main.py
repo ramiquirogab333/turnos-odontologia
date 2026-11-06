@@ -1,11 +1,17 @@
 """FastAPI application entrypoint (R13/R15/R16/R17)."""
 
+import asyncio
+import contextlib
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from sqlalchemy import select
 
 from app.shared.db import get_session_factory
 from app.shared.exceptions import OverlapError, ReferenceNotFoundError
 from app.shared.logger import get_logger
+from app.shared.settings import get_settings
 from app.turnos.router import (
     referencia_handler,
     router as turnos_router,
@@ -20,11 +26,35 @@ from app.catalogo.router import (
     router_sillones,
     router_tratamientos,
 )
+from app.pagos.barrido import ciclo_barrido
+from app.pagos.router_admin import router as sena_admin_router
+from app.pagos.router_public import router as sena_public_router
+from app.pagos.router_webhook import router as sena_webhook_router
 from app.public.router import router as public_router
 
 logger = get_logger(__name__)
 
-app = FastAPI(title="Turnos Odontología — C-01", version="0.1.0")
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    """Arranca el barrido periódico de pre-reservas vencidas (C-06, D8) y lo cancela al apagar."""
+    settings = get_settings()
+    application.state.barrido_task = None
+    if settings.sena_barrido_habilitado:
+        application.state.barrido_task = asyncio.create_task(
+            ciclo_barrido(get_session_factory(), settings.sena_barrido_segundos))
+    try:
+        yield
+    finally:
+        tarea = application.state.barrido_task
+        if tarea is not None:
+            tarea.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await tarea
+
+
+app = FastAPI(title="Turnos Odontología — C-01", version="0.1.0", lifespan=lifespan)
 app.include_router(turnos_router)
 app.include_router(auth_router)
 app.include_router(router_tratamientos)
@@ -32,6 +62,9 @@ app.include_router(router_profesionales)
 app.include_router(router_sillones)
 app.include_router(router_disponibilidad)
 app.include_router(public_router)
+app.include_router(sena_public_router)
+app.include_router(sena_webhook_router)
+app.include_router(sena_admin_router)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ReferenceNotFoundError, referencia_handler)  # type: ignore[arg-type]
 
