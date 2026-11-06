@@ -27,6 +27,20 @@ services:
       APP_TZ: America/Argentina/Buenos_Aires
       # R17: el secreto JWT llega por variable de entorno del host (nunca en el repo).
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+      # C-06 (R17): pasarela de pagos. Todo viene del entorno del host; nunca se commitea un .env (R20) ni un
+      # secreto por defecto. Los defaults son los SEGUROS: producción con Mercado Pago real, así que sin
+      # MP_ACCESS_TOKEN el backend no arranca. La pasarela falsa solo se acepta con APP_ENV=test o APP_ENV=e2e
+      # (tests, CI y E2E exportan esos valores). MP_WEBHOOK_SECRET es obligatoria: sin ella `docker compose`
+      # falla con un mensaje claro (para solo Postgres basta exportar un valor cualquiera).
+      APP_ENV: ${APP_ENV:-production}
+      MP_GATEWAY: ${MP_GATEWAY:-mercadopago}
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:?definí MP_WEBHOOK_SECRET en el entorno (no se commitea ningún secreto)}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:-http://localhost:8000}
+      # Barrido de pre-reservas vencidas (C-06 D8). Para los E2E de vencimiento conviene 3.
+      SENA_BARRIDO_HABILITADO: ${SENA_BARRIDO_HABILITADO:-true}
+      SENA_BARRIDO_SEGUNDOS: ${SENA_BARRIDO_SEGUNDOS:-60}
     ports:
       - "8000:8000"
     depends_on:

@@ -41,6 +41,11 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://turnos:turnos@localhost:5433/turnos
       TEST_DATABASE_URL: postgresql+asyncpg://turnos:turnos@localhost:5433/turnos
       PYTHONPATH: src
+      # C-06: pasarela FALSA (sin red) y secreto de webhook SINTÉTICO; barrido apagado en los tests.
+      APP_ENV: test
+      MP_GATEWAY: fake
+      MP_WEBHOOK_SECRET: ci-secreto-webhook-sintetico
+      SENA_BARRIDO_HABILITADO: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -83,6 +88,14 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://turnos:turnos@localhost:5433/turnos
       PYTHONPATH: src
+      # C-06: el backend de Compose usa la pasarela falsa, permitida solo con APP_ENV=e2e; el E2E firma el webhook
+      # con este mismo secreto SINTÉTICO (docker-compose.yml lo toma del entorno, sin default) y el barrido corre
+      # cada 3 s para el caso de vencimiento.
+      APP_ENV: e2e
+      MP_GATEWAY: fake
+      MP_WEBHOOK_SECRET: ci-secreto-webhook-sintetico
+      E2E_MP_WEBHOOK_SECRET: ci-secreto-webhook-sintetico
+      SENA_BARRIDO_SEGUNDOS: '3'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
