@@ -16,7 +16,9 @@ os.environ.setdefault("REFRESH_TOKEN_EXPIRE_MINUTES", "10080")
 # C-06: pasarela falsa (sin red), secreto de webhook sintético y barrido desactivado en tests.
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("MP_GATEWAY", "fake")
-os.environ.setdefault("MP_WEBHOOK_SECRET", "secreto-webhook-sintetico-tests")
+# Asignación forzada (no setdefault): los tests firman con SECRETO_WEBHOOK (tests/sena_helpers.py) y el
+# entorno externo (p. ej. CI) no debe poder pisarlo.
+os.environ["MP_WEBHOOK_SECRET"] = "secreto-webhook-sintetico-tests"
 os.environ.setdefault("SENA_BARRIDO_HABILITADO", "false")
 
 # El código vive en src/ (layout canónico de la cátedra): exponerlo en sys.path
