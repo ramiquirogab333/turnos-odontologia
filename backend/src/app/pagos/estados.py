@@ -5,7 +5,7 @@ la seña), RN-SN-05 (pago sobre turno no vigente: a reembolsar), RN-TU-01 (venta
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 
 VENTANA_CANCELACION = timedelta(hours=24)
 
@@ -14,6 +14,28 @@ TRANSICIONES_TURNO: dict[str, frozenset[str]] = {
     "reservado": frozenset({"confirmado", "cancelado", "ausente", "atendido"}),
     "confirmado": frozenset({"cancelado", "ausente", "atendido"}),
 }
+
+
+def _exigir_zona(valor: datetime, nombre: str) -> None:
+    if valor.tzinfo is None or valor.utcoffset() is None:
+        raise ValueError(f"{nombre} debe tener zona horaria (R4)")
+
+
+def dentro_de_ventana(inicio: datetime, ahora: datetime) -> bool:
+    """True si faltan 24 h o más para ``inicio`` (RN-TU-01/02). Compara instantes absolutos.
+
+    Es la única fuente de la regla: la usan la cancelación (``aplicar_transicion``) y la reprogramación.
+    Exactamente 24 h se acepta; un inicio ya pasado nunca está dentro de la ventana.
+    """
+    _exigir_zona(inicio, "inicio")
+    _exigir_zona(ahora, "ahora")
+    return inicio - ahora >= VENTANA_CANCELACION
+
+
+def limite_cambios(inicio: datetime, zona: tzinfo) -> datetime:
+    """Último instante para cancelar o reprogramar (inicio menos 24 h), con el offset de la clínica."""
+    _exigir_zona(inicio, "inicio")
+    return (inicio - VENTANA_CANCELACION).astimezone(zona)
 
 
 class TransicionInvalidaError(Exception):
@@ -56,7 +78,7 @@ def aplicar_transicion(actual: str, destino: str, *, estado_pago: str | None, in
         nuevo_pago = "no_reembolsado"  # R9: el ausente no recibe reembolso
     elif destino == "cancelado":
         if actual in ("reservado", "confirmado"):
-            if inicio - ahora < VENTANA_CANCELACION:  # exactamente 24 h se acepta
+            if not dentro_de_ventana(inicio, ahora):  # exactamente 24 h se acepta
                 raise CancelacionFueraDePlazoError()
             if estado_pago == "acreditado":
                 nuevo_pago = "a_reembolsar"  # RN-SN-04: la devolución es manual

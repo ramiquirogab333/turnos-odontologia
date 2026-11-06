@@ -74,13 +74,18 @@ def _solapa(a_ini: datetime, a_fin: datetime, b_ini: datetime, b_fin: datetime) 
     return a_ini < b_fin and a_fin > b_ini
 
 
-async def _cargar_bloqueos(session: AsyncSession, desde: datetime, hasta: datetime) -> list[_Bloqueo]:
-    """Turnos que bloquean agenda y rozan [desde, hasta): una sola consulta por operación."""
-    filas = await session.execute(
-        select(Turno.profesional_id, Turno.sillon_id, Turno.inicio, Turno.fin).where(
-            Turno.estado.in_(ESTADOS_BLOQUEANTES), Turno.inicio < hasta, Turno.fin > desde
-        )
+async def _cargar_bloqueos(session: AsyncSession, desde: datetime, hasta: datetime,
+                           excluir_turno_id: int | None = None) -> list[_Bloqueo]:
+    """Turnos que bloquean agenda y rozan [desde, hasta): una sola consulta por operación.
+
+    ``excluir_turno_id`` saca de la ocupación al turno que se está moviendo (C-07): una fila no choca consigo misma.
+    """
+    consulta = select(Turno.profesional_id, Turno.sillon_id, Turno.inicio, Turno.fin).where(
+        Turno.estado.in_(ESTADOS_BLOQUEANTES), Turno.inicio < hasta, Turno.fin > desde
     )
+    if excluir_turno_id is not None:
+        consulta = consulta.where(Turno.id != excluir_turno_id)
+    filas = await session.execute(consulta)
     return [_Bloqueo(int(p), int(s), i, f) for p, s, i, f in filas.all()]
 
 

@@ -27,6 +27,7 @@ from app.catalogo.router import (
     router_tratamientos,
 )
 from app.pagos.barrido import ciclo_barrido
+from app.gestion.router import router as gestion_router
 from app.pagos.router_admin import router as sena_admin_router
 from app.pagos.router_public import router as sena_public_router
 from app.pagos.router_webhook import router as sena_webhook_router
@@ -65,6 +66,7 @@ app.include_router(public_router)
 app.include_router(sena_public_router)
 app.include_router(sena_webhook_router)
 app.include_router(sena_admin_router)
+app.include_router(gestion_router)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ReferenceNotFoundError, referencia_handler)  # type: ignore[arg-type]
 

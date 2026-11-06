@@ -2,7 +2,7 @@
 
 import os
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -202,3 +202,45 @@ async def pasarela() -> AsyncIterator["PasarelaEspia"]:
         yield espia
     finally:
         app.dependency_overrides.pop(get_pasarela, None)
+
+
+class NotificadorEspia:
+    """Notificador de prueba (C-07): registra los eventos publicados y puede simular una caída."""
+
+    def __init__(self) -> None:
+        self.eventos: list = []
+        self.falla = False
+
+    async def publicar(self, evento) -> None:  # type: ignore[no-untyped-def]
+        if self.falla:
+            raise RuntimeError("publicador caído (simulado)")
+        self.eventos.append(evento)
+
+
+@pytest_asyncio.fixture
+async def notificador() -> AsyncIterator[NotificadorEspia]:
+    """Sobreescribe ``get_notificador`` con un espía (nunca se toca Redis ni Google Calendar)."""
+    from app.gestion.deps import get_notificador
+    from app.main import app
+
+    espia = NotificadorEspia()
+    app.dependency_overrides[get_notificador] = lambda: espia
+    try:
+        yield espia
+    finally:
+        app.dependency_overrides.pop(get_notificador, None)
+
+
+@pytest_asyncio.fixture
+async def reloj() -> AsyncIterator[Callable[[datetime], None]]:
+    """Fija el 'ahora' del servidor para la ventana de 24 h (C-07): ``reloj(instante)``."""
+    from app.gestion.deps import get_reloj
+    from app.main import app
+
+    def fijar(ahora: datetime) -> None:
+        app.dependency_overrides[get_reloj] = lambda: ahora
+
+    try:
+        yield fijar
+    finally:
+        app.dependency_overrides.pop(get_reloj, None)

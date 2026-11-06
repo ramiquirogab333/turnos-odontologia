@@ -542,10 +542,16 @@ class ResultadoCambioEstado:
     turno_id: int
     estado_turno: str
     estado_pago: str | None
+    # C-07: datos para armar el evento de calendario/recordatorios (sin PII).
+    estado_anterior: str
+    profesional_id: int
+    inicio: datetime
+    fin: datetime
 
 
 async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino: str, usuario_id: int | None,
-                               *, ahora: datetime | None = None) -> ResultadoCambioEstado:
+                               *, ahora: datetime | None = None,
+                               origen: str = "cambio_estado") -> ResultadoCambioEstado:
     """Cambia el estado de un turno aplicando la máquina de estados y los efectos sobre la seña.
 
     - ``ausente`` con seña acreditada -> ``no_reembolsado`` (R9: nunca se reembolsa).
@@ -570,6 +576,12 @@ async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino:
     pago = (await session.execute(
         select(PagoSena).where(PagoSena.turno_id == turno.id, PagoSena.estado.in_(("pendiente", "acreditado")))
         .with_for_update().execution_options(populate_existing=True))).scalar_one_or_none()
+    # RN-SN-10: un pago en revisión de una pre-reserva que se cancela se devuelve (nunca queda colgado).
+    en_revision: list[PagoSena] = []
+    if actual == "en_espera" and destino == "cancelado":
+        en_revision = list((await session.execute(
+            select(PagoSena).where(PagoSena.turno_id == turno.id, PagoSena.estado == "en_revision")
+            .order_by(PagoSena.id).with_for_update().execution_options(populate_existing=True))).scalars().all())
     try:
         if actual == "en_espera" and destino == "reservado":
             raise TransicionInvalidaError(actual, destino)
@@ -583,21 +595,31 @@ async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino:
         turno.en_espera_vence_en = None
     if pago is not None and resultado.estado_pago is not None:
         pago.estado = resultado.estado_pago
+    estado_pago_final = resultado.estado_pago
+    for revisado in en_revision:
+        revisado.estado = "a_reembolsar"  # conserva monto_reportado/mp_payment_id para la devolución
+        _auditar(session, usuario_id=usuario_id, accion="UPDATE", entidad="pago_sena", entidad_id=revisado.id,
+                 antes={"estado": "en_revision"},
+                 despues={"estado": "a_reembolsar", "turno_id": turno.id, "origen": origen,
+                          "motivo": "cancelacion_en_espera"})
+        estado_pago_final = estado_pago_final or "a_reembolsar"
     _auditar(session, usuario_id=usuario_id, accion="UPDATE", entidad="turno", entidad_id=turno.id,
              antes={"estado": actual},
-             despues={"estado": destino, "origen": "cambio_estado",
-                      "estado_pago": resultado.estado_pago, "pago_id": pago.id if pago else None})
+             despues={"estado": destino, "origen": origen,
+                      "estado_pago": estado_pago_final, "pago_id": pago.id if pago else None})
+    profesional_id, inicio, fin = turno.profesional_id, turno.inicio, turno.fin
     await session.commit()
-    return ResultadoCambioEstado(turno.id, destino, resultado.estado_pago)
+    return ResultadoCambioEstado(turno.id, destino, estado_pago_final, actual, profesional_id, inicio, fin)
 
 
 async def cambiar_estado_turno(session: AsyncSession, turno_id: int, destino: str, usuario_id: int | None,
-                               *, ahora: datetime | None = None) -> ResultadoCambioEstado:
+                               *, ahora: datetime | None = None,
+                               origen: str = "cambio_estado") -> ResultadoCambioEstado:
     """Ver ``_cambiar_estado_una_vez``. Reintenta un deadlock/serialización; agotado, ``OperacionReintentableError``."""
     ahora = ahora or _ahora()
     for intento in range(MAX_REINTENTOS_ACREDITACION + 1):
         try:
-            return await _cambiar_estado_una_vez(session, turno_id, destino, usuario_id, ahora=ahora)
+            return await _cambiar_estado_una_vez(session, turno_id, destino, usuario_id, ahora=ahora, origen=origen)
         except (IntegrityError, DBAPIError) as exc:
             await session.rollback()
             sqlstate = getattr(getattr(exc, "orig", None), "sqlstate", "")

@@ -8,9 +8,13 @@ import pytest
 from app.pagos.errores import TurnoInexistenteError
 from app.pagos.estados import CancelacionFueraDePlazoError, TransicionInvalidaError
 from app.pagos.service import acreditar_pago, cambiar_estado_turno
+from sqlalchemy import select
+
+from app.models.core import RegistroAuditoria
 from tests.sena_helpers import (
     fecha_laboral, iniciar, local, pagos_de, reservar, sembrar_agenda, turno_de,
 )
+from tests.test_sena_revision_monto_integration import _con_pago, _enviar
 
 
 async def _reservado_con_sena(client, ids, factory, hhmm="10:00"):
@@ -24,9 +28,9 @@ async def _reservado_con_sena(client, ids, factory, hhmm="10:00"):
     return reserva, local(f, hhmm)
 
 
-async def _cambiar(factory, turno_id, destino, ahora=None, usuario_id=None):
+async def _cambiar(factory, turno_id, destino, ahora=None, usuario_id=None, **extra):
     async with factory() as s:
-        return await cambiar_estado_turno(s, turno_id, destino, usuario_id, ahora=ahora)
+        return await cambiar_estado_turno(s, turno_id, destino, usuario_id, ahora=ahora, **extra)
 
 
 async def test_confirmado_a_ausente_deja_la_sena_no_reembolsado_sin_pedir_reembolso(
@@ -123,3 +127,64 @@ async def test_cancelar_una_pre_reserva_en_espera_vence_el_pago_sin_devolucion(
 async def test_turno_inexistente(client, seed_ids, session_factory, pasarela) -> None:
     with pytest.raises(TurnoInexistenteError):
         await _cambiar(session_factory, 999999, "cancelado")
+
+
+# --- C-07 (2.1): cancelación del paciente sobre una pre-reserva y origen de la auditoría -------------------
+
+async def test_cancelar_en_espera_con_pago_en_revision_lo_pasa_a_reembolsar_con_el_monto_informado(
+        client, seed_ids, session_factory, pasarela) -> None:
+    reserva, ref = await _con_pago(client, seed_ids, session_factory)
+    assert (await _enviar(client, f"fake-approved-{ref}@2500.00@ARS")).json()["status"] == "en_revision"
+    inicio = (await turno_de(session_factory, reserva["turno_id"])).inicio
+    r = await _cambiar(session_factory, reserva["turno_id"], "cancelado", ahora=inicio - timedelta(hours=3))
+    assert (r.estado_turno, r.estado_pago) == ("cancelado", "a_reembolsar")
+    assert (await turno_de(session_factory, reserva["turno_id"])).estado == "cancelado"
+    (pago,) = await pagos_de(session_factory, reserva["turno_id"])
+    assert pago.estado == "a_reembolsar" and pago.monto_reportado == Decimal("2500.00")  # RN-SN-10
+    assert pago.monto == Decimal("3000.00")
+
+
+async def test_cancelar_en_espera_con_pago_pendiente_lo_vence_sin_nada_a_reembolsar(
+        client, seed_ids, session_factory, pasarela) -> None:
+    reserva, _ = await _con_pago(client, seed_ids, session_factory)
+    inicio = (await turno_de(session_factory, reserva["turno_id"])).inicio
+    await _cambiar(session_factory, reserva["turno_id"], "cancelado", ahora=inicio - timedelta(hours=3))
+    estados = [p.estado for p in await pagos_de(session_factory, reserva["turno_id"])]
+    assert estados == ["vencido"]  # R8: ningún acreditado ni a_reembolsar
+
+
+async def test_aprobacion_tardia_despues_de_cancelar_queda_a_reembolsar_y_el_turno_no_revive(
+        client, seed_ids, session_factory, pasarela) -> None:
+    reserva, ref = await _con_pago(client, seed_ids, session_factory)
+    inicio = (await turno_de(session_factory, reserva["turno_id"])).inicio
+    await _cambiar(session_factory, reserva["turno_id"], "cancelado", ahora=inicio - timedelta(hours=3))
+    r = await _enviar(client, f"fake-approved-{ref}@3000.00@ARS")
+    assert r.status_code == 200 and r.json()["status"] == "a_reembolsar"
+    assert (await turno_de(session_factory, reserva["turno_id"])).estado == "cancelado"
+    assert (await pagos_de(session_factory, reserva["turno_id"]))[0].estado == "a_reembolsar"
+
+
+async def _origenes(factory, turno_id: int) -> list[str]:
+    async with factory() as s:
+        filas = (await s.execute(select(RegistroAuditoria).where(
+            RegistroAuditoria.entidad == "turno", RegistroAuditoria.entidad_id == str(turno_id),
+            RegistroAuditoria.accion == "UPDATE"))).scalars().all()
+    return [f.datos_despues["origen"] for f in filas]
+
+
+async def test_la_auditoria_guarda_el_origen_recibido_y_cambio_estado_por_defecto(
+        client, seed_ids, session_factory, pasarela) -> None:
+    reserva, inicio = await _reservado_con_sena(client, seed_ids, session_factory)
+    await _cambiar(session_factory, reserva["turno_id"], "confirmado")
+    assert (await _origenes(session_factory, reserva["turno_id"]))[-1] == "cambio_estado"
+    await _cambiar(session_factory, reserva["turno_id"], "cancelado", ahora=inicio - timedelta(hours=48),
+                   origen="cancelacion_paciente")
+    assert (await _origenes(session_factory, reserva["turno_id"]))[-2:] == ["cambio_estado", "cancelacion_paciente"]
+
+
+async def test_el_resultado_trae_estado_anterior_profesional_y_horario_para_el_evento(
+        client, seed_ids, session_factory, pasarela) -> None:
+    reserva, inicio = await _reservado_con_sena(client, seed_ids, session_factory)
+    r = await _cambiar(session_factory, reserva["turno_id"], "cancelado", ahora=inicio - timedelta(hours=48))
+    assert r.estado_anterior == "reservado" and r.profesional_id == seed_ids["profesional_id"]
+    assert r.inicio == inicio and r.fin == inicio + timedelta(minutes=30)
