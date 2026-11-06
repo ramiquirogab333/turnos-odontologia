@@ -199,7 +199,9 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 
 ## FASE 2 — Reserva y seña (núcleo MVP)
 
-> C-06 es el change de la restricción de usuario (GAP contra la KB). C-07 depende de C-06 porque cancelar/reprogramar debe contemplar `en_espera` y la seña no reembolsable.
+> **Follow-up de C-06:** la preferencia de Mercado Pago se crea con el advisory lock global de reservas tomado (timeout 10 s, aceptado en `design.md` P11); mover esa llamada fuera del lock es una mejora futura (C-09 al consolidar el scheduler/jobs). Los pagos `en_revision` (RN-SN-09) y `a_reembolsar` los resuelve C-12.
+>
+> C-06 es el change de la restricción de usuario (GAP contra la KB). C-07 depende de C-06 porque cancelar/reprogramar debe contemplar `en_espera` y la política de la seña (devolución con ≥ 24 h, RN-SN-04; ausente no reembolsa, RN-SN-02).
 
 ### [C-05] `reserva-publica-horarios`
 - **Estado**: `[x]` archivado 2026-11-03 (`openspec/changes/archive/2026-11-03-c-05-reserva-publica-horarios/`, spec en `openspec/specs/turnos/reserva-publica/spec.md`; E2E a 360px y CI en verde, run 41762187593)
@@ -223,13 +225,13 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-06] `sena-pagos-turno`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado 2026-11-06 (`openspec/changes/archive/2026-11-06-c-06-sena-pagos-turno/`, specs en `openspec/specs/pagos/sena-turno/spec.md` (nuevo) y `openspec/specs/turnos/reserva-publica/spec.md` + `openspec/specs/turnos/creacion-sin-solape/spec.md` (modificados))
 - **Scope**: Flujo de seña fija configurable — GAP contra la KB, fuente: restricción de usuario en fase roadmap (US-010 extendida al turno)
   - Máquina de estados del turno: `en_espera` → `reservado` (pago acreditado, BLOQUEA agenda) → `confirmado` / `cancelado` / `ausente` / `atendido`; `en_espera` NO bloquea agenda ni genera evento de calendario; expiración de `en_espera` configurable (job que libera la pre-reserva; la base de jobs/scheduler vive en C-09 — si C-09 no está archivado, el job se define local y C-09 lo consolida)
   - `POST /api/public/turnos/{id}/sena` — crea preferencia/intento Mercado Pago por el % configurado + registra transferencia pendiente con referencia; `GET` estado del intento; webhook `POST /api/webhooks/mercadopago` — verifica firma, idempotencia por `referencia externa`, acredita → `reservado` (bloquea agenda, dispara Flujo 1 paso 5: recordatorio + GCal)
   - Config admin: `SENA_PORCENTAJE` (ej. 30% del valor de la consulta = precio base del tratamiento), medios habilitados (RN-PG-01: MP + transferencia, sin otros en v1), textos de no-reembolso
-  - Regla ausente: marcar `ausente` NO reembolsa la seña (queda registrada como no reembolsada en caja, R9); cancelación ≥ 24h: política de la seña definida por admin (default: no reembolsable salvo decisión explícita)
-  - Migración Alembic 005 (reversible): `estado en_espera`, tabla `PagoSena` (`turno_id`, medio MP/transferencia, monto `Numeric`, estado pendiente/acreditado/vencido/no_reembolsado, referencia externa única), config `sena_porcentaje`
+  - Regla ausente: marcar `ausente` NO reembolsa la seña (queda registrada como no reembolsada en caja, R9); cancelación ≥ 24h: la seña SE DEVUELVE (`a_reembolsar`, devolución manual; RN-SN-04, decisión 2026-11-06; C-07 la aplica en el endpoint de cancelación)
+  - Migración Alembic 006 `006_sena_pagos` (reversible; la 005 la usó C-05): `turno.en_espera_vence_en` (el CHECK de estado ya admitía `en_espera`), tabla `PagoSena` (`turno_id`, medio MP/transferencia, monto `Numeric`, estado pendiente/acreditado/vencido/no_reembolsado/a_reembolsar, referencia externa única), tabla `configuracion_sena` (`sena_porcentaje` 30% por defecto)
   - Secrets fuera del código (`MP_ACCESS_TOKEN`); frontend: pantalla "pagá la seña para confirmar" tras elegir día/horario/profesional
   - Reglas verificables: R8 (`en_espera` NO bloquea), R9 (ausente NO reembolsa), RN-PG-01, RN-TU-03 (acreditado vuelve a bloquear con anti-solape)
   - Done-criteria (test): `en_espera` no aparece en libres-bloqueantes; acreditación bloquea; webhook duplicado idempotente; firma inválida rechazada; ausente retiene seña
@@ -249,7 +251,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 - **Scope**: Cancelación y reprogramación por el paciente con ventana de 24 hs + interacción con seña (US-002, US-003)
   - `POST /api/public/turnos/{codigo}/cancelar` y `POST /api/public/turnos/{codigo}/reprogramar` (código de gestión pública, sin login)
   - Validación backend: anticipación ≥ 24 hs (RN-TU-01, RN-TU-02/DD-02); < 24 hs → rechazo con motivo claro; reprogramación solo a horario libre vigente (RN-TU-07), con anti-solape (hereda `EXCLUDE` de C-01)
-  - Si el turno está `en_espera`: cancelar libera la pre-reserva y vence el intento de seña pendiente (sin movimiento de caja); si está `reservado/confirmado`: cancelar libera el slot y la seña queda no reembolsable (regla usuario); reprogramar conserva la seña acreditada sobre el nuevo horario
+  - Si el turno está `en_espera`: cancelar libera la pre-reserva y vence el intento de seña pendiente (sin movimiento de caja); si está `reservado/confirmado`: cancelar (solo con ≥ 24 h, RN-TU-01) libera el slot y la seña pasa a `a_reembolsar` con devolución manual (RN-SN-04, decisión 2026-11-06); reprogramar conserva la seña acreditada sobre el nuevo horario
   - Al cancelar/reprogramar: actualiza Google Calendar y cancela/reprograma recordatorios pendientes (Flujo 2, paso 4)
   - Reglas verificables: RN-TU-01, RN-TU-02, RN-TU-07, R8 (liberación de `en_espera` sin caja), R9 (seña retenida en cancelación de `reservado`)
   - Done-criteria (test): E2E Playwright ventana 24h exacta/borde, reprogramación a slot ocupado → alternativas, seña retenida vs. liberada según estado (R7)
