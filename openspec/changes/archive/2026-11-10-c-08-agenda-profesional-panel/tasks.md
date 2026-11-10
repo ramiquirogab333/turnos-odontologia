@@ -72,7 +72,7 @@
 - [x] 8.2 Escribir `frontend-panel/e2e/sesion.spec.ts` y verificarlo con `--repeat-each=3`: (a) ingreso, recarga y pestaña nueva sin pedir ingreso; la cookie aparece `HttpOnly`, `Secure` y `Strict` a través del proxy de 5174; (b) ningún token en el almacenamiento; (c) dos pestañas a la vez; (d) salir revoca: al recargar pide ingreso; (e) "atrás" después de salir. Si Chromium rechaza la cookie `Secure` en localhost, frenar y consultar.
 - [x] 8.3 Escribir `frontend-panel/e2e/agenda.spec.ts` y verificarlo con `--repeat-each=3`: `en_espera` en la banda; `odontologo` solo su agenda y sin acciones; cambio a semana; sin scroll horizontal y objetivos de 48 px a 360 px.
 - [x] 8.4 Escribir `frontend-panel/e2e/gestion.spec.ts` y verificarlo con `--repeat-each=3`: alta manual completa; horario tomado → alternativas; dos `POST` simultáneos → 201 y 409, cerrando el pendiente de C-01; ausente con seña → `no_reembolsado`; ausente antes de la tolerancia, con margen de segundos, sin la acción; atendido el mismo día antes de hora, con su horario sin figurar libre en la reserva pública; cancelar a 24 h + 5 min y rechazo a 23 h 55 min.
-- [ ] 8.5 Agregar a `.github/workflows/ci.yml` los jobs `frontend-panel` y `e2e-panel` según D8. Verificar que el YAML parsea y que los jobs quedan en verde en la primera corrida remota; hasta entonces, dejar la tarea abierta.
+- [x] 8.5 Agregar a `.github/workflows/ci.yml` los jobs `frontend-panel` y `e2e-panel` según D8. Verificar que el YAML parsea y que los jobs quedan en verde en la primera corrida remota; hasta entonces, dejar la tarea abierta.
 
 ## 9. Usuarios del panel (O4)
 
@@ -125,3 +125,4 @@
 - `frontend-paciente`: typecheck y lint limpios, `npm test` **151 passed**, `npm run build` ok, `npm run e2e` **21 passed** (sin regresiones por el cambio de auth ni por `atendido` bloqueante).
 - `frontend-panel`: `npm run typecheck` y `npm run lint` limpios; `npm test` **151 passed** (9 archivos; exit 0, sin errores sin manejar); `npm run build` ok; `npm run e2e -- --repeat-each=3`: **111 passed, 3 skipped** (el skip es la verificación específica de 360 px en el proyecto de 1280 px), exit 0.
 - `openspec validate c-08-agenda-profesional-panel --strict`: válido.
+- **8.5 (cerrada 2026-11-10):** primera corrida remota de CI en verde en `feat/c-08-agenda-profesional-panel` (run 42749000509): `backend`, `frontend`, `frontend-panel`, `e2e` y `e2e-panel` en success.
