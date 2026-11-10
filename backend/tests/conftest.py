@@ -99,11 +99,19 @@ async def clean_db(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> AsyncIterator[None]:
     """Delete all rows before each test via ORM (child first, R14; fixture harness)."""
+    from app.clinica.models import OdontogramaRegistro, PagoPresupuesto, Presupuesto, PresupuestoLinea
+    from app.models.core import ObraSocial, Paciente
+    from app.pacientes.models import Ficha
     from app.pagos.models import AprobacionPago, ConfiguracionSena, PagoSena
     from app.turnos.models import Turno
 
     async with session_factory() as session:
         for model in (
+            PagoPresupuesto,
+            PresupuestoLinea,
+            Presupuesto,
+            OdontogramaRegistro,
+            Ficha,
             AprobacionPago,
             PagoSena,
             TokenBlacklist,
@@ -112,6 +120,8 @@ async def clean_db(
             Usuario,
             Rol,
             Turno,
+            Paciente,
+            ObraSocial,
             Profesional,
             Sillon,
             Tratamiento,

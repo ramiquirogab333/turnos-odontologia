@@ -67,6 +67,16 @@ class TurnoInexistenteError(Exception):
         super().__init__("Turno no encontrado")
 
 
+class TurnoAjenoError(Exception):
+    """La odontóloga pidió marcar un turno que no es de su profesional o que no existe (403 ``turno_ajeno``, O15).
+
+    Un mismo error para "ajeno" e "inexistente": no revela si el turno existe ni en qué estado está.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("Solo podés marcar tus propios turnos")
+
+
 class MarcadoNoHabilitadoError(Exception):
     """Todavía no es el momento de marcar el turno como ausente o atendido (409 ``marcado_no_habilitado``, RN-TU-12)."""
 

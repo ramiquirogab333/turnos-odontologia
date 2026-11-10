@@ -6,18 +6,21 @@ from typing import Literal
 from app.pagos.estados import ausente_habilitado_desde, atendido_habilitado_desde, dentro_de_ventana
 
 Accion = Literal["atendido", "ausente", "cancelar"]
+# Qué escritura tiene quien consulta (C-11, O15): recepción/admin todo; la odontóloga solo "atendido"; nadie más.
+Permiso = Literal["total", "solo_atendido", "ninguno"]
 
 
-def acciones_permitidas(estado: str, inicio: datetime, ahora: datetime, puede_escribir: bool, zona: tzinfo,
+def acciones_permitidas(estado: str, inicio: datetime, ahora: datetime, permiso: Permiso, zona: tzinfo,
                         tolerancia: timedelta) -> list[Accion]:
     """Acciones que quien consulta puede hacer YA sobre el turno; las mismas reglas que aplican los endpoints.
 
     - ``atendido``: ``reservado``/``confirmado`` desde las 00:00 del día local del turno (RN-TU-12).
     - ``ausente``: ``reservado``/``confirmado`` desde el inicio más la tolerancia (RN-TU-12).
     - ``cancelar``: ``reservado``/``confirmado`` con 24 h o más (RN-TU-01); ``en_espera`` siempre (O12).
-    Sin permiso de escritura (odontólogo, O5) y en estados finales no hay ninguna.
+    Con permiso ``solo_atendido`` (odontóloga, O15) la única acción posible es ``atendido``, en las mismas condiciones;
+    con ``ninguno`` y en estados finales no hay ninguna.
     """
-    if not puede_escribir:
+    if permiso == "ninguno":
         return []
     acciones: list[Accion] = []
     if estado in ("reservado", "confirmado"):
@@ -29,4 +32,6 @@ def acciones_permitidas(estado: str, inicio: datetime, ahora: datetime, puede_es
             acciones.append("cancelar")
     elif estado == "en_espera":
         acciones.append("cancelar")
+    if permiso == "solo_atendido":
+        return [a for a in acciones if a == "atendido"]
     return acciones

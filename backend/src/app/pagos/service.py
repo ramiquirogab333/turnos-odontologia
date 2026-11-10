@@ -33,6 +33,7 @@ from app.pagos.errores import (
     PagoNoEncontradoError,
     SenaNoEncontradaError,
     SenaNoRequeridaError,
+    TurnoAjenoError,
     TurnoInexistenteError,
     TurnoNoPendienteError,
 )
@@ -554,6 +555,7 @@ class ResultadoCambioEstado:
 async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino: str, usuario_id: int | None,
                                *, ahora: datetime | None = None, origen: str = "cambio_estado",
                                habilitado_desde: Callable[[datetime], datetime] | None = None,
+                               profesional_requerido: int | None = None,
                                ) -> ResultadoCambioEstado:
     """Cambia el estado de un turno aplicando la máquina de estados y los efectos sobre la seña.
 
@@ -569,6 +571,8 @@ async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino:
         CancelacionFueraDePlazoError: faltan menos de 24 h (409 ``fuera_de_plazo``).
         MarcadoNoHabilitadoError: ``habilitado_desde(inicio)`` queda después de ``ahora`` (C-08, RN-TU-12); se evalúa
             bajo lock con el inicio real del turno y DESPUÉS de validar la transición.
+        TurnoAjenoError: ``profesional_requerido`` (C-11, O15) y el turno no existe o es de otra profesional; se evalúa
+            bajo lock ANTES que la transición y el horario, y con el mismo error para ambos casos.
     """
     await _bloquear_reservas(session)  # mismo orden en todo el módulo: advisory -> turno -> pago (hallazgo 4)
     turno = (await session.execute(
@@ -576,7 +580,10 @@ async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino:
     )).scalar_one_or_none()
     if turno is None:
         await session.rollback()
-        raise TurnoInexistenteError()
+        raise TurnoAjenoError() if profesional_requerido is not None else TurnoInexistenteError()
+    if profesional_requerido is not None and turno.profesional_id != profesional_requerido:
+        await session.rollback()
+        raise TurnoAjenoError()
     actual = turno.estado
     pago = (await session.execute(
         select(PagoSena).where(PagoSena.turno_id == turno.id, PagoSena.estado.in_(("pendiente", "acreditado")))
@@ -625,13 +632,15 @@ async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino:
 async def cambiar_estado_turno(session: AsyncSession, turno_id: int, destino: str, usuario_id: int | None,
                                *, ahora: datetime | None = None, origen: str = "cambio_estado",
                                habilitado_desde: Callable[[datetime], datetime] | None = None,
+                               profesional_requerido: int | None = None,
                                ) -> ResultadoCambioEstado:
     """Ver ``_cambiar_estado_una_vez``. Reintenta un deadlock/serialización; agotado, ``OperacionReintentableError``."""
     ahora = ahora or _ahora()
     for intento in range(MAX_REINTENTOS_ACREDITACION + 1):
         try:
             return await _cambiar_estado_una_vez(session, turno_id, destino, usuario_id, ahora=ahora, origen=origen,
-                                                 habilitado_desde=habilitado_desde)
+                                                 habilitado_desde=habilitado_desde,
+                                                 profesional_requerido=profesional_requerido)
         except (IntegrityError, DBAPIError) as exc:
             await session.rollback()
             sqlstate = getattr(getattr(exc, "orig", None), "sqlstate", "")

@@ -81,3 +81,13 @@ def require_role(rol_requerido: str):
         return context.require_role(rol_requerido)
 
     return _dependency
+
+
+async def require_recepcion_o_admin(context: PermissionContext = Depends(get_current_user)) -> PermissionContext:
+    """Exige rol recepcion u admin; cualquier otro rol -> 403 (movida desde ``catalogo.router`` en C-11)."""
+    if not (context.tiene_rol("recepcion") or context.tiene_rol("admin")):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Rol requerido: recepcion o admin",
+        )
+    return context

@@ -270,3 +270,63 @@ async def test_login_y_logout_auditados_en_registro_auditoria(
         acciones = {r.accion for r in registros}
         assert "LOGIN_OK" in acciones
         assert "LOGOUT" in acciones
+
+
+# ---------------------------------------------------------------------------
+# C-11 (9.8): matriz RBAC del panel con la odontóloga redefinida (O2-O4, O15, O16)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_rbac_la_odontologa_marca_atendido_y_edita_la_ficha_de_su_paciente(session_factory, client, reloj):
+    from datetime import timedelta
+
+    from tests.clinica_helpers import AHORA, crear_paciente, hace, sembrar_escenario, turno_de
+    from tests.conftest import bearer
+
+    reloj(AHORA)
+    esc = await sembrar_escenario(session_factory)
+    lucia = await crear_paciente(session_factory)
+    await turno_de(session_factory, esc, lucia, hace(dias=60))  # atendida hace dos meses
+    propio = await turno_de(session_factory, esc, None, AHORA + timedelta(hours=1), "reservado")
+    cab = bearer(esc.ana)
+    assert (await client.post(f"/api/panel/turnos/{propio}/atendido", headers=cab)).status_code == status.HTTP_200_OK
+    ficha = {"alergias": "", "medicacion": "", "antecedentes_medicos": "", "observaciones": "", "version": 0}
+    assert (await client.put(f"/api/panel/pacientes/{lucia}/ficha", json=ficha, headers=cab)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_rbac_la_odontologa_no_cancela_ni_crea_presupuestos_ni_registra_pagos(session_factory, client, reloj):
+    from datetime import timedelta
+
+    from tests.clinica_helpers import AHORA, crear_paciente, hace, sembrar_escenario, turno_de
+    from tests.conftest import bearer
+    from tests.presupuestos_helpers import aceptado, sembrar_catalogo
+
+    reloj(AHORA)
+    esc = await sembrar_escenario(session_factory)
+    cat = await sembrar_catalogo(session_factory)
+    lucia = await crear_paciente(session_factory, obra_social_id=cat["swiss"])
+    await turno_de(session_factory, esc, lucia, hace(dias=60))
+    futuro = await turno_de(session_factory, esc, lucia, AHORA + timedelta(days=5), "confirmado")
+    pid = await aceptado(client, esc.recepcion, lucia, (cat["limpieza"], 1))
+    cab = bearer(esc.ana)
+    assert (await client.post(f"/api/panel/turnos/{futuro}/cancelar", headers=cab)).status_code == 403
+    assert (await client.post(f"/api/panel/pacientes/{lucia}/presupuestos", headers=cab,
+                              json={"lineas": [{"tratamiento_id": cat["limpieza"], "cantidad": 1}]})).status_code == 403
+    assert (await client.post(f"/api/panel/pacientes/{lucia}/presupuestos/{pid}/pagos", headers=cab,
+                              json={"medio": "transferencia", "monto": "100.00"})).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_rbac_recepcion_crea_pacientes_y_la_odontologa_no_edita_pacientes_ajenos(session_factory, client, reloj):
+    from tests.clinica_helpers import AHORA, crear_paciente, sembrar_escenario
+    from tests.conftest import bearer
+
+    reloj(AHORA)
+    esc = await sembrar_escenario(session_factory)
+    alta = {"nombre": "Lucía", "apellido": "Ejemplo", "dni": "99000001", "telefono": "+5491100000001"}
+    creado = await client.post("/api/panel/pacientes", json=alta, headers=bearer(esc.recepcion))
+    assert creado.status_code == status.HTTP_201_CREATED
+    ajeno = await crear_paciente(session_factory, dni="99000002")
+    editar = await client.put(f"/api/panel/pacientes/{ajeno}", json={**alta, "dni": "99000002"}, headers=bearer(esc.ana))
+    assert editar.status_code == status.HTTP_403_FORBIDDEN

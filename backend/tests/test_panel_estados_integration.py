@@ -1,5 +1,6 @@
 """C-08 (1.4, 6.1, 6.3): cambios de estado del panel. PostgreSQL real. Datos 100 % sintéticos (R19)."""
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -242,16 +243,142 @@ async def test_turno_inexistente_es_404_y_el_doble_marcado_no_duplica_la_auditor
 
 # --- permisos y errores transitorios ------------------------------------------------------------------------
 
-@pytest.mark.parametrize("accion", ["ausente", "atendido", "cancelar"])
-async def test_odontologo_es_403_y_sin_token_es_401_y_no_cambia_nada(
-        client, mundo, session_factory, reloj, accion) -> None:
+@pytest.fixture
+async def dra(session_factory, mundo):
+    """La Dra. Ana Ficticia: rol odontologo asociada a la profesional ``ana`` del mundo de prueba (C-11, O15)."""
+    usuario_id, token = await crear_usuario_panel(session_factory, "dra.ficticia@turnos.test", ["odontologo"],
+                                                  profesional_id=mundo["ana"])
+    return {"id": usuario_id, "cab": bearer(token)}
+
+
+async def test_sin_token_o_con_refresh_es_401_y_no_cambia_nada(client, mundo, session_factory, reloj) -> None:
+    from app.auth.service import create_refresh_token
+
     tid = await insertar_turno(session_factory, mundo, INICIO_PANEL)
     reloj(INICIO_PANEL + timedelta(hours=1))
-    _, token = await crear_usuario_panel(session_factory, "dra@turnos.test", ["odontologo"],
-                                         profesional_id=mundo["ana"])
-    assert (await client.post(f"/api/panel/turnos/{tid}/{accion}", headers=bearer(token))).status_code == 403
-    assert (await client.post(f"/api/panel/turnos/{tid}/{accion}")).status_code == 401
+    refresh = create_refresh_token({"sub": "1", "roles": ["odontologo"], "email": "x@turnos.test", "jti": "jti-refresh"})
+    for accion in ("ausente", "atendido", "cancelar"):
+        assert (await client.post(f"/api/panel/turnos/{tid}/{accion}")).status_code == 401
+        assert (await client.post(f"/api/panel/turnos/{tid}/{accion}", headers=bearer(refresh))).status_code == 401
     assert (await turno(session_factory, tid)).estado == "reservado"
+
+
+async def test_la_odontologa_marca_atendido_su_propio_turno_y_la_sena_no_cambia(
+        client, dra, mundo, session_factory, reloj) -> None:
+    inicio = local(MARTES, "11:00")
+    tid = await insertar_turno(session_factory, mundo, inicio, estado="confirmado")
+    await insertar_pago(session_factory, tid, "acreditado", monto="3000.00")
+    reloj(local(MARTES, "10:45"))
+    r = await _post(client, dra, tid, "atendido")
+    assert r.status_code == 200, r.text
+    assert r.json() == {"turno_id": tid, "estado": "atendido", "estado_sena": None}  # mismo contrato que recepción
+    assert (await turno(session_factory, tid)).estado == "atendido"
+    assert (await pagos(session_factory, tid))[0].estado == "acreditado"
+    (registro,) = await _audit_origen(session_factory, tid, "marcado_atendido_panel")
+    assert registro.usuario_id == dra["id"]
+    volcado = str(registro.datos_antes) + str(registro.datos_despues)
+    assert "Carlos" not in volcado and "+549" not in volcado
+
+
+async def test_turno_de_otra_profesional_ya_ausente_o_inexistente_son_403_turno_ajeno_con_el_mismo_cuerpo(
+        client, dra, mundo, session_factory, reloj) -> None:
+    ajeno = await insertar_turno(session_factory, mundo, local(MARTES, "10:00"), prof="bruno", sillon="s2")
+    ajeno_ausente = await insertar_turno(session_factory, mundo, local(MARTES, "09:00"), prof="bruno", sillon="s2",
+                                         estado="ausente")
+    reloj(local(MARTES, "10:45"))
+    antes = await _total_auditorias(session_factory)
+    respuestas = [await _post(client, dra, tid, "atendido") for tid in (ajeno, ajeno_ausente, 987654)]
+    assert [r.status_code for r in respuestas] == [403, 403, 403]
+    assert respuestas[0].json() == respuestas[1].json() == respuestas[2].json()  # no revela existencia ni estado
+    assert respuestas[0].json()["motivo"] == "turno_ajeno"
+    assert (await turno(session_factory, ajeno)).estado == "reservado"
+    assert (await turno(session_factory, ajeno_ausente)).estado == "ausente"
+    assert await _total_auditorias(session_factory) == antes
+
+
+@pytest.mark.parametrize("accion", ["ausente", "cancelar"])
+async def test_la_odontologa_no_marca_ausente_ni_cancela_su_turno(client, dra, mundo, session_factory, reloj, accion) -> None:
+    tid = await insertar_turno(session_factory, mundo, INICIO_PANEL)
+    reloj(INICIO_PANEL + timedelta(hours=1))
+    assert (await _post(client, dra, tid, accion)).status_code == 403
+    assert (await turno(session_factory, tid)).estado == "reservado"
+
+
+async def test_la_odontologa_no_da_altas_manuales(client, dra, mundo, session_factory, reloj) -> None:
+    reloj(local(LUNES, "07:00"))
+    r = await client.post("/api/panel/turnos", headers=dra["cab"], json={
+        "profesional_id": mundo["ana"], "tratamiento_id": mundo["trat"], "inicio": local(MARTES, "10:00").isoformat(),
+        "nombre": "Carlos Sintético", "telefono": "+5491144445555"})
+    assert r.status_code == 403
+
+
+async def test_odontologa_sin_profesional_asociado_es_403_sin_profesional_asociado(
+        client, mundo, session_factory, reloj) -> None:
+    tid = await insertar_turno(session_factory, mundo, INICIO_PANEL)
+    reloj(INICIO_PANEL + timedelta(hours=1))
+    _, token = await crear_usuario_panel(session_factory, "sinprof@turnos.test", ["odontologo"])
+    r = await client.post(f"/api/panel/turnos/{tid}/atendido", headers=bearer(token))
+    assert (r.status_code, r.json()["motivo"]) == (403, "sin_profesional_asociado")
+
+
+async def test_usuario_sin_roles_del_panel_es_403_sin_acceso_al_panel(client, mundo, session_factory, reloj) -> None:
+    tid = await insertar_turno(session_factory, mundo, INICIO_PANEL)
+    reloj(INICIO_PANEL + timedelta(hours=1))
+    _, token = await crear_usuario_panel(session_factory, "sinroles@turnos.test", [])
+    r = await client.post(f"/api/panel/turnos/{tid}/atendido", headers=bearer(token))
+    assert (r.status_code, r.json()["motivo"]) == (403, "sin_acceso_al_panel")
+
+
+async def test_usuario_odontologo_y_recepcion_marca_el_turno_de_otra_profesional(
+        client, mundo, session_factory, reloj) -> None:
+    ajeno = await insertar_turno(session_factory, mundo, INICIO_PANEL, prof="bruno", sillon="s2")
+    reloj(INICIO_PANEL + timedelta(hours=1))
+    _, token = await crear_usuario_panel(session_factory, "multi@turnos.test", ["odontologo", "recepcion"],
+                                         profesional_id=mundo["ana"])
+    assert (await client.post(f"/api/panel/turnos/{ajeno}/atendido", headers=bearer(token))).status_code == 200
+    assert (await turno(session_factory, ajeno)).estado == "atendido"
+
+
+# --- 9.4 RN-TU-12 sobre los turnos propios de la odontóloga ---------------------------------------------------
+
+async def test_un_segundo_antes_de_las_cero_horas_409_y_a_las_cero_horas_200(client, dra, mundo, session_factory, reloj) -> None:
+    tid = await insertar_turno(session_factory, mundo, INICIO_PANEL)
+    reloj(local(LUNES, "23:59:59"))
+    antes = await _post(client, dra, tid, "atendido")
+    assert (antes.status_code, antes.json()["motivo"]) == (409, "marcado_no_habilitado")
+    assert datetime.fromisoformat(antes.json()["habilitado_desde"]) == local(MARTES, "00:00")
+    assert (await turno(session_factory, tid)).estado == "reservado"
+    reloj(local(MARTES, "00:00"))
+    assert (await _post(client, dra, tid, "atendido")).status_code == 200
+
+
+@pytest.mark.parametrize("estado", ["atendido", "ausente", "cancelado", "en_espera"])
+async def test_estados_que_no_admiten_atendido_son_409_transicion_invalida(
+        client, dra, mundo, session_factory, reloj, estado) -> None:
+    tid = await insertar_turno(session_factory, mundo, INICIO_PANEL, estado=estado,
+                               vence=INICIO_PANEL + timedelta(hours=2))
+    reloj(INICIO_PANEL + timedelta(hours=1))
+    r = await _post(client, dra, tid, "atendido")
+    assert (r.status_code, r.json()["motivo"]) == (409, "transicion_invalida")
+    assert (await turno(session_factory, tid)).estado == estado
+
+
+async def test_turno_ajeno_atendido_es_403_y_nunca_409(client, dra, mundo, session_factory, reloj) -> None:
+    tid = await insertar_turno(session_factory, mundo, INICIO_PANEL, prof="bruno", sillon="s2", estado="atendido")
+    reloj(INICIO_PANEL + timedelta(hours=1))
+    r = await _post(client, dra, tid, "atendido")
+    assert (r.status_code, r.json()["motivo"]) == (403, "turno_ajeno")
+
+
+async def test_recepcion_y_la_odontologa_marcan_a_la_vez_un_200_un_409_y_una_sola_auditoria(
+        client, rec, dra, mundo, session_factory, reloj) -> None:
+    tid = await insertar_turno(session_factory, mundo, INICIO_PANEL)
+    reloj(INICIO_PANEL + timedelta(hours=1))
+    r1, r2 = await asyncio.gather(_post(client, rec, tid, "atendido"), _post(client, dra, tid, "atendido"))
+    assert sorted([r1.status_code, r2.status_code]) == [200, 409], (r1.text, r2.text)
+    perdedora = r1 if r1.status_code == 409 else r2
+    assert perdedora.json()["motivo"] == "transicion_invalida"
+    assert len(await _audit_origen(session_factory, tid, "marcado_atendido_panel")) == 1
 
 
 @pytest.mark.parametrize("accion", ["ausente", "atendido", "cancelar"])

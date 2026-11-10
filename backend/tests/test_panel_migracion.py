@@ -59,7 +59,7 @@ async def test_origen_rechaza_valores_fuera_del_check(session_factory: async_ses
 async def test_backfill_marca_manual_los_turnos_sin_codigo_de_gestion(
         session_factory: async_sessionmaker[AsyncSession], seed_ids: dict[str, int]) -> None:
     try:
-        abajo = alembic("downgrade", "-1")
+        abajo = alembic("downgrade", "006_sena_pagos")
         assert abajo.returncode == 0, abajo.stderr
         async with session_factory() as s:
             assert (await s.execute(text(

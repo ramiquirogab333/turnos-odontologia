@@ -14,7 +14,7 @@ misma transacción (RN-GL-01).
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.rbac import PermissionContext, get_current_user
+from app.auth.rbac import PermissionContext, get_current_user, require_recepcion_o_admin  # noqa: F401  (re-export)
 from app.catalogo.schemas import (
     DisponibilidadCreate,
     DisponibilidadRead,
@@ -41,16 +41,6 @@ router_tratamientos = APIRouter(prefix="/api/admin/tratamientos", tags=["admin-t
 router_profesionales = APIRouter(prefix="/api/admin/profesionales", tags=["admin-profesionales"])
 router_sillones = APIRouter(prefix="/api/admin/sillones", tags=["admin-sillones"])
 router_disponibilidad = APIRouter(prefix="/api/admin/disponibilidad", tags=["admin-disponibilidad"])
-
-
-async def require_recepcion_o_admin(context: PermissionContext = Depends(get_current_user)):
-    """Exige rol recepcion u admin; cualquier otro rol -> 403."""
-    if not (context.tiene_rol("recepcion") or context.tiene_rol("admin")):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Rol requerido: recepcion o admin",
-        )
-    return context
 
 
 def _ip(request: Request) -> str:

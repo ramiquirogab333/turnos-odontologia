@@ -16,7 +16,12 @@ from app.gestion.deps import get_notificador, get_reloj
 from app.gestion.errores import FueraDePlazoError
 from app.gestion.eventos import NotificadorTurnos
 from app.catalogo.router import require_recepcion_o_admin
-from app.pagos.errores import MarcadoNoHabilitadoError, OperacionReintentableError, TurnoInexistenteError
+from app.pagos.errores import (
+    MarcadoNoHabilitadoError,
+    OperacionReintentableError,
+    TurnoAjenoError,
+    TurnoInexistenteError,
+)
 from app.pagos.estados import TransicionInvalidaError
 from app.panel.schemas import (
     AgendaQuery,
@@ -144,6 +149,8 @@ def _rechazo_estado(exc: Exception) -> JSONResponse:
     zona = zona_clinica()
     if isinstance(exc, TurnoInexistenteError):
         return JSONResponse(status_code=404, content={"detail": "No encontramos ese turno"})
+    if isinstance(exc, TurnoAjenoError):  # C-11 O15: el mismo cuerpo para "ajeno" e "inexistente"
+        return _prohibido(str(exc), "turno_ajeno")
     if isinstance(exc, TransicionInvalidaError):
         return JSONResponse(status_code=409, content=ErrorPanelBody(
             detail=f"El turno está {exc.actual} y no se puede pasar a {exc.destino}",
@@ -159,7 +166,7 @@ def _rechazo_estado(exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=503, content={"detail": "reintentar"})
 
 
-_ERRORES_DE_ESTADO = (TurnoInexistenteError, TransicionInvalidaError, MarcadoNoHabilitadoError, FueraDePlazoError,
+_ERRORES_DE_ESTADO = (TurnoInexistenteError, TurnoAjenoError, TransicionInvalidaError, MarcadoNoHabilitadoError, FueraDePlazoError,
                       OperacionReintentableError)
 
 
@@ -185,17 +192,24 @@ async def marcar_ausente(
 @router.post(
     "/turnos/{turno_id}/atendido",
     response_model=CambioEstadoResponse,
-    summary="Marca el turno como atendido (desde las 00:00 del día local del turno); sigue ocupando el horario",
+    summary="Marca el turno como atendido (desde las 00:00 del día local del turno); sigue ocupando el horario. Recepción/admin cualquier turno; la odontóloga, solo los de su profesional (`turno_ajeno`, O15)",
     responses=_ERRORES_ESTADO,
 )
 async def marcar_atendido(
     turno_id: int,
-    contexto: PermissionContext = Depends(require_recepcion_o_admin),
+    contexto: PermissionContext = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
     ahora: datetime = Depends(get_reloj),
 ) -> CambioEstadoResponse | JSONResponse:
+    # C-11 O15: la única escritura de la odontóloga. Recepción/admin sin restricción; ella solo sus turnos.
     try:
-        r = await marcar_turno(session, turno_id, "atendido", contexto.usuario_id, ahora)
+        alcance = await resolver_alcance(session, contexto)
+        r = await marcar_turno(session, turno_id, "atendido", contexto.usuario_id, ahora,
+                               profesional_requerido=alcance.profesional_id)
+    except SinAccesoAlPanelError as exc:
+        return _prohibido(str(exc), "sin_acceso_al_panel")
+    except SinProfesionalAsociadoError as exc:
+        return _prohibido(str(exc), "sin_profesional_asociado")
     except _ERRORES_DE_ESTADO as exc:
         return _rechazo_estado(exc)
     return CambioEstadoResponse(turno_id=r.turno_id, estado=r.estado_turno, estado_sena=r.estado_pago)

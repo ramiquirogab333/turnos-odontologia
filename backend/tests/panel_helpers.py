@@ -45,12 +45,13 @@ async def sembrar_mundo(factory: async_sessionmaker[AsyncSession], *, franja: tu
 async def insertar_turno(factory: async_sessionmaker[AsyncSession], mundo: dict[str, int], inicio: datetime, *,
                          estado: str = "reservado", prof: str = "ana", sillon: str = "s1", minutos: int = 30,
                          nombre: str | None = "Carlos Sintético", telefono: str | None = TELEFONO,
-                         origen: str = "web", vence: datetime | None = None, con_codigo: bool = True) -> int:
+                         origen: str = "web", vence: datetime | None = None, con_codigo: bool = True,
+                         paciente_id: int | None = None) -> int:
     async with factory() as s:
         t = Turno(profesional_id=mundo[prof], sillon_id=mundo[sillon], tratamiento_id=mundo["trat"], inicio=inicio,
                   fin=inicio + timedelta(minutes=minutos), estado=estado, origen=origen,
                   codigo_gestion=str(uuid.uuid4()) if con_codigo else None, contacto_nombre=nombre,
-                  contacto_telefono=telefono,
+                  contacto_telefono=telefono, paciente_id=paciente_id,
                   en_espera_vence_en=(vence or inicio) if estado == "en_espera" else None)
         s.add(t)
         await s.flush()

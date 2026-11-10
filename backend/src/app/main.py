@@ -31,6 +31,9 @@ from app.gestion.router import router as gestion_router
 from app.pagos.router_admin import router as sena_admin_router
 from app.pagos.router_public import router as sena_public_router
 from app.pagos.router_webhook import router as sena_webhook_router
+from app.clinica.router import router as clinica_router
+from app.pacientes.http import registrar_handlers as registrar_handlers_clinicos
+from app.pacientes.router import router as pacientes_router
 from app.panel.router import router as panel_router
 from app.public.router import router as public_router
 
@@ -69,6 +72,9 @@ app.include_router(sena_webhook_router)
 app.include_router(sena_admin_router)
 app.include_router(gestion_router)
 app.include_router(panel_router)
+app.include_router(pacientes_router)
+app.include_router(clinica_router)
+registrar_handlers_clinicos(app)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ReferenceNotFoundError, referencia_handler)  # type: ignore[arg-type]
 

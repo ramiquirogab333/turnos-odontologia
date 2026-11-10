@@ -262,10 +262,18 @@ async def test_acciones_de_un_turno_manual_sin_sena_segun_el_momento(client, rec
         assert (t["sena"], t["origen"], t["acciones"]) == (None, "manual", acciones), ahora
 
 
-async def test_la_odontologa_no_recibe_acciones_aunque_el_turno_haya_empezado(client, dra, mundo, session_factory, reloj) -> None:
+async def test_la_odontologa_solo_recibe_atendido_en_sus_turnos_y_nunca_telefono_ni_alta(
+        client, dra, mundo, session_factory, reloj) -> None:
     reloj(local(MARTES, "09:20"))
-    await insertar_turno(session_factory, mundo, local(MARTES, "09:00"))
-    assert (await _dia(client, dra, MARTES)).json()["turnos"][0]["acciones"] == []
+    await insertar_turno(session_factory, mundo, local(MARTES, "09:00"))  # empezó hace 20 minutos
+    await insertar_turno(session_factory, mundo, local(MARTES + timedelta(days=2), "10:00"))  # dentro de 48 h
+    turnos = (await _dia(client, dra, MARTES)).json()["turnos"]
+    assert [t["acciones"] for t in turnos] == [["atendido"]]
+    assert turnos[0]["paciente_telefono"] is None
+    futuro = (await _dia(client, dra, MARTES + timedelta(days=2))).json()["turnos"]
+    assert [t["acciones"] for t in futuro] == [[]]
+    opciones = await client.get("/api/panel/agenda/opciones", headers=dra)
+    assert opciones.json()["puede_escribir"] is False
 
 
 async def test_en_espera_ofrece_cancelar(client, rec, mundo, session_factory, reloj) -> None:

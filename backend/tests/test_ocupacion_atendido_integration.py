@@ -100,7 +100,7 @@ async def _hay_exclude_con_atendido(s: AsyncSession) -> bool:
 async def test_la_007_aborta_sin_tocar_datos_y_lista_los_ids_si_hay_solapes_con_un_atendido(
         session_factory: async_sessionmaker[AsyncSession], otros: dict[str, int]) -> None:
     try:
-        assert alembic("downgrade", "-1").returncode == 0
+        assert alembic("downgrade", "006_sena_pagos").returncode == 0
         async with session_factory() as s:
             assert not await _hay_exclude_con_atendido(s)
             atendido = await _turno(s, otros, "atendido")
@@ -130,7 +130,7 @@ async def test_la_007_aborta_sin_tocar_datos_y_lista_los_ids_si_hay_solapes_con_
 async def test_la_007_aplica_sin_conflictos_y_el_downgrade_restaura_el_predicado_de_la_001(
         session_factory: async_sessionmaker[AsyncSession], otros: dict[str, int]) -> None:
     try:
-        abajo = alembic("downgrade", "-1")
+        abajo = alembic("downgrade", "006_sena_pagos")
         assert abajo.returncode == 0, abajo.stderr
         async with session_factory() as s:
             await _turno(s, otros, "atendido")

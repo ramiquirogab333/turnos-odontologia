@@ -22,7 +22,7 @@ from app.pagos.estados import (
 )
 from app.pagos.models import PagoSena
 from app.pagos.service import ResultadoCambioEstado, cambiar_estado_turno
-from app.panel.acciones import acciones_permitidas
+from app.panel.acciones import Permiso, acciones_permitidas
 from app.panel.schemas import (
     AgendaQuery,
     AgendaResponse,
@@ -80,6 +80,7 @@ class Alcance:
 
     puede_escribir: bool
     profesional_id: int | None
+    marca_atendido: bool = False  # C-11 O15: la odontóloga marca ``atendido`` sus turnos (no escribe nada más)
 
 
 def zona_clinica() -> ZoneInfo:
@@ -93,14 +94,14 @@ def tolerancia_ausente() -> timedelta:
 async def resolver_alcance(session: AsyncSession, contexto: PermissionContext) -> Alcance:
     """El permiso más amplio gana: recepción y admin ven todo y escriben; un odontólogo puro ve solo lo suyo."""
     if contexto.tiene_rol("recepcion") or contexto.tiene_rol("admin"):
-        return Alcance(puede_escribir=True, profesional_id=None)
+        return Alcance(puede_escribir=True, profesional_id=None, marca_atendido=True)
     if not contexto.tiene_rol("odontologo"):
         raise SinAccesoAlPanelError()
     profesional_id = (await session.execute(
         select(Usuario.profesional_id).where(Usuario.id == contexto.usuario_id))).scalar_one_or_none()
     if profesional_id is None:
         raise SinProfesionalAsociadoError()
-    return Alcance(puede_escribir=False, profesional_id=int(profesional_id))
+    return Alcance(puede_escribir=False, profesional_id=int(profesional_id), marca_atendido=True)
 
 
 def rango_utc(vista: str, fecha: date, zona: ZoneInfo) -> tuple[date, date, datetime, datetime]:
@@ -149,6 +150,8 @@ async def consultar_agenda(session: AsyncSession, alcance: Alcance, query: Agend
         consulta = consulta.where(Turno.sillon_id == query.sillon_id)
 
     tolerancia = tolerancia_ausente()
+    permiso: Permiso = ("total" if alcance.puede_escribir else "solo_atendido" if alcance.marca_atendido
+                        else "ninguno")
     turnos: list[TurnoAgenda] = []
     for turno, profesional, sillon, tratamiento, duracion, estado_pago, monto_pago in (
             await session.execute(consulta)).all():
@@ -163,7 +166,7 @@ async def consultar_agenda(session: AsyncSession, alcance: Alcance, query: Agend
             paciente_telefono=turno.contacto_telefono if alcance.puede_escribir else None,
             sena=None if estado_pago is None else SenaAgenda(estado=estado_pago, monto=monto_pago),
             vence_en=turno.en_espera_vence_en.astimezone(zona) if turno.en_espera_vence_en else None,
-            acciones=acciones_permitidas(turno.estado, turno.inicio, ahora, alcance.puede_escribir, zona, tolerancia),
+            acciones=acciones_permitidas(turno.estado, turno.inicio, ahora, permiso, zona, tolerancia),
         ))
     return AgendaResponse(vista=query.vista, desde=primero, hasta=ultimo, turnos=turnos)
 
@@ -288,12 +291,15 @@ async def crear_turno_manual(session: AsyncSession, data: TurnoManualCreate, usu
 # ---------------------------------------------------------------------------
 
 async def marcar_turno(session: AsyncSession, turno_id: int, destino: str, usuario_id: int,
-                       ahora: datetime) -> ResultadoCambioEstado:
+                       ahora: datetime, profesional_requerido: int | None = None) -> ResultadoCambioEstado:
     """Marca ``ausente`` o ``atendido`` aplicando RN-TU-12 bajo lock con el inicio real del turno (O14).
 
     - ``ausente``: desde ``inicio + tolerancia``; una seña acreditada queda ``no_reembolsado`` (R9).
     - ``atendido``: desde las 00:00 del día local del turno; la seña no cambia y el turno sigue ocupando (O19).
     No publica eventos (O15).
+
+    ``profesional_requerido`` (C-11, O15): la odontóloga solo marca turnos de su profesional; se valida bajo el lock del
+    turno y antes que la transición y el horario (``TurnoAjenoError``).
     """
     zona = zona_clinica()
     if destino == "ausente":
@@ -309,7 +315,7 @@ async def marcar_turno(session: AsyncSession, turno_id: int, destino: str, usuar
 
         origen = "marcado_atendido_panel"
     return await cambiar_estado_turno(session, turno_id, destino, usuario_id, ahora=ahora, origen=origen,
-                                      habilitado_desde=habilitado)
+                                      habilitado_desde=habilitado, profesional_requerido=profesional_requerido)
 
 
 async def cancelar_turno_panel(session: AsyncSession, turno_id: int, usuario_id: int, ahora: datetime,
