@@ -34,6 +34,8 @@ C-01 crear-turno-sin-solape
               │           ├── C-06 sena-pagos-turno      ← GAP usuario: en_espera sin bloqueo
               │           │     └── C-07 cancelacion-reprogramacion-24h
               │           │           ├── C-08 agenda-profesional-panel
+              │           │           │     ├── C-14 panel-catalogo-disponibilidad   (nuevo, O18)
+              │           │           │     ├── C-15 auth-hardening-panel            (nuevo, O17; también depende de C-03; antes de producción)
               │           │           │     └── C-12 panel-admin-caja-ausentismo
               │           │           │           └── C-13 auditoria-exportacion
               │           │           ├── C-09 whatsapp-recordatorios-confirmacion
@@ -73,6 +75,10 @@ GATE 6: C-06 ✓                          ← SEGUNDO FORK (3 paralelos)
 
 GATE 7: C-07 ✓
   → C-08 agenda-profesional-panel       [Agente A]
+
+GATE 7b: C-08 ✓                         ← C-14 no depende de C-11 ni de C-12
+  → C-14 panel-catalogo-disponibilidad  [Agente C — UI sobre frontend-panel/]
+  → C-15 auth-hardening-panel           [Agente A — CRÍTICO, obligatorio antes de producción]
 
 GATE 8: C-08 + C-11 ✓
   → C-12 panel-admin-caja-ausentismo    [Agente A]
@@ -179,7 +185,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 
 ### [C-04] `catalogo-tratamientos-disponibilidad`
 - **Estado**: `[x]` archivado 2026-11-03 (`openspec/changes/archive/2026-11-02-c-04-catalogo-tratamientos-disponibilidad/`, la carpeta conserva la fecha 11-02; spec en `openspec/specs/catalogo/tratamientos-disponibilidad/spec.md`)
-- **Scope**: Catálogo administrable que alimenta el cálculo de horarios libres (US-008) — backend admin puro, sin frontend (el panel UI llega en C-08)
+- **Scope**: Catálogo administrable que alimenta el cálculo de horarios libres (US-008) — backend admin puro, sin frontend (la UI de catálogo y disponibilidad se MOVIÓ de C-08 a C-14, decisión O18 del 2026-11-09)
   - Resoluciones 2026-09-30: Tratamientos con duración — CRUD admin `Tratamiento` (nombre, `duracion_minutos` > 0 con `CHECK`, precio base `Numeric`); multi-odontólogo/multi-sillón día 1 — CRUD admin `Profesional`, `Sillon`, `Disponibilidad` (franjas + excepciones/feriados)
   - Endpoints admin CRUD: `/api/admin/tratamientos`, `/profesionales`, `/sillones`, `/disponibilidad` (protegidos por C-03, rol recepción/admin; Pydantic in/out, R15)
   - Regla: tabla tratamiento→duración editable sin tocar código (RN-TU-05, DD-03); al cambiar una duración los horarios libres se recalculan (sin migración de datos históricos)
@@ -271,17 +277,17 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 > C-09 y C-10 pueden ejecutarse en paralelo entre sí una vez que C-07 está archivado (ambos consumen estados finales + regla 24h). C-09 crea la base de jobs/scheduler (movida del viejo C-01); C-10 la reutiliza.
 
 ### [C-08] `agenda-profesional-panel`
-- **Estado**: `[ ]` pendiente
-- **Scope**: Agenda por profesional día/semana para odontólogo y gestión total para recepción (US-005) — primera superficie de panel (stack congelado: React + TypeScript + Vite)
-  - MOVIDO desde el viejo C-01: scaffolding `frontend-panel/` (TS strict R1, mobile-first donde aplique)
-  - Resoluciones 2026-09-30: multi-odontólogo/multi-sillón día 1 — `GET /api/panel/agenda?profesional_id&dia|semana` con filtro por profesional/sillón; odontólogo ve solo su agenda, recepción/admin todo (RBAC C-03)
-  - La vista distingue `en_espera` (no bloqueante, visual atenuada) de `reservado/confirmado`; sin turnos superpuestos visibles (RN-TU-03)
-  - Acciones de recepción: crear turno manual (origen manual, con el mismo anti-solape de C-01), marcar `ausente` (retiene seña, C-06, R9) / `atendido`
-  - Frontend panel: vista día y semana, filtro por profesional/sillón
-  - Reglas verificables: RN-TU-03 (sin solapes visibles), R8 (`en_espera` atenuada, no cuenta como ocupación), R9 (ausente retiene seña), R1
-  - Done-criteria (test): aislamiento por rol, `en_espera` no cuenta como ocupación, marcado de ausente/atendido con seña retenida
+- **Estado**: `[x]` archivado 2026-11-10 (`openspec/changes/archive/2026-11-10-c-08-agenda-profesional-panel/`, specs en `openspec/specs/auth/panel-acceso-web/spec.md` (nuevo), `openspec/specs/turnos/agenda-panel/spec.md` (nuevo), `openspec/specs/turnos/gestion-panel/spec.md` (nuevo), y `openspec/specs/auth/panel-login/spec.md`, `openspec/specs/turnos/creacion-sin-solape/spec.md`, `openspec/specs/pagos/sena-turno/spec.md`, `openspec/specs/turnos/reserva-publica/spec.md` (modificados); tarea 8.5 (CI remoto) pendiente: cierra con la primera corrida remota en verde tras el push)
+- **Scope**: Agenda por profesional día/semana para odontólogo y gestión para recepción (US-005) — primera superficie de panel (stack congelado: React + TypeScript + Vite)
+  - `frontend-panel/` (puerto 5174, mismo origen que `/api`): pantalla de ingreso, sesión con refresh en cookie `HttpOnly` y access en memoria, agenda día y semana con filtros, alta manual y acciones sobre cada turno; CI propio (`frontend-panel` y `e2e-panel`)
+  - Backend `app/panel/`: `GET /api/panel/agenda` y `/opciones` (odontólogo ve solo su agenda y sin teléfono; recepción/admin todo), `POST /api/panel/turnos` (alta manual `reservado` sin seña, excepción O7 a R8, `origen='manual'`), `POST /api/panel/turnos/{id}/{ausente|atendido|cancelar}`; comando `python -m app.panel.usuarios` (O4)
+  - Migración `007_turno_origen_ocupacion`: `turno.origen` y EXCLUDE ampliados a `atendido` (O19: un atendido ocupa el horario hasta su `fin`)
+  - Auth endurecida dentro de C-08 (O2/O3): refresh solo por cookie con `X-Panel-Csrf`, logout que revoca el refresh por 7 días, `POST /api/turnos` exige recepción/admin
+  - Regla nueva RN-TU-12 (O14): `atendido` desde las 00:00 local del turno; `ausente` desde el inicio más `AUSENTE_TOLERANCIA_MINUTOS` (10)
+  - Reglas verificables: RN-TU-03 (sin solapes visibles), R8 (`en_espera` atenuada y en banda aparte; excepción del alta manual), R9 (ausente retiene seña), RN-TU-12, R1, R2, R3
+  - Fuera de C-08 (seguimiento): deshacer un `atendido` marcado por error → C-12; UI de catálogo y disponibilidad → C-14; resto del endurecimiento de auth → C-15; Google Calendar en la vista → C-10
 - **Dependencias**: C-07
-- **Governance**: MEDIO
+- **Governance**: MEDIO (con cambios CRÍTICOS de auth aprobados por el usuario el 2026-11-09)
 - **Leer antes**:
   - `knowledge-base/03_actores_y_roles.md` §RBAC — Matriz de permisos
   - `knowledge-base/06_funcionalidades.md` §US-005
@@ -339,7 +345,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - Modelos: `Ficha` (antecedentes, historia de turnos), `Odontograma` FDI básico por paciente, `Presupuesto` (líneas tratamiento + cobertura OS, total, estado) — `Pago` de presupuestos aquí o reutilizando medio MP/transferencia de C-06 (RN-PG-01)
   - Endpoints panel: `/api/panel/pacientes/{id}/ficha`, `/odontograma`, `/presupuestos` (CRUD recepción/admin; lectura odontólogo sus pacientes; Pydantic in/out R15)
   - Presupuesto descuenta cobertura según nomenclador AR precargado (RN-PG-02, seed C-02); sin ARCA nativa en v1 (RN-PG-03)
-  - Migración Alembic 006 (reversible): tablas ficha/odontograma/presupuesto
+  - Migración Alembic 008 (reversible): tablas ficha/odontograma/presupuesto (la 006 es de C-06 y la 007 de C-08; verificar con `ls backend/src/alembic/versions` el siguiente número libre antes de crearla)
   - Reglas verificables: RN-PG-02 (descuento por cobertura), RN-PG-03 (sin ARCA), R4 (montos `Numeric`)
   - Done-criteria (test): cálculo total con cobertura, permisos por rol, seed nomenclador aplicado
 - **Dependencias**: C-04
@@ -356,7 +362,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ### [C-12] `panel-admin-caja-ausentismo`
 - **Estado**: `[ ]` pendiente
 - **Scope**: Panel de operación diaria: pacientes, ausentismo, ocupación por sillón, caja y liquidaciones (US-007)
-  - `GET /api/panel/pacientes` (alta, ficha, historial, ausentes), `GET /api/panel/ocupacion?sillon_id&dia` (solo turnos bloqueantes cuentan; `en_espera` excluida — multi-sillón día 1), `POST /api/panel/turnos/{id}/ausente` (seña no reembolsada — regla usuario, R9)
+  - `GET /api/panel/pacientes` (alta, ficha, historial, ausentes), `GET /api/panel/ocupacion?sillon_id&dia` (solo turnos bloqueantes cuentan; `en_espera` excluida — multi-sillón día 1); marcar `ausente` ya lo entrega C-08 (seña no reembolsada, R9): C-12 solo lo consume en caja y ausentismo, y suma deshacer un `atendido` marcado por error (pendiente que dejó C-08)
   - Caja: `GET /api/panel/caja` (señas acreditadas/no reembolsadas + pagos de presupuestos), `POST /api/panel/caja/cierre` (cierres y liquidaciones)
   - Frontend panel recepción/admin (sobre el scaffolding de C-08): dashboard ocupación, ausentismo, recupero, caja
   - Reglas verificables: R8 (ocupación excluye `en_espera`), R9 (ausente retiene seña en caja), RN-GL-01 (cierre auditado)
@@ -368,6 +374,38 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - `knowledge-base/07_flujos_principales.md` §Flujo 5: Gestión admin
   - `knowledge-base/04_modelo_de_datos.md` §Sillón
   - `knowledge-base/01_vision_y_objetivos.md` §Métricas de éxito
+
+---
+
+### [C-14] `panel-catalogo-disponibilidad`
+- **Estado**: `[ ]` pendiente (propuesto en C-08, decisión O18 del 2026-11-09)
+- **Scope**: UI de catálogo y disponibilidad sobre `frontend-panel/` — la promesa de C-04 ("el panel UI llega con C-08") se movió acá
+  - Pantallas de tratamientos (duración y precio), profesionales, sillones y franjas de disponibilidad, sobre los CRUD `/api/admin/*` de C-04
+  - Reutiliza la sesión, el cliente de API y los tokens de `frontend-panel/`; solo recepción y admin (el rol `odontologo` no accede)
+  - Reglas verificables: RN-TU-04/05/07 (duración configurable, disponibilidad vigente), R1, R2, R3, R7 (E2E Playwright)
+- **Dependencias**: C-08
+- **Governance**: MEDIO
+- **Leer antes**:
+  - `knowledge-base/06_funcionalidades.md` §US-008
+  - `knowledge-base/03_actores_y_roles.md` §RBAC — Matriz de permisos
+  - `openspec/changes/archive/*-c-04-catalogo-tratamientos-disponibilidad/design.md`
+
+---
+
+### [C-15] `auth-hardening-panel`
+- **Estado**: `[ ]` pendiente (propuesto en C-08, decisión O17 del 2026-11-09; **obligatorio antes de producción**)
+- **Scope**: Cerrar los huecos de la auth del panel que C-08 no tocó (C-08 solo corrigió la cookie de refresh y la revocación del logout)
+  - Rate limiting de login y refresh
+  - Consultar la blacklist en `get_current_user` (hoy el access sigue válido hasta 15 min después del logout)
+  - Verificar `is_active` y roles frescos de la base en cada refresh (hoy el refresh copia los roles del token)
+  - IP real en la auditoría (hoy `testclient`) y límite absoluto de duración de sesión
+  - Purga de `token_blacklist` vencida, sin volver ineficaz el logout
+- **Dependencias**: C-03, C-08
+- **Governance**: CRÍTICO (análisis y propuesta; sin escribir código sin aprobación humana)
+- **Leer antes**:
+  - `knowledge-base/03_actores_y_roles.md` §RBAC
+  - `openspec/changes/archive/2026-11-10-c-08-agenda-profesional-panel/design.md` §D10 (qué quedó en C-15)
+  - `openspec/changes/archive/*-c-03-auth-panel-rbac/design.md`
 
 ---
 
@@ -394,7 +432,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 | Riesgo | Mitigación |
 |--------|------------|
 | E2E Windows diferido (C-01 4.1: popups `python.exe` cuelgan el host; Playwright prohibido en este entorno) | Cobertura interina verde API+DB (carrera 201+409, SQLSTATE 23P01) en la suite 27 passed; follow-up en C-05/C-08; ver `## Acta de desvío` en `openspec/changes/archive/2026-10-01-crear-turno-sin-solapamientos/tasks.md` |
-| Forward-compat `EXCLUDE` → C-06 (`en_espera` no bloqueante) | Resuelta con estrategia A: EXCLUDE parciales `WHERE estado IN ('reservado','confirmado')`; `en_espera` queda fuera del constraint desde el DDL de C-01, sin migración correctiva en C-06 |
+| Forward-compat `EXCLUDE` → C-06 (`en_espera` no bloqueante) | Resuelta con estrategia A: EXCLUDE parciales por estado; `en_espera` queda fuera del constraint desde el DDL de C-01, sin migración correctiva en C-06. C-08 (migración 007, O19) amplió el predicado a `WHERE estado IN ('reservado','confirmado','atendido')`: un `atendido` ocupa el horario hasta su `fin` y `ausente` lo libera |
 | Daemon Docker no disponible en el host | `docker compose config` como verificación sin daemon pesado; Postgres levantado solo con `docker compose up -d postgres` (foreground, un intento); si falla, abortar y reportar en vez de reintentar en background |
 | Alertas Snyk: `playwright-cli` / `gws-calendar-agenda` | Skills solo como harness de test/agenda; sin pins productivos afectados; revisar alertas antes de C-05 (Playwright) y C-10 (GCal) |
 | Cifras de mercado autodeclaradas (ej. DentalSoft "+300 clínicas / −82% ausencias" sin auditoría) | No usar como criterio de aceptación; métricas de éxito propias en `01_vision_y_objetivos.md`; pendiente de confirmación (pregunta Media en `10_preguntas_abiertas.md`) |

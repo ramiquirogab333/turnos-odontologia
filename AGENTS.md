@@ -91,10 +91,10 @@ Cargá la skill correspondiente al contexto ANTES de escribir código.
 
 El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 
-- **Total**: 13 changes en 5 fases.
+- **Total**: 15 changes en 5 fases.
 - **Camino crítico** (9): detalle en `CHANGES.md` (eje `C-01 → … → C-13` con `C-06 sena-pagos-turno` como change propio de la restricción de seña).
 - **Primer change**: `C-01` (foundation-setup) → arrancar con `/opsx:propose C-01-foundation-setup`.
-- Estado actual: C-01 a C-07 archivados; cambio crítico de seguimiento: C-12 (panel-admin-caja-ausentismo); próximo por árbol: C-08 agenda-profesional-panel (y C-09/C-10 en paralelo, habilitados por C-07; C-11 en paralelo, del GATE 5).
+- Estado actual: C-01 a C-08 archivados; cambio crítico de seguimiento: C-12 (panel-admin-caja-ausentismo, requiere C-11); próximos por árbol: C-09 y C-10 (en paralelo, habilitados por C-06 y C-07), C-11 (GATE 5), y C-14 y C-15 (GATE 7b; C-15 obligatorio antes de producción).
 
 **Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md), identificá las dependencias del change y los archivos de "Leer antes".
 
@@ -118,7 +118,7 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 - R7. NUNCA dar por hecho un flujo de turnos (reserva, seña, ventana 24h) sin su E2E Playwright en verde.
 
 **Dominio (contrato con la KB)**
-- R8. NUNCA bloquear agenda con un turno `en_espera` → solo la seña acreditada bloquea el slot.
+- R8. NUNCA bloquear agenda con un turno `en_espera` → solo la seña acreditada bloquea el slot. Excepción (C-08, O7): el alta manual de recepción o admin nace `reservado` sin seña.
 - R9. NUNCA reembolsar la seña ante ausente → queda registrado como recupero.
 - R10. Las reglas `RN-XX` de `knowledge-base/05_reglas_de_negocio.md` son contrato.
 

@@ -156,7 +156,7 @@ Al acreditar, el sistema SHALL pasar el turno de `en_espera` a `reservado` solo 
 - **THEN** el turno 53 queda `reservado` en el sillón S2 y la auditoría registra la reasignación
 
 ### Requirement: La pre-reserva en espera no dispara notificaciones
-El sistema no SHALL generar recordatorio de WhatsApp ni evento de calendario para un turno `en_espera` (RN-SN-01, RN-WA-03). La acreditación SHALL ser el único disparador de esos efectos y SHALL dejar un registro de auditoría con origen `acreditacion_sena`, que C-09 y C-10 van a consumir.
+El sistema no SHALL generar recordatorio de WhatsApp ni evento de calendario para un turno `en_espera` (RN-SN-01, RN-WA-03). Solo la acreditación de la seña y el alta manual desde el panel (C-08), que nace bloqueante y sin seña, SHALL disparar esos efectos. La acreditación SHALL dejar un registro de auditoría con origen `acreditacion_sena` y el alta manual uno con origen `alta_manual_panel`, que C-09 y C-10 van a consumir.
 
 #### Scenario: Acreditación deja el punto de enganche (Happy Path)
 - **GIVEN** que el turno 63 está `en_espera`
@@ -167,6 +167,11 @@ El sistema no SHALL generar recordatorio de WhatsApp ni evento de calendario par
 - **GIVEN** que el turno 64 se creó `en_espera` y venció sin pago
 - **WHEN** se revisa la auditoría del turno 64
 - **THEN** no hay ningún registro con origen `acreditacion_sena` y no se generó ningún recordatorio ni evento
+
+#### Scenario: Alta manual deja el punto de enganche (Caso de Borde)
+- **GIVEN** que recepción crea desde el panel el turno 75, que nace `reservado` y sin seña
+- **WHEN** se revisa la auditoría del turno 75
+- **THEN** existe exactamente un registro con origen `alta_manual_panel` y estado `reservado`, y ninguno con origen `acreditacion_sena`
 
 ### Requirement: Acreditación manual de transferencias
 El sistema SHALL permitir que un usuario con rol `recepcion` o `admin` acredite un pago pendiente por transferencia con `POST /api/admin/pagos-sena/{id}/acreditar` (RN-SN-08), con la misma regla de anti-solape, registrando en la auditoría quién lo hizo (RN-GL-01). Los demás roles SHALL recibir 403.
