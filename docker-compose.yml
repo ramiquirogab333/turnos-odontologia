@@ -41,6 +41,8 @@ services:
       # Barrido de pre-reservas vencidas (C-06 D8). Para los E2E de vencimiento conviene 3.
       SENA_BARRIDO_HABILITADO: ${SENA_BARRIDO_HABILITADO:-true}
       SENA_BARRIDO_SEGUNDOS: ${SENA_BARRIDO_SEGUNDOS:-60}
+      # C-08 (O14): minutos tras el inicio desde los que recepción puede marcar un turno como ausente.
+      AUSENTE_TOLERANCIA_MINUTOS: ${AUSENTE_TOLERANCIA_MINUTOS:-10}
     ports:
       - "8000:8000"
     depends_on:

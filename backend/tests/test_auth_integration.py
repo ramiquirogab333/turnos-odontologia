@@ -61,9 +61,9 @@ async def test_login_correcto_devuelve_200_con_tokens(
     assert resp.status_code == status.HTTP_200_OK, resp.text
     body = resp.json()
     assert "access_token" in body
-    assert "refresh_token" in body
+    # C-08 (D10): el refresh viaja solo en la cookie HttpOnly, nunca en el JSON
+    assert "refresh_token" not in body
     assert body["token_type"] == "bearer"
-    # Cookie HttpOnly del refresh
     assert "refresh_token" in resp.cookies
 
 
@@ -144,21 +144,17 @@ async def test_refresh_rotation_blacklistea_jti_anterior(
     assert resp_login.status_code == status.HTTP_200_OK
     refresh_token_viejo = resp_login.cookies["refresh_token"]
 
-    # Rotar: POST /api/auth/refresh con el refresh token viejo
-    resp_refresh = await client.post(
-        "/api/auth/refresh",
-        json={"refresh_token": refresh_token_viejo},
-    )
+    # Rotar: POST /api/auth/refresh con la cookie del refresh viejo y la cabecera anti-CSRF (C-08, D10)
+    cabeceras = {"Cookie": f"refresh_token={refresh_token_viejo}", "X-Panel-Csrf": "1"}
+    resp_refresh = await client.post("/api/auth/refresh", headers=cabeceras)
     assert resp_refresh.status_code == status.HTTP_200_OK, resp_refresh.text
     nuevo_par = resp_refresh.json()
     assert "access_token" in nuevo_par
-    assert "refresh_token" in nuevo_par
+    assert "refresh_token" not in nuevo_par
+    assert "refresh_token" in resp_refresh.cookies
 
     # El jti viejo ya no debe ser usable para otro refresh
-    resp_doble = await client.post(
-        "/api/auth/refresh",
-        json={"refresh_token": refresh_token_viejo},
-    )
+    resp_doble = await client.post("/api/auth/refresh", headers=cabeceras)
     assert resp_doble.status_code == status.HTTP_401_UNAUTHORIZED
 
 

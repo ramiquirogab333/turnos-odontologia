@@ -13,30 +13,20 @@ class LoginIn(BaseModel):
 
 
 class LoginOut(BaseModel):
-    """Respuesta de login: par de tokens."""
+    """Respuesta de login: solo el access. El refresh viaja en una cookie HttpOnly (C-08, D10), nunca en el JSON."""
 
     model_config = ConfigDict(extra="forbid")
 
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
 
 
-class RefreshIn(BaseModel):
-    """Payload de refresh (alternativa a leer de cookie)."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    refresh_token: str
-
-
 class RefreshOut(BaseModel):
-    """Respuesta de refresh: nuevo par de tokens."""
+    """Respuesta de refresh: access nuevo; el refresh rotado reemplaza la cookie HttpOnly."""
 
     model_config = ConfigDict(extra="forbid")
 
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
 
 

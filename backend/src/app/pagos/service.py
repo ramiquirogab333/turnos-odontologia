@@ -12,6 +12,7 @@ encontró C-05). El EXCLUDE sigue siendo la garantía final en base de datos (R5
 import hmac
 import secrets
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -25,6 +26,7 @@ from app.models.core import RegistroAuditoria
 from app.pagos.calculo import monto_sena, vencimiento
 from app.pagos.config import medios_disponibles, obtener_configuracion
 from app.pagos.errores import (
+    MarcadoNoHabilitadoError,
     MedioNoHabilitadoError,
     OperacionReintentableError,
     PagoNoAcreditableError,
@@ -550,8 +552,9 @@ class ResultadoCambioEstado:
 
 
 async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino: str, usuario_id: int | None,
-                               *, ahora: datetime | None = None,
-                               origen: str = "cambio_estado") -> ResultadoCambioEstado:
+                               *, ahora: datetime | None = None, origen: str = "cambio_estado",
+                               habilitado_desde: Callable[[datetime], datetime] | None = None,
+                               ) -> ResultadoCambioEstado:
     """Cambia el estado de un turno aplicando la máquina de estados y los efectos sobre la seña.
 
     - ``ausente`` con seña acreditada -> ``no_reembolsado`` (R9: nunca se reembolsa).
@@ -564,6 +567,8 @@ async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino:
         TurnoInexistenteError: el turno no existe.
         TransicionInvalidaError: transición no permitida (409 ``transicion_invalida``).
         CancelacionFueraDePlazoError: faltan menos de 24 h (409 ``fuera_de_plazo``).
+        MarcadoNoHabilitadoError: ``habilitado_desde(inicio)`` queda después de ``ahora`` (C-08, RN-TU-12); se evalúa
+            bajo lock con el inicio real del turno y DESPUÉS de validar la transición.
     """
     await _bloquear_reservas(session)  # mismo orden en todo el módulo: advisory -> turno -> pago (hallazgo 4)
     turno = (await session.execute(
@@ -590,6 +595,11 @@ async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino:
     except (TransicionInvalidaError, CancelacionFueraDePlazoError):
         await session.rollback()
         raise
+    if habilitado_desde is not None:
+        instante = habilitado_desde(turno.inicio)
+        if ahora is not None and ahora < instante:
+            await session.rollback()
+            raise MarcadoNoHabilitadoError(instante)
     turno.estado = resultado.estado_turno
     if resultado.estado_turno != "en_espera":
         turno.en_espera_vence_en = None
@@ -613,13 +623,15 @@ async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino:
 
 
 async def cambiar_estado_turno(session: AsyncSession, turno_id: int, destino: str, usuario_id: int | None,
-                               *, ahora: datetime | None = None,
-                               origen: str = "cambio_estado") -> ResultadoCambioEstado:
+                               *, ahora: datetime | None = None, origen: str = "cambio_estado",
+                               habilitado_desde: Callable[[datetime], datetime] | None = None,
+                               ) -> ResultadoCambioEstado:
     """Ver ``_cambiar_estado_una_vez``. Reintenta un deadlock/serialización; agotado, ``OperacionReintentableError``."""
     ahora = ahora or _ahora()
     for intento in range(MAX_REINTENTOS_ACREDITACION + 1):
         try:
-            return await _cambiar_estado_una_vez(session, turno_id, destino, usuario_id, ahora=ahora, origen=origen)
+            return await _cambiar_estado_una_vez(session, turno_id, destino, usuario_id, ahora=ahora, origen=origen,
+                                                 habilitado_desde=habilitado_desde)
         except (IntegrityError, DBAPIError) as exc:
             await session.rollback()
             sqlstate = getattr(getattr(exc, "orig", None), "sqlstate", "")

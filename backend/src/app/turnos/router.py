@@ -1,10 +1,10 @@
 """HTTP router for the internal turno primitive (D9).
 
 ``POST /api/turnos`` is an **identity-free internal primitive**: it receives
-no patient identity (no Paciente/nombre/teléfono). Change C-05 reuses this
-endpoint from ``POST /api/public/turnos`` (which adds nombre+teléfono and a
-management code) — reuse, not supersede: this primitive stays for the manual
-use of C-08.
+no patient identity (no Paciente/nombre/teléfono). Since C-08 (O3) it requires
+a valid access token with role ``recepcion`` or ``admin``: before, anyone could
+block the agenda without a deposit. The panel creates turnos through
+``POST /api/panel/turnos`` (which adds contact data, availability checks and audit).
 
 Responses: 201 created (``fin`` derived), 409 overlap with enum motivo
 (``profesional`` wins when both collide), 422 validation/unknown FK/past
@@ -17,6 +17,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.rbac import PermissionContext
+from app.catalogo.router import require_recepcion_o_admin
 from app.shared.db import get_session
 from app.shared.exceptions import OverlapError, ReferenceNotFoundError
 from app.turnos import service
@@ -49,12 +51,16 @@ async def referencia_handler(request: object, exc: ReferenceNotFoundError) -> JS
     summary="Crear turno (primitiva interna identity-free, reused by C-05)",
     responses={
         201: {"description": "Turno creado con `fin` derivado del tratamiento"},
+        401: {"description": "Sin token de acceso válido"},
+        403: {"description": "Rol sin permiso (se requiere recepcion o admin)"},
         409: {"model": ConflictoSolape, "description": "Solape por profesional o sillón"},
         422: {"description": "`fin` enviado, `inicio` pasado, FK inexistente o campo faltante"},
     },
 )
 async def crear_turno(
-    data: TurnoCreate, session: AsyncSession = Depends(get_session)
+    data: TurnoCreate,
+    session: AsyncSession = Depends(get_session),
+    _contexto: PermissionContext = Depends(require_recepcion_o_admin),
 ) -> TurnoRead:
     """Create a turno blocking its slot on profesional AND sillon (D9)."""
     for intento in range(MAX_INTENTOS_CARRERA):

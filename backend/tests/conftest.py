@@ -244,3 +244,68 @@ async def reloj() -> AsyncIterator[Callable[[datetime], None]]:
         yield fijar
     finally:
         app.dependency_overrides.pop(get_reloj, None)
+
+
+# ---------------------------------------------------------------------------
+# C-08: usuarios del panel y tokens para los tests (datos sintéticos, R19)
+# ---------------------------------------------------------------------------
+
+PASSWORD_PANEL = "password-sintetica-123"
+_HASH_PANEL: list[str] = []  # bcrypt con coste bajo, calculado una sola vez (acelera los tests)
+
+
+def hash_panel() -> str:
+    if not _HASH_PANEL:
+        import bcrypt
+
+        _HASH_PANEL.append(bcrypt.hashpw(PASSWORD_PANEL.encode(), bcrypt.gensalt(rounds=4)).decode())
+    return _HASH_PANEL[0]
+
+
+async def crear_usuario_panel(
+    factory: async_sessionmaker[AsyncSession], email: str, roles: list[str], *,
+    profesional_id: int | None = None,
+) -> tuple[int, str]:
+    """Crea (o reutiliza) un usuario con roles. Devuelve (usuario_id, access_token válido)."""
+    from sqlalchemy import select
+
+    from app.auth.service import create_access_token
+
+    async with factory() as session:
+        usuario = Usuario(email=email, nombre_completo="Usuario Sintético", hashed_password=hash_panel(),
+                          profesional_id=profesional_id)
+        session.add(usuario)
+        await session.flush()
+        for nombre in roles:
+            rol = (await session.execute(select(Rol).where(Rol.nombre == nombre))).scalar_one_or_none()
+            if rol is None:
+                rol = Rol(nombre=nombre)
+                session.add(rol)
+                await session.flush()
+            session.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
+        await session.commit()
+        usuario_id = int(usuario.id)
+    token = create_access_token({"sub": str(usuario_id), "roles": roles, "email": email,
+                                 "jti": f"jti-{usuario_id}-{os.urandom(4).hex()}"})
+    return usuario_id, token
+
+
+@pytest_asyncio.fixture
+async def token_recepcion(session_factory: async_sessionmaker[AsyncSession], clean_db: None) -> str:
+    return (await crear_usuario_panel(session_factory, "recepcion@turnos.test", ["recepcion"]))[1]
+
+
+@pytest_asyncio.fixture
+async def token_admin(session_factory: async_sessionmaker[AsyncSession], clean_db: None) -> str:
+    return (await crear_usuario_panel(session_factory, "admin@turnos.test", ["admin"]))[1]
+
+
+def bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def client_recepcion(client: AsyncClient, token_recepcion: str) -> AsyncClient:
+    """Cliente HTTP ya autenticado como recepción (para los tests de la primitiva ``POST /api/turnos``)."""
+    client.headers.update(bearer(token_recepcion))
+    return client

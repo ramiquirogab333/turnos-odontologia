@@ -89,6 +89,8 @@ class Turno(Base):
     contacto_telefono: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Seña (C-06): vencimiento de la pre-reserva; obligatorio mientras el turno está en_espera.
     en_espera_vence_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # C-08: canal de alta (web = reserva pública; manual = recepción/admin en el panel; whatsapp = C-09).
+    origen: Mapped[str] = mapped_column(Text, nullable=False, default="web", server_default="web")
     periodo: Mapped[Any] = mapped_column(
         TSTZRANGE, Computed("tstzrange(inicio, fin, '[)')", persisted=True)
     )
@@ -105,6 +107,7 @@ class Turno(Base):
         CheckConstraint(
             "estado <> 'en_espera' OR en_espera_vence_en IS NOT NULL", name="ck_turno_en_espera_vence"
         ),
+        CheckConstraint("origen IN ('web', 'manual', 'whatsapp')", name="ck_turno_origen"),
         CheckConstraint(
             "codigo_gestion IS NULL OR LENGTH(codigo_gestion) BETWEEN 8 AND 64",
             name="ck_turno_codigo_gestion_len",

@@ -1,21 +1,25 @@
-"""Endpoints de autenticación del panel (C-03): login, refresh, logout, me.
+"""Endpoints de autenticación del panel (C-03, endurecidos en C-08 / D10): login, refresh, logout, me.
 
-- POST /api/auth/login: verifica credenciales, emite par JWT, refresh en cookie
-  HttpOnly, audita intento (RN-GL-01).
-- POST /api/auth/refresh: rotación con blacklist del jti anterior.
-- POST /api/auth/logout: blacklist del jti actual, limpia cookie.
+- POST /api/auth/login: verifica credenciales, devuelve el access en el JSON y el refresh SOLO en una cookie
+  HttpOnly/Secure/SameSite=Strict (nunca en el cuerpo), audita el intento (RN-GL-01).
+- POST /api/auth/refresh: lee el refresh únicamente de la cookie y exige la cabecera ``X-Panel-Csrf: 1``
+  (defensa CSRF junto con SameSite=Strict); rota blacklisteando el jti anterior. La rotación concurrente tiene
+  un solo ganador: el perdedor recibe 401, nunca 500. Si el API se publica con CORS hay que revisar esta defensa.
+- POST /api/auth/logout: revoca el jti del access y el del refresh de la cookie hasta que el refresh pueda vencer
+  (idempotente) y borra la cookie.
 - GET /api/auth/me: usuario autenticado con roles.
 """
 
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.rbac import PermissionContext, get_current_user
-from app.auth.schemas import LoginIn, LoginOut, LogoutOut, MeOut, RefreshIn, RefreshOut
+from app.auth.schemas import LoginIn, LoginOut, LogoutOut, MeOut, RefreshOut
 from app.auth.service import (
     blacklist_jti,
     create_access_token,
@@ -32,6 +36,8 @@ from app.shared.settings import get_settings
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 REFRESH_COOKIE_NAME = "refresh_token"
+REFRESH_COOKIE_PATH = "/api/auth"
+CSRF_HEADER = "X-Panel-Csrf"
 
 
 def _settings():
@@ -48,14 +54,24 @@ def _set_refresh_cookie(response: Response, token: str, expires: datetime) -> No
         value=token,
         httponly=True,
         secure=True,
-        samesite="lax",
-        path="/api/auth",
+        samesite="strict",
+        path=REFRESH_COOKIE_PATH,
         expires=expires,
     )
 
 
 def _clear_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(key=REFRESH_COOKIE_NAME, path="/api/auth")
+    """Borra la cookie repitiendo los mismos atributos con los que se emitió."""
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH, httponly=True, secure=True, samesite="strict"
+    )
+
+
+def _no_autenticado(detalle: str) -> JSONResponse:
+    """401 que además borra la cookie de refresh (inválida, vencida, revocada o ausente)."""
+    respuesta = JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": detalle})
+    _clear_refresh_cookie(respuesta)
+    return respuesta
 
 
 async def _audit(
@@ -97,7 +113,7 @@ async def _get_user_with_roles(
     "/login",
     response_model=LoginOut,
     status_code=status.HTTP_200_OK,
-    summary="Login del panel: devuelve access + refresh (cookie HttpOnly)",
+    summary="Login del panel: access en el JSON, refresh en cookie HttpOnly",
 )
 async def login(
     response: Response,
@@ -141,58 +157,51 @@ async def login(
     await _audit(session, "LOGIN_OK", "usuario", str(usuario.id), int(usuario.id), ip)
     await session.commit()
 
-    return LoginOut(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-    )
+    return LoginOut(access_token=access_token, token_type="bearer")
 
 
 @router.post(
     "/refresh",
     response_model=RefreshOut,
     status_code=status.HTTP_200_OK,
-    summary="Rotación de refresh: blacklistea jti anterior, emite nuevo par",
+    summary="Rotación de refresh (solo cookie + X-Panel-Csrf): blacklistea el jti anterior, emite access nuevo",
+    responses={
+        401: {"description": "Cookie ausente, inválida, vencida, revocada o ya rotada (la cookie se borra)"},
+        403: {"description": "Falta la cabecera anti-CSRF `X-Panel-Csrf: 1` (motivo `csrf_requerido`)"},
+    },
 )
 async def refresh(
+    request: Request,
     response: Response,
-    data: RefreshIn | None = None,
+    x_panel_csrf: str | None = Header(default=None, alias=CSRF_HEADER),
     session: AsyncSession = Depends(get_session),
-) -> RefreshOut:
-    """Rota el refresh token: blacklistea el jti usado y emite un nuevo par."""
-    refresh_token = data.refresh_token if data and data.refresh_token else None
-
-    if refresh_token is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token requerido",
+) -> RefreshOut | JSONResponse:
+    """Rota el refresh de la cookie: blacklistea el jti usado y emite un access nuevo con un refresh nuevo en cookie."""
+    # La cabecera se valida ANTES de leer la cookie: un sitio ajeno no puede enviarla (preflight sin CORS).
+    if x_panel_csrf != "1":
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": "Falta la cabecera de protección del panel", "motivo": "csrf_requerido"},
         )
-
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        return _no_autenticado("Refresh token requerido")
     try:
         payload = decode_token(refresh_token)
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token inválido o expirado",
-        )
-
+        return _no_autenticado("Refresh token inválido o expirado")
     if payload.get("type") != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Se requiere un token de refresh",
-        )
+        return _no_autenticado("Se requiere un token de refresh")
 
     jti_viejo = payload["jti"]
     if await is_jti_blacklisted(session, jti_viejo):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token ya revocado",
-        )
+        return _no_autenticado("Refresh token ya revocado")
 
-    exp_refresh = payload["exp"]
-    await blacklist_jti(
-        session, jti_viejo, datetime.fromtimestamp(exp_refresh, tz=timezone.utc)
-    )
+    # Una sola rotación gana: si otra petición ya revocó este jti (o lo revoca a la vez), esta pierde con 401.
+    exp_refresh = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    if not await blacklist_jti(session, jti_viejo, exp_refresh):
+        await session.rollback()
+        return _no_autenticado("Refresh token ya revocado")
 
     token_data = {
         "sub": payload["sub"],
@@ -210,33 +219,39 @@ async def refresh(
 
     await session.commit()
 
-    return RefreshOut(
-        access_token=access_token,
-        refresh_token=new_refresh_token,
-        token_type="bearer",
-    )
+    return RefreshOut(access_token=access_token, token_type="bearer")
 
 
 @router.post(
     "/logout",
     response_model=LogoutOut,
     status_code=status.HTTP_200_OK,
-    summary="Logout: blacklistea jti del access token actual, limpia cookie",
+    summary="Logout: revoca el access y el refresh de la cookie hasta que el refresh pueda vencer; limpia la cookie",
 )
 async def logout(
+    request: Request,
     response: Response,
     context: PermissionContext = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> LogoutOut:
-    """Revocación de sesión: blacklistea el jti del access token actual."""
-    if context.jti:
-        # El access token expira pronto; blacklisteamos su jti hasta su exp.
-        # Como no traemos el exp en el contexto, usamos un horizonte corto.
-        await blacklist_jti(
-            session,
-            context.jti,
-            _utc_now() + timedelta(minutes=_settings().access_token_expire_minutes),
-        )
+    """Revoca la sesión. Idempotente: repetir el logout nunca produce un error interno.
+
+    Revoca el jti del access y, si decodifica, el del refresh de la cookie (puede ser otro: otra pestaña pudo
+    rotarlo). Ambos hasta ``ahora + refresh_token_expire_minutes``: antes el horizonte era el del access (15 min)
+    y el refresh de 7 días dejaba de estar revocado.
+    """
+    horizonte = _utc_now() + timedelta(minutes=_settings().refresh_token_expire_minutes)
+    jtis = {context.jti} if context.jti else set()
+    cookie = request.cookies.get(REFRESH_COOKIE_NAME)
+    if cookie:
+        try:
+            payload = decode_token(cookie)
+            if payload.get("type") == "refresh":
+                jtis.add(str(payload["jti"]))
+        except Exception:  # noqa: BLE001 - una cookie ilegible no impide cerrar la sesión
+            pass
+    for jti in sorted(jtis):
+        await blacklist_jti(session, jti, horizonte)
     _clear_refresh_cookie(response)
     await _audit(
         session,

@@ -5,7 +5,7 @@ Todo el I/O es asíncrono. Reglas aplicadas:
 - RN-TU-04: ``fin = inicio + duracion_minutos`` derivado en el servidor.
 - RN-TU-07: solo se reserva dentro de la ``Disponibilidad`` vigente (``is_active``).
 - Las ``Disponibilidad.hora_*`` son horas locales de la clínica (``APP_TZ``).
-- Bloquean agenda ``reservado``/``confirmado`` (R8): un ``en_espera`` (seña pendiente) NO bloquea.
+- Bloquean agenda ``reservado``/``confirmado``/``atendido`` (R8, O19): un ``en_espera`` (seña pendiente) NO bloquea.
 - C-06: la reserva nace ``en_espera`` con vencimiento y bloque ``sena``; precio 0 nace ``reservado`` (RN-SN-06).
 
 Concurrencia: las reservas se serializan con ``pg_advisory_xact_lock``. Sin él, dos

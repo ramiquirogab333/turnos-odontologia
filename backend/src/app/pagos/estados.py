@@ -5,7 +5,7 @@ la seña), RN-SN-05 (pago sobre turno no vigente: a reembolsar), RN-TU-01 (venta
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, time, timedelta, tzinfo
 
 VENTANA_CANCELACION = timedelta(hours=24)
 
@@ -36,6 +36,22 @@ def limite_cambios(inicio: datetime, zona: tzinfo) -> datetime:
     """Último instante para cancelar o reprogramar (inicio menos 24 h), con el offset de la clínica."""
     _exigir_zona(inicio, "inicio")
     return (inicio - VENTANA_CANCELACION).astimezone(zona)
+
+
+def ausente_habilitado_desde(inicio: datetime, tolerancia: timedelta) -> datetime:
+    """Primer instante en que se puede marcar ``ausente``: el inicio más la tolerancia (RN-TU-12, O14)."""
+    _exigir_zona(inicio, "inicio")
+    return inicio + tolerancia
+
+
+def atendido_habilitado_desde(inicio: datetime, zona: tzinfo) -> datetime:
+    """Primer instante en que se puede marcar ``atendido``: las 00:00 del día local del turno (RN-TU-12, O14).
+
+    La persona puede entrar antes de su hora, pero nunca se marca un día anterior al del turno.
+    """
+    _exigir_zona(inicio, "inicio")
+    dia_local = inicio.astimezone(zona).date()
+    return datetime.combine(dia_local, time.min, tzinfo=zona)
 
 
 class TransicionInvalidaError(Exception):

@@ -10,7 +10,9 @@ from app.shared.exceptions import OverlapError, ReferenceNotFoundError
 from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 from app.turnos.schemas import TurnoCreate
 
-ESTADOS_BLOQUEANTES = ("reservado", "confirmado")
+# Estados que ocupan agenda (O19, D11): debe coincidir con el predicado de los EXCLUDE de la migración 007.
+# Un ``atendido`` sigue ocupando el horario hasta su ``fin``; ``ausente`` y ``cancelado`` lo liberan.
+ESTADOS_BLOQUEANTES = ("reservado", "confirmado", "atendido")
 
 
 def motivo_desde_mensaje(mensaje: str) -> str:

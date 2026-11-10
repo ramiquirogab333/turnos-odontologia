@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 JWT_SECRET_MIN_LENGTH = 32
@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     api_public_base_url: str = "http://localhost:8000"  # notification_url del webhook
     sena_barrido_segundos: int = 60
     sena_barrido_habilitado: bool = True
+
+    # Panel (C-08, O14): minutos después del inicio desde los que recepción puede marcar un turno ausente.
+    ausente_tolerancia_minutos: int = Field(10, ge=0)
 
     @model_validator(mode="after")
     def _validar_pasarela(self) -> "Settings":

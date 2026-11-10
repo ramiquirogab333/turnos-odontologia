@@ -9,6 +9,7 @@ from sqlalchemy import func, select, update
 from app.models.core import RegistroAuditoria
 from app.pagos.service import acreditar_pago
 from app.turnos.models import Turno
+from tests.conftest import bearer
 from tests.sena_helpers import (
     fecha_laboral, forzar_vencimiento, iniciar, local, pagos_de, reservar, sembrar_agenda, turno_de,
 )
@@ -38,7 +39,7 @@ async def _auditoria(factory, turno_id, origen):
 
 
 async def test_acreditar_un_en_espera_libre_lo_reserva_y_bloquea_la_agenda(
-        client, seed_ids, session_factory, pasarela) -> None:
+        client, seed_ids, session_factory, pasarela, token_recepcion) -> None:
     f = fecha_laboral()
     await sembrar_agenda(session_factory, seed_ids, f)
     _, reserva, pago_id = await _preparar(client, seed_ids, session_factory)
@@ -57,7 +58,8 @@ async def test_acreditar_un_en_espera_libre_lo_reserva_y_bloquea_la_agenda(
     # y un alta interna solapada da 409 (R5)
     solapado = await client.post("/api/turnos", json={
         "profesional_id": seed_ids["profesional_id"], "sillon_id": seed_ids["sillon_id"],
-        "tratamiento_id": seed_ids["tratamiento_id"], "inicio": local(f, "10:15").isoformat()})
+        "tratamiento_id": seed_ids["tratamiento_id"], "inicio": local(f, "10:15").isoformat()},
+        headers=bearer(token_recepcion))
     assert solapado.status_code == 409
 
 

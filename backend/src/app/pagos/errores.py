@@ -1,5 +1,7 @@
 """Errores de dominio de la seña, con su mapeo HTTP en los routers (R13)."""
 
+from datetime import datetime
+
 
 class SenaNoEncontradaError(Exception):
     """Turno inexistente o código de gestión ausente/ajeno: siempre 404, sin revelar cuál (RN-GL, privacidad)."""
@@ -63,3 +65,11 @@ class TurnoInexistenteError(Exception):
 
     def __init__(self) -> None:
         super().__init__("Turno no encontrado")
+
+
+class MarcadoNoHabilitadoError(Exception):
+    """Todavía no es el momento de marcar el turno como ausente o atendido (409 ``marcado_no_habilitado``, RN-TU-12)."""
+
+    def __init__(self, habilitado_desde: datetime) -> None:
+        super().__init__("Todavía no se puede marcar este turno")
+        self.habilitado_desde = habilitado_desde

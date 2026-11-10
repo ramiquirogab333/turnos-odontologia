@@ -9,7 +9,8 @@ from typing import Any
 
 import bcrypt
 import jwt
-from sqlalchemy import select
+from sqlalchemy import literal_column, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import TokenBlacklist
@@ -100,11 +101,17 @@ async def is_jti_blacklisted(session: AsyncSession, jti: str) -> bool:
     return result.first() is not None
 
 
-async def blacklist_jti(
-    session: AsyncSession, jti: str, expires_at: datetime
-) -> TokenBlacklist:
-    """Añade un jti a la blacklist con su expiración."""
-    entry = TokenBlacklist(jti=jti, expires_at=expires_at)
-    session.add(entry)
-    await session.flush()
-    return entry
+async def blacklist_jti(session: AsyncSession, jti: str, expires_at: datetime) -> bool:
+    """Revoca un jti hasta ``expires_at``. Idempotente (C-08, D10): si ya estaba, extiende el horizonte y no falla.
+
+    Devuelve True si esta llamada insertó la fila y False si ya existía. Con dos llamadas simultáneas sobre el mismo
+    jti, la segunda espera al commit de la primera y devuelve False: así el refresh decide quién gana la rotación.
+    """
+    insertada = (await session.execute(
+        pg_insert(TokenBlacklist).values(jti=jti, expires_at=expires_at)
+        .on_conflict_do_update(
+            index_elements=[TokenBlacklist.jti], set_={"expires_at": expires_at},
+            where=TokenBlacklist.expires_at < expires_at)
+        .returning(literal_column("(xmax = 0)"))
+    )).scalar_one_or_none()
+    return bool(insertada)

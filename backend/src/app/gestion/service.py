@@ -56,7 +56,8 @@ SQLSTATE_SERIALIZACION = "40001"
 MAX_REINTENTOS = 2
 LARGO_MIN_CODIGO = 8  # igual que el CHECK de turno.codigo_gestion (migración 005)
 LARGO_MAX_CODIGO = 64
-ESTADOS_BLOQUEANTES = ("reservado", "confirmado")
+# Estados que el paciente puede cancelar o reprogramar (no es la ocupación de agenda: ver turnos.service).
+ESTADOS_GESTIONABLES = ("reservado", "confirmado")
 ESTADOS_FINALES = ("cancelado", "ausente", "atendido")
 
 
@@ -144,7 +145,7 @@ async def cancelar_turno_publico(session: AsyncSession, codigo: str | None, *, a
     except CancelacionFueraDePlazoError as exc:
         inicio = (await session.execute(select(Turno.inicio).where(Turno.id == turno_id))).scalar_one()
         raise FueraDePlazoError(limite_cambios(inicio, zona_clinica())) from exc
-    if r.estado_anterior in ESTADOS_BLOQUEANTES:  # un en_espera nunca tuvo calendario ni recordatorio (RN-SN-01)
+    if r.estado_anterior in ESTADOS_GESTIONABLES:  # un en_espera nunca tuvo calendario ni recordatorio (RN-SN-01)
         await publicar_sin_romper(notificador, EventoTurno(
             tipo="turno_cancelado", turno_id=r.turno_id, profesional_id=r.profesional_id,
             inicio_anterior=r.inicio, fin_anterior=r.fin, inicio_nuevo=None, fin_nuevo=None, ocurrido_en=ahora))
@@ -164,7 +165,7 @@ async def _reprogramar_una_vez(session: AsyncSession, turno_id: int, nuevo_inici
     if turno.estado == "en_espera":
         await session.rollback()
         raise SenaPendienteError()
-    if turno.estado not in ESTADOS_BLOQUEANTES:
+    if turno.estado not in ESTADOS_GESTIONABLES:
         estado_actual = turno.estado  # antes del rollback, que expira los atributos
         await session.rollback()
         raise TurnoNoModificableError(estado_actual)

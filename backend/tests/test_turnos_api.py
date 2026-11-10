@@ -8,6 +8,12 @@ import pytest
 from tests.conftest import future_iso, past_iso
 
 
+@pytest.fixture
+def client(client_recepcion):
+    """Desde C-08 (O3) ``POST /api/turnos`` exige recepción o admin: todo este módulo corre autenticado."""
+    return client_recepcion
+
+
 async def test_health_ok(client) -> None:
     r = await client.get("/api/health")
     assert r.status_code == 200
