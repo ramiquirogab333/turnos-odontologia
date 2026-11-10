@@ -40,7 +40,7 @@ ObraSocial 1───* Nomenclador (precargado AR)
 ### Profesional (odontólogo/a)
 - Atributos: id, nombre, matrícula, especialidad.
 - Relaciones: 1───* Turno; 1───* Disponibilidad.
-- Constraints: sin superposición de turnos por profesional desde el día 1 — multi-odontólogo día 1 (Resolución 2026-09-30 nº1); garantía en DB con `EXCLUDE USING gist` parcial por estado (estrategia A del DDL de C-01: dos EXCLUDE —profesional + rango y sillón/box + rango— con `WHERE estado IN ('reservado','confirmado')`), RN-TU-03.
+- Constraints: sin superposición de turnos por profesional desde el día 1 — multi-odontólogo día 1 (Resolución 2026-09-30 nº1); garantía en DB con `EXCLUDE USING gist` parcial por estado (estrategia A del DDL de C-01: dos EXCLUDE —profesional + rango y sillón/box + rango— con `WHERE estado IN ('reservado','confirmado','atendido')` desde la migración 007 de C-08, porque un `atendido` ocupa el horario hasta su `fin`), RN-TU-03.
 
 ### Sillón
 - Atributos: id, nombre/identificador, estado.
@@ -53,9 +53,9 @@ ObraSocial 1───* Nomenclador (precargado AR)
 - Constraints: duración > 0 (`CHECK`); tabla tratamiento→duración editable por admin (RN-TU-05); seed inicial aportado por la clínica (si falta, placeholder explícito documentado — C-02/C-04).
 
 ### Turno
-- Atributos: id, paciente_id, profesional_id, sillon_id, tratamiento_id, inicio, fin (derivado de duración), estado (reservado / confirmado / cancelado / ausente / atendido; más `en_espera` desde C-06 —ver GAP en `CHANGES.md` header—), origen (web / manual / WhatsApp), código de gestión pública.
+- Atributos: id, paciente_id, profesional_id, sillon_id, tratamiento_id, inicio, fin (derivado de duración), estado (reservado / confirmado / cancelado / ausente / atendido; más `en_espera` desde C-06 —ver GAP en `CHANGES.md` header—), origen (`web` / `manual` / `whatsapp`; columna `NOT NULL DEFAULT 'web'` con `CHECK`, migración 007 de C-08; los turnos sin código de gestión se rellenaron como `manual`), código de gestión pública.
 - Relaciones: 1───* Recordatorio; *───* EventoCalendar; 1───* PagoSena (desde C-06).
-- Constraints: fin = inicio + duración del tratamiento; no solape por profesional NI por sillón/box desde día 1 (RN-TU-03, EXCLUDE parciales por estado, estrategia A); cancelación/reprogramación solo con ≥ 24 hs de anticipación. Estado `en_espera` (C-06): pre-reserva con seña pendiente que NO bloquea agenda ni genera recordatorio/calendario; solo la seña acreditada (`reservado`) bloquea el slot (R8).
+- Constraints: fin = inicio + duración del tratamiento; no solape por profesional NI por sillón/box desde día 1 (RN-TU-03, EXCLUDE parciales por estado, estrategia A); cancelación/reprogramación solo con ≥ 24 hs de anticipación. Estado `en_espera` (C-06): pre-reserva con seña pendiente que NO bloquea agenda ni genera recordatorio/calendario; solo la seña acreditada (`reservado`) bloquea el slot (R8), con la excepción del alta manual de recepción/admin (C-08, O7), que nace `reservado` sin seña. Ocupan agenda `reservado`, `confirmado` y `atendido` (O19).
 - Índices: (profesional_id, inicio), (sillon_id, inicio), (paciente_id, inicio), estado; índice sobre cada FK.
 
 ### PagoSena (desde C-06)

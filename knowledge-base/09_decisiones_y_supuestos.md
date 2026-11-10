@@ -72,6 +72,25 @@
 **Justificación**: mínima superficie de ataque y de infraestructura; la base sigue siendo la garantía del anti-solape (R5).
 **Trade-offs aceptados**: quien tenga el código puede gestionar el turno (rate limiting llega con Redis en C-09); un evento puede perderse entre el commit y la publicación (se reconcilia desde la auditoría).
 
+### DD-09 — Agenda del profesional y panel (C-08, decisiones del Product Owner 2026-11-09)
+**Decisión**: se aprueban las decisiones O1 a O19 de `openspec/changes/archive/2026-11-10-c-08-agenda-profesional-panel/design.md`. Las que cambian reglas o contratos:
+- O1/O2 (críticas): pantalla de ingreso mínima en `frontend-panel/` y refresh token **solo en cookie `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth`**; el access vive en memoria. `POST /api/auth/refresh` lee solo la cookie y exige la cabecera `X-Panel-Csrf: 1` (defensa CSRF, junto con SameSite=Strict). El refresh ya no viaja en el JSON de login ni de refresh. El logout revoca el `jti` del access y el del refresh hasta que el refresh pueda vencer (antes solo 15 minutos).
+- O3 (crítica): `POST /api/turnos` exige rol `recepcion` o `admin`.
+- O4 (crítica): los usuarios del panel se crean con el comando idempotente `python -m app.panel.usuarios` (contraseña por `PANEL_USUARIO_PASSWORD`).
+- O5/O6 (críticas): la odontóloga es de solo lectura y no recibe el teléfono del paciente (minimización, Ley 25.326).
+- O7 (crítica): el alta manual nace `reservado` sin seña (excepción a R8 / RN-SN-01).
+- O8/O10/O11: el alta manual guarda nombre y teléfono como contacto del turno (sin `Paciente`), con `turno.origen` (migración 007) y un código de gestión que se muestra una sola vez.
+- O12/O13: recepción cancela con la misma ventana de 24 h; reprogramar desde el panel queda fuera.
+- O14 (crítica): RN-TU-12 (momento de marcar atendido y ausente, tolerancia configurable).
+- O15/O16: igual que C-06 para eventos; las pre-reservas van en una banda aparte y los cancelados no se muestran.
+- O17: el resto del endurecimiento de C-03 (rate limiting, blacklist en `get_current_user`, `is_active`, roles frescos, límite absoluto de sesión) pasa a **C-15** antes de producción; la UI de catálogo y disponibilidad pasa a **C-14**.
+- O19: `atendido` ocupa la agenda hasta su `fin` (la migración 007 amplía los EXCLUDE; RN-TU-03).
+
+**Contexto**: la agenda y las acciones de recepción necesitaban un panel autenticado, y el panel obligó a cerrar huecos de auth y a definir cuándo se puede marcar un turno.
+**Alternativas consideradas**: refresh en `localStorage` o en el body; panel sin pantalla de ingreso; que `atendido` libere el horario; tolerancia en una tabla de configuración; reutilizar `create_turno` de C-01 para el alta manual.
+**Justificación**: el refresh fuera de JavaScript reduce el daño de un XSS; una sola definición de "ocupa" en base y aplicación evita dobles reservas con una persona sentada en el sillón; el alta manual comparte helpers y locks con la reserva pública (R5).
+**Trade-offs aceptados**: sesión deslizante de 7 días (límite absoluto en C-15); un usuario desactivado conserva sus permisos hasta renovar (C-15); `atendido` marcado por error no se deshace en C-08 (seguimiento en C-12); la 007 bloquea el despliegue si hay turnos superpuestos con un `atendido` (lista los ids).
+
 ## Supuestos inferidos
 
 ### SU-01 — El PDF equivale a los .md

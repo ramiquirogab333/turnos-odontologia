@@ -18,7 +18,7 @@ Duda abierta: si opera uno o varios odontólogos desde el día 1 (impacta agenda
 | Odontólogo/a | Lectura (su agenda) | Lectura (sus pacientes) | Lectura | Lectura | — | Lectura | — |
 | Recepción/admin | CRUD total | CRUD total | CRUD total | CRUD total | CRUD total | Lectura/administración | Lectura/generación |
 
-La granularidad exacta de permisos entre odontólogo y recepción/admin no está detallada en las fuentes y debe confirmarse.
+Desde C-08 (decisiones O5 y O6, 2026-11-09): el odontólogo/a es de **solo lectura**, ve únicamente la agenda de la profesional asociada a su usuario (`usuario.profesional_id`) y no recibe el teléfono del paciente; recepción y admin ven todas las agendas, dan de alta turnos manuales y marcan atendido, ausente o cancelan. Si una persona tiene más de un rol, vale el permiso más amplio.
 
 ## Rutas públicas
 
