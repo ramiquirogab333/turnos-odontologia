@@ -72,7 +72,7 @@ El informe completo de relevamiento y la matriz comparativa detallada pueden con
 ```text
 turnos-odontologia/
 ├── .active-orchestrator-state.json # Estado estructurado del proceso (fase actual: done)
-├── AGENTS.md                       # Instrucciones para agentes (stack, KB, skills, roadmap, reglas R1–R19)
+├── AGENTS.md                       # Instrucciones para agentes (stack, KB, skills, roadmap, reglas R1–R20)
 ├── CLAUDE.md                       # Copia de AGENTS.md (no editar a mano sin re-sincronizar)
 ├── .agents/skills/                 # Skills de proyecto instaladas (5): vercel-react-best-practices,
 │                                   # frontend-design, postgresql-table-design, playwright-cli, gws-calendar-agenda
@@ -81,12 +81,12 @@ turnos-odontologia/
 ├── .opencode/                      # Comandos y habilidades para flujo guiado por agentes IA
 │   ├── commands/                   # Comandos /opsx-* para el ciclo spec-driven
 │   └── skills/                     # Habilidades integradas de OpenSpec
-├── CHANGES.md                      # Índice canónico de changes C-01..C-13 (roadmap, dependencias y gates)
+├── CHANGES.md                      # Índice canónico de changes C-01..C-16 (roadmap, dependencias y gates)
 ├── backend/                        # Código backend: FastAPI + SQLAlchemy + Alembic + tests
 │   ├── src/
-│   │   ├── app/                    # `main`, `shared/`, `turnos/` (models, schemas, router, service)
-│   │   └── alembic/                # Entorno + migraciones (001 agenda con EXCLUDE)
-│   ├── tests/                      # Suite pytest (conftest + 3 archivos; `pythonpath = src`)
+│   │   ├── app/                    # `main` y módulos por dominio: `turnos/`, `auth/`, `catalogo/`, `public/`, `pagos/`, `panel/`, `pacientes/`, `clinica/`, `gestion/`, `models/`, `repositories/`, `db/`, `shared/`
+│   │   └── alembic/                # Entorno + migraciones (001..008: agenda con EXCLUDE, modelos, auth, catálogo, reserva pública, seña/pagos, origen/ocupación del turno y ficha/odontograma/presupuestos)
+│   ├── tests/                      # Suite pytest (`conftest.py`, helpers y tests unitarios e integración por change; `pythonpath = src`)
 │   ├── pytest.ini                  # `asyncio_mode = auto`, `testpaths = tests`, `pythonpath = src`
 │   ├── requirements.txt            # Pins del backend
 │   ├── alembic.ini                 # `script_location = src/alembic` (correr desde `backend/`)
@@ -102,23 +102,23 @@ turnos-odontologia/
 ├── knowledge-base/                 # Base de conocimiento (12 archivos: 01..11 + README)
 ├── openspec/
 │   ├── config.yaml                 # Configuración del workflow de especificaciones
-│   ├── changes/                    # Cambios propuestos y archivados (C-01 archivado 2026-10-01)
-│   └── specs/turnos/               # Specs vigentes (creacion-sin-solape)
+│   ├── changes/                    # Cambios propuestos y archivados (los changes archivados están en `archive/`: C-01..C-08 y C-11)
+│   └── specs/                      # Specs vigentes por capacidad (`turnos/`, `auth/`, etc.)
 ├── skills-lock.json                # Lockfile de versions de las skills instaladas
 └── README.md                       # Documentación general del repositorio
 ```
 
 ### Base de conocimiento, roadmap y skills
 - **Base de conocimiento:** ver [knowledge-base/README.md](knowledge-base/README.md) — visión, actores, modelo de datos (13 entidades), 17 reglas de negocio, funcionalidades US-001..US-012, flujos, arquitectura propuesta, decisiones y preguntas abiertas.
-- **Roadmap de implementación:** ver [CHANGES.md](CHANGES.md) — secuencia atómica C-01 (crear-turno-sin-solape, `[x]` archivado 2026-10-01) → C-13 (auditoría), con árbol de dependencias, gates de paralelismo y camino crítico. Leer antes de ejecutar cualquier `/opsx:propose`.
+- **Roadmap de implementación:** ver [CHANGES.md](CHANGES.md) — secuencia atómica C-01 (crear-turno-sin-solape, `[x]` archivado 2026-10-01) → C-16 (UI de ficha y presupuestos; C-13 es auditoría y exportación), con árbol de dependencias, gates de paralelismo y camino crítico. Leer antes de ejecutar cualquier `/opsx:propose`.
 - **Skills de proyecto:** `.agents/skills/` + [skills-lock.json](skills-lock.json), registradas en [.atl/skill-registry.md](.atl/skill-registry.md). Cobertura: booking mobile-first, panel/agenda, modelos Postgres anti-solape, E2E con Playwright y sync con Google Calendar.
 
 ### Inicio rápido paso a paso (verificado contra los archivos reales)
 1. Clonar: `git clone <url-del-repo> && cd turnos-odontologia`.
 2. Crear y activar venv: `python -m venv .venv` → en Windows `cmd /c .venv\Scripts\activate` (nunca commitear el `.env` real — R17).
 3. Instalar (ver [`backend/requirements.txt`](backend/requirements.txt)): `pip install -r backend/requirements.txt`.
-4. Configurar entorno (ver [`.env.example`](.env.example)): copiar a `.env` (`DATABASE_URL=postgresql+asyncpg://turnos:turnos@localhost:5433/turnos`). **`JWT_SECRET_KEY` es obligatoria** y debe tener al menos 32 caracteres: el backend rechaza una variable ausente, vacía o más corta (R17). Generá una propia y no la commitees, por ejemplo con `python -c "import secrets; print(secrets.token_hex(32))"`. Con Docker Compose exportala en la terminal antes de levantar el backend (`JWT_SECRET_KEY=<TU_SECRETO_DE_32+_CARACTERES>`); `docker compose up -d postgres` funciona aunque no esté definida.
-5. Levantar Postgres (servicio `postgres` con healthcheck `pg_isready`, ver [`docker-compose.yml`](docker-compose.yml)): `docker compose up -d postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
+4. Configurar entorno (ver [`.env.example`](.env.example)): copiar a `.env` (`DATABASE_URL=postgresql+asyncpg://turnos:turnos@localhost:5433/turnos`). **`JWT_SECRET_KEY` es obligatoria** y debe tener al menos 32 caracteres: el backend rechaza una variable ausente, vacía o más corta (R17). Generá una propia y no la commitees, por ejemplo con `python -c "import secrets; print(secrets.token_hex(32))"`. Con Docker Compose exportala en la terminal antes de levantar el backend (`JWT_SECRET_KEY=<TU_SECRETO_DE_32+_CARACTERES>`); `docker compose up -d postgres` funciona aunque no esté definida. `MP_WEBHOOK_SECRET` sí es obligatoria para cualquier `docker compose` (no hay `.env` en la raíz, R20).
+5. Levantar Postgres (servicio `postgres` con healthcheck `pg_isready`, ver [`docker-compose.yml`](docker-compose.yml)): `MP_WEBHOOK_SECRET=dev-secreto-local docker compose up -d --wait postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
 6. Migrar desde `backend/` (ver [`backend/alembic.ini`](backend/alembic.ini): `script_location = src/alembic`): `cd backend && alembic upgrade head`.
 7. Tests backend desde `backend/` (ver [`backend/pytest.ini`](backend/pytest.ini): `testpaths = tests`, `pythonpath = src`): `cd backend && python -m pytest tests -q` (la suite completa necesita Postgres levantado; `JWT_SECRET_KEY` de test la define `backend/tests/conftest.py`).
 
@@ -126,10 +126,10 @@ turnos-odontologia/
 1. Crear y activar un venv, e instalar dependencias (desde la raíz):
    `python -m venv .venv` → activar → `pip install -r backend/requirements.txt` (nunca commitear el `.env` real — R17).
 2. Copiar `.env.example` a `.env`.
-3. Levantar Postgres vía compose: `docker compose up -d postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
+3. Levantar Postgres vía compose: `MP_WEBHOOK_SECRET=dev-secreto-local docker compose up -d --wait postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
 4. Aplicar migraciones desde `backend/`: `cd backend && alembic upgrade head`.
-5. Levantar el backend (con `JWT_SECRET_KEY` exportada, 32+ caracteres; sin ella el backend arranca pero falla con un error claro al usar la configuración): `docker compose up --build` (o local: `uvicorn app.main:app` con `PYTHONPATH=src` desde `backend/`) — `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
-6. Tests backend desde `backend/`: `cd backend && python -m pytest tests -q`; E2E: `npm --prefix frontend-paciente run e2e` y `npm --prefix frontend-panel run e2e` (desde C-08 la carrera concurrente del mismo horario → un `201` y un `409` se prueba en el E2E del panel, que corre en CI; el viejo `e2e/` de C-01 se retiró).
+5. Levantar el backend (con `JWT_SECRET_KEY` y `MP_WEBHOOK_SECRET` exportadas, 32+ caracteres; sin ella el backend arranca pero falla con un error claro al usar la configuración): `docker compose up --build` (o local: `uvicorn app.main:app` con `PYTHONPATH=src` desde `backend/`) — `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
+6. Tests backend desde `backend/`: `cd backend && python -m pytest tests -q`; E2E: `npm --prefix frontend-paciente run e2e` y `npm --prefix frontend-panel run e2e` (desde C-08 la carrera concurrente del mismo horario → un `201` y un `409` se prueba en el E2E del panel, que corre en CI; el viejo `e2e/` de C-01 se retiró). Tip local: si otro proceso escucha en `localhost:8000` por IPv6, apuntá el panel y los E2E a IPv4 con `VITE_BACKEND_URL=http://127.0.0.1:8000` y `E2E_API_URL=http://127.0.0.1:8000`.
 
 ### Seña y pagos (C-06)
 Un turno reservado por la web nace `en_espera` (no bloquea la agenda) y pasa a `reservado` solo cuando se **acredita la seña** (30 % del precio base por defecto; un tratamiento de precio 0 nace `reservado`). El paciente paga con Mercado Pago o por transferencia; si la pre-reserva vence (30 min con Mercado Pago, 24 h con transferencia) un barrido la cancela.
@@ -153,7 +153,7 @@ El paciente cancela o cambia el horario de su turno sin cuenta, solo con el cód
 Todas leen el código de la cabecera `X-Codigo-Gestion`; un código desconocido responde siempre el mismo 404. Menos de 24 h: 409 `fuera_de_plazo`.
 
 ### Panel de la clínica (C-08)
-`frontend-panel/` es el panel interno (puerto 5174, mismo origen que `/api` gracias al proxy de Vite): pantalla de ingreso, agenda por día o semana con filtros, alta manual de turnos y las acciones de recepción sobre cada turno. Recepción y admin ven todas las agendas y operan; la odontóloga ve solo la suya, sin teléfonos y sin acciones (solo lectura).
+`frontend-panel/` es el panel interno (puerto 5174, mismo origen que `/api` gracias al proxy de Vite): pantalla de ingreso, agenda por día o semana con filtros, alta manual de turnos y las acciones de recepción sobre cada turno. Recepción y admin ven todas las agendas y operan; la odontóloga ve solo la suya, sin teléfonos, y desde C-11 solo puede marcar `atendido` sus propios turnos (ver más abajo).
 
 - **Crear usuarios del panel** (comando idempotente; la contraseña va por entorno, nunca por argumento ni en el repo): `PANEL_USUARIO_PASSWORD='<contraseña de 12 a 128 caracteres>' docker compose run --rm -e PANEL_USUARIO_PASSWORD backend python -m app.panel.usuarios --email recepcion@clinica.test --nombre "Rita Recepción" --rol recepcion`. Un `odontologo` necesita además `--profesional-id <id>`. Repetirlo no duplica nada: actualiza nombre, contraseña y profesional, y suma el rol si faltaba.
 - **Endpoints** (todos con `Authorization: Bearer <access>`): `GET /api/panel/agenda?vista=dia|semana&fecha=YYYY-MM-DD[&profesional_id][&sillon_id]`, `GET /api/panel/agenda/opciones`, `POST /api/panel/turnos` (alta manual, nace `reservado` y sin seña), `POST /api/panel/turnos/{id}/ausente`, `.../atendido` y `.../cancelar`. `atendido` se habilita desde las 00:00 del día local del turno; `ausente`, desde el inicio más `AUSENTE_TOLERANCIA_MINUTOS` (10 por defecto, RN-TU-12); cancelar respeta la ventana de 24 h (los `en_espera` se cancelan siempre). Un `atendido` sigue ocupando el horario hasta su `fin`. `POST /api/turnos` exige ahora recepción o admin.
@@ -161,6 +161,52 @@ Todas leen el código de la cabecera `X-Codigo-Gestion`; un código desconocido 
 - **Migración:** `cd backend && alembic upgrade head` aplica `007_turno_origen_ocupacion` (columna `turno.origen` y EXCLUDE ampliados a `atendido`). Si ya hay turnos superpuestos con un `atendido`, aborta sin tocar datos y lista los ids: corregilos a mano y reintentá.
 - **Desarrollo y pruebas:** `cd frontend-panel && npm install && npm run dev` (con el backend en `localhost:8000`); `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`. E2E (backend real con `APP_ENV=e2e MP_GATEWAY=fake` y la base local de Compose): `npm run e2e` (360 px y 1280 px).
 - **Pendiente antes de producción:** endurecimiento restante de la auth (C-15) y UI de catálogo y disponibilidad (C-14); ver `CHANGES.md`.
+
+### Ficha, odontograma, presupuestos y pagos de presupuesto (C-11)
+Solo API por ahora (la UI es C-16). Todo bajo `/api/panel` con `Authorization: Bearer <access>`; datos de ejemplo 100 % sintéticos.
+
+- **Acceso por rol:**
+
+  | Ruta | Recepción / admin | Odontóloga con acceso completo | Odontóloga solo lectura (atención de hace más de 12 meses) | Odontóloga ajena |
+  |---|---|---|---|---|
+  | `POST /pacientes`, `GET /pacientes?dni=`, `PUT /pacientes/{id}`, `PUT /turnos/{id}/paciente` | sí | 403 | 403 | 403 |
+  | `GET /pacientes/{id}` | completo | sin teléfono ni email | sin teléfono ni email | 403 `paciente_ajeno` |
+  | `GET`/`PUT /pacientes/{id}/ficha` | lee y escribe | lee y escribe | lee; escribir da 403 `acceso_clinico_vencido` | 403 |
+  | `GET /pacientes/{id}/odontograma[/historial]`, `POST …/odontograma` | lee y escribe | lee y escribe | lee; escribir da 403 `acceso_clinico_vencido` | 403 |
+  | `GET /pacientes/{id}/presupuestos[/{pid}]` | completo | sin pagos ni saldo | sin pagos ni saldo | 403 |
+  | `POST`/`PUT` de presupuestos, `…/presentar`, `…/aceptar`, `…/rechazar`, `…/anular` | sí | 403 | 403 | 403 |
+  | `GET`/`POST …/presupuestos/{pid}/pagos`, `POST …/pagos/{id}/anular` | sí | 403 | 403 | 403 |
+  | `POST /turnos/{id}/atendido` | cualquier turno | solo sus turnos (`turno_ajeno` si no) | ídem | ídem |
+
+  "Sus pacientes" = al menos un turno `atendido` con su profesional. **Ventana de 12 meses (O16):** la odontóloga escribe ficha y odontograma solo si atendió al paciente en los últimos 365 días (constante `VENTANA_ACCESO_CLINICO`) o tiene con él un turno `reservado`/`confirmado` pendiente; si no, solo lee y la escritura responde 403 `acceso_clinico_vencido`. Un turno futuro sin una atención previa no da acceso.
+- **Primera visita:** registrar o buscar al paciente por DNI → vincular el turno (`PUT /turnos/{id}/paciente`) → la odontóloga o recepción marca `atendido` al ingresar (desde las 00:00 del día del turno). Desde ahí la odontóloga accede a la ficha y al odontograma. Sin vínculo no hay acceso, aunque el turno se marque `atendido`.
+- **Ejemplos** (`API=http://localhost:8000`, `TOKEN=<access de POST /api/auth/login>`):
+
+  ```bash
+  # Alta de paciente y búsqueda exacta por DNI
+  curl -s -X POST $API/api/panel/pacientes -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"nombre":"Lucía","apellido":"Ejemplo","dni":"99000001","telefono":"+5491100000001"}'
+  curl -s "$API/api/panel/pacientes?dni=99000001" -H "Authorization: Bearer $TOKEN"
+
+  # Ficha: se edita enviando la versión leída (0 si todavía no existe); una versión vieja da 409 version_desactualizada
+  curl -s -X PUT $API/api/panel/pacientes/1/ficha -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"alergias":"penicilina (dato sintético)","medicacion":"","antecedentes_medicos":"","observaciones":"","version":0}'
+
+  # Odontograma: lote de 1 a 64 hallazgos, solo de alta
+  curl -s -X POST $API/api/panel/pacientes/1/odontograma -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"registros":[{"pieza":16,"cara":"O","estado":"caries"},{"pieza":36,"estado":"ausente"}]}'
+
+  # Presupuesto con cobertura de la obra social (los importes los calcula el servidor), presentar, aceptar y cobrar
+  curl -s -X POST $API/api/panel/pacientes/1/presupuestos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"lineas":[{"tratamiento_id":1,"cantidad":1}]}'
+  curl -s -X POST $API/api/panel/pacientes/1/presupuestos/1/presentar -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+  curl -s -X POST $API/api/panel/pacientes/1/presupuestos/1/aceptar -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+  curl -s -X POST $API/api/panel/pacientes/1/presupuestos/1/pagos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d '{"medio":"transferencia","monto":"1500.00","referencia":"TRF-SINT-0001"}'
+  ```
+- **Reglas:** la cobertura es el porcentaje del nomenclador sobre el bruto (half-up a centavos por línea; `arancel_diferencial` es un copago por unidad a cargo del paciente, supuesto de O9); al presentar, el presupuesto queda congelado; los pagos solo se registran sobre presupuestos aceptados, nunca superan el total a cargo (409 `monto_excede_saldo`, con el saldo) y se anulan sin borrarlos; no hay facturación electrónica (RN-PG-03). Toda lectura y escritura de datos de salud queda auditada sin su contenido (RN-CL-03).
+- **Migración:** `cd backend && alembic upgrade head` aplica `008_ficha_odonto_presup` (cinco tablas nuevas, sin tocar las existentes; el `downgrade` las borra).
+- **Tests nuevos:** `cd backend && python -m pytest tests/test_clinica_*.py tests/test_pacientes_*.py tests/test_ficha_integration.py tests/test_odontograma_integration.py tests/test_presupuestos_integration.py tests/test_pagos_presupuesto_integration.py -q`; la matriz completa ruta × actor está en `tests/test_clinica_rbac_matriz.py`. E2E del marcado de `atendido` por la odontóloga: `cd frontend-panel && npm run e2e`.
 
 ---
 
@@ -178,21 +224,26 @@ El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenS
 
 - [x] **Fase 1 — Discovery y Relevamiento:** Requerimientos, casos de uso, estudio de competidores y definición de reglas iniciales.
 - [x] **KB — Base de conocimiento:** 12 archivos en `knowledge-base/` generados desde discovery (visión, modelo de datos, reglas, funcionalidades, arquitectura, decisiones y preguntas abiertas).
-- [x] **Roadmap — Secuencia de implementación:** `CHANGES.md` con 13 changes atómicos (C-01..C-13), dependencias, gates de paralelismo y camino crítico.
+- [x] **Roadmap — Secuencia de implementación:** `CHANGES.md` con 16 changes atómicos (C-01..C-16), dependencias, gates de paralelismo y camino crítico.
 - [x] **Skills — Capacidades de proyecto:** 6 skills en `.agents/skills/` (`vercel-react-best-practices`, `frontend-design`, `postgresql-table-design`, `playwright-cli`, `gws-calendar-agenda`, y la skill propia `spec-rules-auditor`) + `skills-lock.json` y `.atl/skill-registry.md`.
-- [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, integración MCP, roadmap C-01..C-13, reglas duras R1–R19). Es lo primero que lee todo agente al entrar al repo.
+- [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, integración MCP, roadmap C-01..C-16, reglas duras R1–R20). Es lo primero que lee todo agente al entrar al repo.
 - [x] **Preguntas Alta resueltas (2026-09-30):** multi-odontólogo/multi-sillón día 1, WhatsApp manual v1 (`wa.me/`), entidad Tratamientos con duración, stack congelado (ver `knowledge-base/10_preguntas_abiertas.md`).
 - [x] **C-01 — crear-turno-sin-solape (archivado 2026-10-01):** `POST /api/turnos` con anti-solape por profesional Y sillón (`EXCLUDE USING gist`, migración 001), `backend/src/` + `backend/tests/` + `docker-compose.yml` + spec en `openspec/specs/turnos/` + E2E de carrera (E2E 4.1 diferido, ver archive record).
-- [ ] **Fase 2 — Arquitectura y resto del core (C-02..C-03):** Stack decidido — Backend Python + FastAPI + SQLAlchemy (+Alembic) + PostgreSQL + Redis + JWT + Docker Compose; Frontend React + TypeScript + Vite; E2E Playwright (ver `AGENTS.md`). Siguiente: resto de modelos (C-02) y auth/RBAC del panel (C-03).
-- [ ] **Fase 3 — Diseño UX/UI (C-04..C-05):** Catálogo/tratamientos, disponibilidad y reserva pública mobile-first sin registro obligatorio.
-- [ ] **Fase 4 — Implementación del MVP (C-06..C-08, C-11):** Seña/pagos (GAP `en_espera` sin bloqueo), cancelación/reprogramación 24 hs, agenda profesional y ficha/odontograma.
-- [ ] **Fase 5 — Integraciones y admin (C-09..C-10, C-12..C-13):** WhatsApp, Google Calendar sync, caja/ausentismo y auditoría/exportación.
+- [x] **C-02 — core-models (archivado 2026-11-02):** resto de los modelos del dominio.
+- [x] **C-03 — auth-panel-rbac (archivado 2026-11-02):** autenticación JWT y RBAC del panel.
+- [x] **C-04 — catalogo-tratamientos-disponibilidad (archivado 2026-11-02):** catálogo administrable y cálculo de disponibilidad.
+- [x] **C-05 — reserva-publica-horarios (archivado 2026-11-03):** reserva pública mobile-first sin registro obligatorio (`frontend-paciente/`).
+- [x] **C-06 — sena-pagos-turno (archivado 2026-11-06):** seña y pagos (`en_espera` sin bloqueo de agenda; la seña acreditada bloquea).
+- [x] **C-07 — cancelacion-reprogramacion-24h (archivado 2026-11-06):** cancelación y reprogramación con ventana de 24 hs.
+- [x] **C-08 — agenda-profesional-panel (archivado 2026-11-10):** panel de recepción y profesionales (`frontend-panel/`).
+- [x] **C-11 — ficha-odontograma-presupuestos-os (archivado 2026-11-10):** ficha del paciente, odontograma, presupuestos y pagos de presupuesto (solo API).
+- [ ] **Pendientes (ver `CHANGES.md`):** C-09 (whatsapp-recordatorios-confirmacion), C-10 (google-calendar-sync), C-12 (panel-admin-caja-ausentismo), C-13 (auditoria-exportacion), C-14 (panel-catalogo-disponibilidad), C-15 (auth-hardening-panel, obligatorio antes de producción) y C-16 (panel-ficha-presupuestos-ui).
 
 ---
 
 ## 8. Video de Defensa del Proyecto
 
-Estado actual del proyecto (fundación + C-01) presentado en video:
+Estado del proyecto al momento de la grabación (fundación + C-01) presentado en video:
 
 [![Video de defensa — turnos-odontologia](https://img.youtube.com/vi/1k6zfgvAfZs/0.jpg)](https://youtu.be/1k6zfgvAfZs)
 
