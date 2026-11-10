@@ -97,7 +97,8 @@ turnos-odontologia/
 │   └── discovery/
 │       ├── informe-discovery.md    # Informe detallado de relevamiento de requerimientos y competidores
 │       └── Validación Discovery.md # Reporte de auditoría y validación de fuentes de competidores
-├── e2e/                            # Playwright: playwright.config.js + tests/race.spec.js (node_modules/ ignorado)
+├── frontend-paciente/              # Reserva pública y gestión del turno por el paciente (React + Vite, puerto 5173)
+├── frontend-panel/                 # Panel interno de la clínica (C-08): ingreso, agenda, alta manual y acciones (React + Vite, puerto 5174)
 ├── knowledge-base/                 # Base de conocimiento (12 archivos: 01..11 + README)
 ├── openspec/
 │   ├── config.yaml                 # Configuración del workflow de especificaciones
@@ -128,7 +129,7 @@ turnos-odontologia/
 3. Levantar Postgres vía compose: `docker compose up -d postgres` (host `5433` → contenedor `5432`; el backend usa `postgres:5432` dentro de la red Compose).
 4. Aplicar migraciones desde `backend/`: `cd backend && alembic upgrade head`.
 5. Levantar el backend (con `JWT_SECRET_KEY` exportada, 32+ caracteres; sin ella el backend arranca pero falla con un error claro al usar la configuración): `docker compose up --build` (o local: `uvicorn app.main:app` con `PYTHONPATH=src` desde `backend/`) — `GET /api/health`; crear turno: `POST /api/turnos` (solape por profesional o sillón → `409`).
-6. Tests backend desde `backend/`: `cd backend && python -m pytest tests -q`; E2E: `npm --prefix e2e install && npm --prefix e2e test` (carrera concurrente mismo slot → un `201` y un `409`).
+6. Tests backend desde `backend/`: `cd backend && python -m pytest tests -q`; E2E: `npm --prefix frontend-paciente run e2e` y `npm --prefix frontend-panel run e2e` (desde C-08 la carrera concurrente del mismo horario → un `201` y un `409` se prueba en el E2E del panel, que corre en CI; el viejo `e2e/` de C-01 se retiró).
 
 ### Seña y pagos (C-06)
 Un turno reservado por la web nace `en_espera` (no bloquea la agenda) y pasa a `reservado` solo cuando se **acredita la seña** (30 % del precio base por defecto; un tratamiento de precio 0 nace `reservado`). El paciente paga con Mercado Pago o por transferencia; si la pre-reserva vence (30 min con Mercado Pago, 24 h con transferencia) un barrido la cancela.
@@ -150,6 +151,18 @@ El paciente cancela o cambia el horario de su turno sin cuenta, solo con el cód
 - `POST /api/public/gestion/reprogramar` con `{ "inicio": "<fecha-hora con zona>" }`: mueve el turno (mismo tratamiento y profesional, con 24 h o más de anticipación) conservando id, código y seña. Si el horario está ocupado, 409 con alternativas.
 
 Todas leen el código de la cabecera `X-Codigo-Gestion`; un código desconocido responde siempre el mismo 404. Menos de 24 h: 409 `fuera_de_plazo`.
+
+### Panel de la clínica (C-08)
+`frontend-panel/` es el panel interno (puerto 5174, mismo origen que `/api` gracias al proxy de Vite): pantalla de ingreso, agenda por día o semana con filtros, alta manual de turnos y las acciones de recepción sobre cada turno. Recepción y admin ven todas las agendas y operan; la odontóloga ve solo la suya, sin teléfonos y sin acciones (solo lectura).
+
+- **Crear usuarios del panel** (comando idempotente; la contraseña va por entorno, nunca por argumento ni en el repo): `PANEL_USUARIO_PASSWORD='<contraseña de 12 a 128 caracteres>' docker compose run --rm -e PANEL_USUARIO_PASSWORD backend python -m app.panel.usuarios --email recepcion@clinica.test --nombre "Rita Recepción" --rol recepcion`. Un `odontologo` necesita además `--profesional-id <id>`. Repetirlo no duplica nada: actualiza nombre, contraseña y profesional, y suma el rol si faltaba.
+- **Endpoints** (todos con `Authorization: Bearer <access>`): `GET /api/panel/agenda?vista=dia|semana&fecha=YYYY-MM-DD[&profesional_id][&sillon_id]`, `GET /api/panel/agenda/opciones`, `POST /api/panel/turnos` (alta manual, nace `reservado` y sin seña), `POST /api/panel/turnos/{id}/ausente`, `.../atendido` y `.../cancelar`. `atendido` se habilita desde las 00:00 del día local del turno; `ausente`, desde el inicio más `AUSENTE_TOLERANCIA_MINUTOS` (10 por defecto, RN-TU-12); cancelar respeta la ventana de 24 h (los `en_espera` se cancelan siempre). Un `atendido` sigue ocupando el horario hasta su `fin`. `POST /api/turnos` exige ahora recepción o admin.
+- **Contrato de cookie de `/api/auth` (cambio incompatible):** el login y el refresh devuelven solo `access_token`; el refresh viaja en la cookie `refresh_token` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth`, 7 días). `POST /api/auth/refresh` lee únicamente la cookie y exige la cabecera `X-Panel-Csrf: 1` (sin ella, 403 `csrf_requerido`). `POST /api/auth/logout` revoca el access y el refresh de la cookie por 7 días. Si algún día el API se publica con CORS, hay que revisar esta defensa CSRF.
+- **Migración:** `cd backend && alembic upgrade head` aplica `007_turno_origen_ocupacion` (columna `turno.origen` y EXCLUDE ampliados a `atendido`). Si ya hay turnos superpuestos con un `atendido`, aborta sin tocar datos y lista los ids: corregilos a mano y reintentá.
+- **Desarrollo y pruebas:** `cd frontend-panel && npm install && npm run dev` (con el backend en `localhost:8000`); `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`. E2E (backend real con `APP_ENV=e2e MP_GATEWAY=fake` y la base local de Compose): `npm run e2e` (360 px y 1280 px).
+- **Pendiente antes de producción:** endurecimiento restante de la auth (C-15) y UI de catálogo y disponibilidad (C-14); ver `CHANGES.md`.
+
+---
 
 ## 6. Metodología de Trabajo
 
