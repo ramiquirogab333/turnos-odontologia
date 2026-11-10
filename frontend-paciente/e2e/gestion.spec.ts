@@ -187,6 +187,8 @@ test.describe('(f) enlace desde la confirmación y layout', () => {
     await expect(page.getByText(/Seña: .*4\.500,00 \(acreditada\)/)).toBeVisible();
     await verificarPantalla(page, 'gestión desde la confirmación');
     await page.getByRole('button', { name: 'Cambiar horario' }).click();
+    // La pantalla abre en el primer día con horarios (hoy, si queda alguno): se elige el día objetivo.
+    await page.getByRole('button', { name: etiquetaDiaLarga(dia), exact: true }).click();
     await expect(page.getByRole('button', { name: '10:30', exact: true })).toBeVisible();
     await verificarPantalla(page, 'gestión: horarios');
   });
