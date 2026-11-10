@@ -13,7 +13,7 @@ import {
   proximaMediaHora,
   verificarPantalla,
 } from './ayudas';
-import { contarPagos, leerEstadoPago, leerTurnos, sembrar, sembrarTurno, type Semilla } from './datos';
+import { contarPagos, EMAIL_ODONTOLOGA, leerEstadoPago, leerTurnos, sembrar, sembrarTurno, type Semilla } from './datos';
 
 /** Alta manual y gestión del turno (ausente, atendido, cancelar) contra el backend real. */
 let semilla: Semilla;
@@ -171,6 +171,36 @@ test('atendido el mismo día antes de la hora: se acepta, la seña no cambia y e
   const slots = ((await disp.json()) as { slots: { inicio: string }[] }).slots.map((s) => Date.parse(s.inicio));
   expect(slots.length, 'la semilla tiene franja todo el día: hay otros horarios libres').toBeGreaterThan(0);
   expect(slots, 'el horario del atendido no figura libre').not.toContain(inicio.getTime());
+});
+
+test('la odontóloga marca atendido su propio turno de hoy a 360px y no ve ninguna otra acción (C-11, O15)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'chromium-360', 'verificación específica del viewport de 360px');
+  const inicio = enMs(-5 * MINUTO);
+  test.skip(diaDe(inicio) !== diaDe(new Date()), 'Muy cerca de la medianoche de la clínica: el turno cae en otro día.');
+  await sembrarTurno(semilla, { inicio, nombre: 'Carlos Sintético' });
+  await sembrarTurno(semilla, { inicio, nombre: 'Lucía Ejemplo', profesional: 'bruno', sillon: 2 });
+  await ingresar(page, EMAIL_ODONTOLOGA);
+
+  await expect(page.getByText('Carlos Sintético')).toBeVisible();
+  await expect(page.getByText('Lucía Ejemplo')).toHaveCount(0); // el turno de otra profesional no aparece
+  await expect(page.getByRole('button', { name: 'Marcar atendido' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Marcar ausente' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cancelar turno' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Nuevo turno' })).toHaveCount(0);
+  await verificarPantalla(page, 'agenda de la odontóloga con el botón Marcar atendido');
+
+  await page.getByRole('button', { name: 'Marcar atendido' }).click();
+  const dialogo = page.getByRole('dialog', { name: '¿Marcar a Carlos Sintético como atendido?' });
+  await verificarPantalla(page, 'diálogo de confirmación de la odontóloga');
+  await dialogo.getByRole('button', { name: 'Sí, marcar atendido' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await expect(page.getByText('Atendido', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Marcar atendido' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^(Marcar ausente|Cancelar turno|Nuevo turno)/ })).toHaveCount(0);
+  const turnos = await leerTurnos();
+  expect(turnos.find((t) => t.contacto_nombre === 'Carlos Sintético')?.estado).toBe('atendido');
+  expect(turnos.find((t) => t.contacto_nombre === 'Lucía Ejemplo')?.estado).toBe('reservado');
 });
 
 test('cancelar a 24 h + 5 min se acepta y devuelve la seña; a 23 h 55 min la pantalla no lo ofrece y el servidor lo rechaza', async ({

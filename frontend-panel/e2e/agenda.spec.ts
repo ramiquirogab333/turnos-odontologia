@@ -29,7 +29,7 @@ test('una pre-reserva va en la banda "No ocupan horario" y no entre los turnos d
   await verificarPantalla(page, 'agenda del día con banda de pre-reservas');
 });
 
-test('la odontóloga ve solo su agenda, sin teléfonos ni acciones de escritura', async ({ page }) => {
+test('la odontóloga ve solo su agenda, sin teléfonos ni acciones antes del día del turno', async ({ page }) => {
   const inicio = enMs(26 * HORA);
   await sembrarTurno(semilla, { inicio, nombre: 'Carlos Sintético', sena: 'acreditado' });
   await sembrarTurno(semilla, { inicio, nombre: 'Lucía Ejemplo', profesional: 'bruno', sillon: 2 });
