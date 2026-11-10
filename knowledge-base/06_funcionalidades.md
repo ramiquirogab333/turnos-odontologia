@@ -101,15 +101,15 @@ Organizadas por **épica** y luego por **historia de usuario** (formato US-NNN).
 ## Épica 5: Ficha clínica y pagos
 
 ### US-009 — Ficha + odontograma + presupuesto con OS
-**Como** recepción/admin
+**Como** recepción/admin u odontólogo/a (sus pacientes)
 **Quiero** ficha de paciente con odontograma FDI básico y presupuestos con cobertura de obra social
 **Para** registrar lo clínico-administrativo mínimo en v1
 
 **Criterios de aceptación**:
-- [ ] CA-1: Cargo odontograma FDI básico por paciente.
+- [ ] CA-1: Cargo odontograma FDI básico por paciente (recepción/admin, y la odontóloga sobre sus pacientes, RN-CL-02 y RN-CL-04).
 - [ ] CA-2: El presupuesto descuenta cobertura según nomenclador AR precargado.
 
-**Reglas relacionadas**: RN-PG-02
+**Reglas relacionadas**: RN-PG-02, RN-CL-01, RN-CL-02, RN-CL-03, RN-CL-04
 
 ### US-010 — Cobrar por Mercado Pago o transferencia
 **Como** recepción/admin

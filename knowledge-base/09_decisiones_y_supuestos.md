@@ -91,6 +91,21 @@
 **Justificación**: el refresh fuera de JavaScript reduce el daño de un XSS; una sola definición de "ocupa" en base y aplicación evita dobles reservas con una persona sentada en el sillón; el alta manual comparte helpers y locks con la reserva pública (R5).
 **Trade-offs aceptados**: sesión deslizante de 7 días (límite absoluto en C-15); un usuario desactivado conserva sus permisos hasta renovar (C-15); `atendido` marcado por error no se deshace en C-08 (seguimiento en C-12); la 007 bloquea el despliegue si hay turnos superpuestos con un `atendido` (lista los ids).
 
+### DD-10 — Ficha, odontograma, presupuestos y acceso clínico (C-11, decisiones del usuario 2026-11-10)
+**Decisión**: se aprueban las decisiones O1 a O16 de `openspec/changes/archive/2026-11-10-c-11-ficha-odontograma-presupuestos-os/design.md`. Las que cambian reglas o contratos:
+- O2/O3/O4 (**cambiadas respecto de la recomendada**): "sus pacientes" de una odontóloga son los que tienen al menos un turno `atendido` con su profesional; ve DNI y número de afiliado (nunca teléfono, email ni pagos); escribe ficha y odontograma y lee presupuestos. **O4 reemplaza la matriz RBAC de `03_actores_y_roles.md` y US-009** (que la daban de solo lectura y ponían el odontograma en recepción/admin).
+- O15 (crítica, **modifica C-08 O5**): la odontóloga marca `atendido` sus propios turnos; opción (a) confirmada: no marca `ausente` (retiene la seña, R9) y no deshace un `atendido` (corregirlo queda como seguimiento de C-12).
+- O16 (crítica): la escritura clínica de la odontóloga exige un `atendido` en los últimos 12 meses o un turno pendiente; "12 meses" se fija en **365 días exactos** (`VENTANA_ACCESO_CLINICO`), confirmado por el usuario; fuera de la ventana solo lee (403 `acceso_clinico_vencido`).
+- O1: alta/consulta/edición mínima de pacientes (búsqueda exacta por DNI) y `PUT /turnos/{id}/paciente` para vincular turnos; C-12 conserva el listado y la búsqueda libre.
+- O5-O8, O12-O14: auditoría de lecturas y escrituras sin contenido clínico; ficha con `version`/409; odontograma solo de alta; pagos de presupuesto en C-11 (manuales, con tope, referencia única y anulación sin borrado); solo API (la UI es **C-16**).
+- O9-O11: fórmula de cobertura half-up por línea; estados del presupuesto con congelamiento al presentar; obra social del paciente por defecto.
+- **[SUPUESTO] semántica de `arancel_diferencial` (O9)**: la KB no lo define; se interpreta como copago por unidad a cargo del paciente (suma al "a cargo"). El seed lo deja en 0 y un test fija la fórmula para que cualquier cambio sea explícito.
+
+**Contexto**: la ficha y los presupuestos necesitaban un paciente al cual pertenecer, y la odontóloga necesitaba acceso clínico real y no solo lectura.
+**Alternativas consideradas**: acceso permanente de la odontóloga sin ventana; ventana que vence también la lectura; que la odontóloga marque también `ausente` o deshaga un `atendido`; UI dentro de C-11.
+**Justificación**: minimización de datos de salud (Ley 25.326) con auditoría de cada acceso; el acceso se gana al atender, no al agendar.
+**Trade-offs aceptados**: la ventana se mide sobre `turno.inicio` (un turno marcado tarde cuenta desde su inicio); una odontóloga podría darse acceso marcando `atendido` un turno propio de alguien que no vino (mitigado: solo turnos propios, auditado, estado final y requiere el vínculo de recepción); un GET escribe auditoría.
+
 ## Supuestos inferidos
 
 ### SU-01 — El PDF equivale a los .md

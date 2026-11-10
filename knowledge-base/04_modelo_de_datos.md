@@ -16,8 +16,10 @@ Entidades inferidas de las fuentes (discovery + state). Diseño físico sobre el
 Profesional 1───* Turno *───1 Paciente
 Sillón 1───* Turno
 Tratamiento 1───* Turno (duración configurable por tratamiento)
-Paciente 1───1 Ficha ───* Odontograma(FDI) / Presupuesto
-Presupuesto 1───* Pago (MP / transferencia)
+Paciente 1───0..1 Ficha (antecedentes, 1:1, con `version`)
+Paciente 1───* OdontogramaRegistro (FDI, solo se agregan registros)
+Paciente 1───* Presupuesto 1───* PresupuestoLinea (snapshot de precio y cobertura)
+Presupuesto 1───* PagoPresupuesto (MP / transferencia, desde C-11)
 Turno 1───* Recordatorio (WhatsApp)
 Profesional 1───* Disponibilidad (franjas configurables)
 Usuario *───1 Rol (paciente-público / odontólogo / recepción-admin)
@@ -29,13 +31,17 @@ ObraSocial 1───* Nomenclador (precargado AR)
 ## Entidades
 
 ### Paciente
-- Atributos: id, nombre, teléfono (identificador operativo, sin login), obra social (opcional), notas.
-- Relaciones: 1───* Turno; 1───1 Ficha.
-- Constraints: teléfono requerido para reserva; unicidad operativa por teléfono (a confirmar).
+- Atributos (según el código, C-02/C-11): id, nombre, apellido, **DNI** (único, 7 u 8 dígitos), teléfono E.164 (identificador operativo, sin login), email (opcional), obra social (opcional) y número de afiliado (opcional). No existe `notas`.
+- Relaciones: 1───* Turno (`turno.paciente_id` nulo en reservas públicas y altas manuales hasta que recepción lo vincula, C-11); 1───0..1 Ficha; 1───* OdontogramaRegistro; 1───* Presupuesto.
+- Constraints: DNI único; la reserva pública no crea `Paciente` (no pide DNI): el turno lleva solo nombre y teléfono de contacto.
 
-### Ficha
-- Atributos: id, paciente_id, antecedentes, historia de turnos.
-- Relaciones: *───* Odontograma FDI básico; *───* Presupuesto.
+### Ficha (desde C-11)
+- Atributos: id, `paciente_id` (único: 1:1, se crea en la primera edición), `alergias`, `medicacion`, `antecedentes_medicos`, `observaciones` (texto, hasta 2000 caracteres cada uno), `version` (control de edición optimista), `actualizado_por` (usuario), timestamps. La historia de turnos no se guarda: se deriva de `Turno`.
+- Relaciones: *───1 Paciente. Odontograma y presupuestos cuelgan del paciente, no de la ficha.
+
+### OdontogramaRegistro (desde C-11)
+- Atributos: id, `paciente_id`, `pieza` (FDI: permanentes 11-18, 21-28, 31-38, 41-48; temporales 51-55, 61-65, 71-75, 81-85), `cara` (O, M, D, V, L; opcional), `estado` (`sano`, `caries`, `obturado`, `ausente`, `extraccion_indicada`, `corona`, `endodoncia`, `implante`), `nota` (hasta 500), `registrado_por` (usuario), `registrado_en`.
+- Solo se agregan registros (nunca se modifican ni se borran): el estado vigente por pieza y cara se deriva del historial. `caries` y `obturado` exigen cara; los estados de pieza la rechazan.
 
 ### Profesional (odontólogo/a)
 - Atributos: id, nombre, matrícula, especialidad.
@@ -80,13 +86,18 @@ ObraSocial 1───* Nomenclador (precargado AR)
 - Atributos: id, turno_id, canal (WhatsApp), estado (pendiente / enviado / confirmado / fallido), fecha_envío.
 - Relaciones: *───1 Turno.
 
-### Presupuesto
-- Atributos: id, paciente_id, líneas (tratamiento + cobertura OS), total, estado.
-- Relaciones: 1───* Pago.
+### Presupuesto (desde C-11)
+- Atributos: id, `paciente_id`, `obra_social_id` (nula = particular), `estado` (`borrador`, `presentado`, `aceptado`, `rechazado`, `anulado`), `subtotal`, `cobertura_total`, `diferencial_total`, `total_paciente` (todos `NUMERIC(12,2)`, con `CHECK total_paciente = subtotal - cobertura_total + diferencial_total`), `notas`, `creado_por`, fechas de presentación, resolución y anulación (+ motivo).
+- Relaciones: *───1 Paciente; 1───* PresupuestoLinea; 1───* PagoPresupuesto.
+- Al presentarse queda congelado (las líneas guardan el precio, el porcentaje y el diferencial vigentes).
 
-### Pago
-- Atributos: id, presupuesto_id, medio (Mercado Pago / transferencia), monto (`Numeric`), estado, referencia externa.
-- Nota: el pago de SEÑA del turno vive en `PagoSena` (entidad propia desde C-06), no en `Pago` (atado a `Presupuesto`).
+### PresupuestoLinea (desde C-11)
+- Atributos: id, `presupuesto_id`, `orden`, `tratamiento_id`, `nomenclador_id` y `codigo_prestacion` (snapshot), pieza/cara opcionales, `cantidad` (1-99), `precio_unitario`, `cobertura_porcentaje`, `arancel_diferencial`, `importe_bruto`, `importe_cobertura`, `importe_diferencial`, `importe_paciente`.
+
+### PagoPresupuesto (desde C-11; "Pago" en el ERD original)
+- Atributos: id, `presupuesto_id`, `medio` (`mercadopago` / `transferencia`), `monto` (`NUMERIC(12,2)` > 0), `estado` (`registrado` / `anulado`), `fecha_cobro`, `referencia` (única por medio entre los registrados), `registrado_por`, datos de anulación (usuario, fecha, motivo). Se anula, nunca se borra.
+- Contrato para C-12 (caja): se suma por `fecha_cobro` (índice propio) y medio los pagos `registrado`, junto con las señas de `PagoSena`.
+- Nota: el pago de SEÑA del turno vive en `PagoSena` (entidad propia desde C-06), no en `PagoPresupuesto`.
 
 ```
 Turno 1───* PagoSena (seña: pendiente → acreditado/bloquea → vencido/no_reembolsado/a_reembolsar)

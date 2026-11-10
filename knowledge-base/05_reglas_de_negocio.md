@@ -15,7 +15,7 @@ Cada regla tiene código único `RN-{DOMINIO}-{NN}` para trazabilidad. Fuente: d
 - **RN-TU-09** (decisión 2026-11-06, C-07, O3): un turno `en_espera` no se reprograma (409 `sena_pendiente`); se cancela y se reserva otro horario. Cancelar un `en_espera` se acepta en cualquier momento, sin ventana de 24 h (O10).
 - **RN-TU-10** (decisión 2026-11-06, C-07, O4/O5): no hay límite de reprogramaciones por turno (cada cambio queda auditado); un `confirmado` que se reprograma vuelve a `reservado`.
 - **RN-TU-11** (decisión 2026-11-06, C-07, O6/O7): la ventana se compara en instantes absolutos; exactamente 24 h se acepta. Se mide contra el inicio actual del turno: el nuevo horario puede estar a menos de 24 h si está libre.
-- **RN-TU-12** (decisión 2026-11-09, C-08, O14): recepción o admin marcan un turno `atendido` desde las 00:00 del día local de la clínica en que empieza el turno (la persona puede entrar antes de su hora, nunca un día antes) y `ausente` desde el inicio más una tolerancia configurable, 10 minutos por defecto (`AUSENTE_TOLERANCIA_MINUTOS`). Solo se marca desde `reservado` o `confirmado`; ambos estados son finales. Un `atendido` sigue ocupando el horario hasta su `fin` (O19); un `ausente` lo libera.
+- **RN-TU-12** (decisión 2026-11-09, C-08, O14; enmendada 2026-11-10, C-11, O15): recepción o admin, y la odontóloga sobre los turnos de su profesional (solo `atendido`; `ausente` sigue siendo de recepción y admin; nadie deshace un `atendido`), marcan un turno `atendido` desde las 00:00 del día local de la clínica en que empieza el turno (la persona puede entrar antes de su hora, nunca un día antes) y `ausente` desde el inicio más una tolerancia configurable, 10 minutos por defecto (`AUSENTE_TOLERANCIA_MINUTOS`). Solo se marca desde `reservado` o `confirmado`; ambos estados son finales. Un `atendido` sigue ocupando el horario hasta su `fin` (O19); un `ausente` lo libera.
 
 ## Dominio: WhatsApp (RN-WA)
 
@@ -33,6 +33,16 @@ Cada regla tiene código único `RN-{DOMINIO}-{NN}` para trazabilidad. Fuente: d
 - **RN-PG-01**: Medios de v1: Mercado Pago + transferencia. Sin otros medios en v1.
 - **RN-PG-02**: Los presupuestos contemplan cobertura de obra social según nomenclador AR precargado.
 - **RN-PG-03**: Sin facturación electrónica ARCA nativa en v1.
+- **RN-PG-04** (decisión 2026-11-10, C-11, O9): cada línea de presupuesto calcula bruto = precio base × cantidad; cobertura = bruto × porcentaje del nomenclador / 100 (redondeo half-up a centavos); diferencial = `arancel_diferencial` × cantidad; a cargo del paciente = bruto − cobertura + diferencial. Sin obra social o sin fila de nomenclador, cobertura y diferencial son 0. Los totales suman las líneas ya redondeadas.
+- **RN-PG-05** (decisión 2026-11-10, C-11, O10): estados del presupuesto `borrador → presentado → aceptado | rechazado`, y `borrador | presentado | aceptado → anulado` (con motivo; un aceptado con pagos registrados no se anula). Al presentarse se recalcula una última vez y queda congelado: cambios posteriores de precio, nomenclador u obra social no lo alteran.
+- **RN-PG-06** (decisión 2026-11-10, C-11, O12): los cobros de presupuesto (Mercado Pago o transferencia, registrados a mano) solo se registran sobre presupuestos aceptados; la suma de pagos registrados no supera el total a cargo; la referencia es única por medio entre los registrados; un pago se anula con motivo y nunca se borra. Solo recepción y admin.
+
+## Dominio: Clínica (RN-CL — rige desde C-11)
+
+- **RN-CL-01** (decisión 2026-11-10, O7): el odontograma solo crece. Cada hallazgo o corrección es un registro nuevo; ninguno se modifica ni se borra, tampoco por la odontóloga. El estado vigente se deriva del historial.
+- **RN-CL-02** (decisión 2026-11-10, O2-O4): "sus pacientes" de una odontóloga son los que tienen al menos un turno `atendido` con su profesional. Sobre ellos lee y escribe ficha y odontograma (la escritura según RN-CL-04), lee presupuestos, ve DNI y número de afiliado y nunca teléfono, email ni pagos; no escribe datos administrativos, vínculos de turnos, presupuestos ni pagos. En una primera visita el acceso empieza cuando el turno vinculado con el paciente se marca `atendido` (por recepción, admin o la propia odontóloga, RN-TU-12). Recepción y admin acceden a todos los pacientes.
+- **RN-CL-03** (decisión 2026-11-10, O5): toda lectura o escritura aceptada de ficha, odontograma, presupuestos o pagos de presupuesto queda auditada con el usuario que actuó, sin su contenido clínico ni datos personales (Ley 25.326). Una operación rechazada no deja registro.
+- **RN-CL-04** (decisión 2026-11-10, O16): la odontóloga escribe ficha y odontograma de un paciente solo si tiene con esa persona un `atendido` en los últimos 12 meses (365 días exactos, reloj del servidor en UTC, constante `VENTANA_ACCESO_CLINICO`) o un turno `reservado`/`confirmado` con ella pendiente; si no, tiene solo lectura (403 `acceso_clinico_vencido` en las escrituras). Un turno futuro sin un `atendido` previo no da acceso.
 
 ## Dominio: Seña (RN-SN — rige desde C-06; modelado documental coherente con el GAP del header de CHANGES.md)
 
