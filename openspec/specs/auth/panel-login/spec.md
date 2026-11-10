@@ -24,12 +24,28 @@ El sistema SHALL autenticar usuarios del panel mediante `POST /api/auth/login`, 
 - **THEN** el sistema añade `JTI-OLD` a la blacklist, responde con un `access_token` nuevo y reemplaza la cookie por un refresh con jti nuevo, y un segundo uso de `JTI-OLD` responde 401
 
 ### Requirement: RBAC authorization
-El sistema SHALL autorizar operaciones de panel mediante `PermissionContext.require_role()` según la matriz de `03_actores_y_roles.md`: `odontologo` = lectura de su agenda y sus pacientes; `recepcion` / `admin` = CRUD total.
+El sistema SHALL autorizar operaciones de panel mediante `PermissionContext.require_role()` según la matriz de `03_actores_y_roles.md` (actualizada por C-11). `recepcion` / `admin` = CRUD total. `odontologo` = lectura de su agenda y de sus pacientes, y solo las escrituras del escenario «Alcance del rol odontologo»; nunca escribe datos administrativos, vínculos, presupuestos ni pagos.
+
+#### Scenario: La odontóloga ejerce sus permisos (Happy Path)
+- **GIVEN** un usuario `odontologo` asociado a la "Dra. Ana Ficticia", un turno suyo `reservado` de hoy y la paciente "Lucía Ejemplo" atendida por ella hace dos meses
+- **WHEN** marca atendido ese turno y edita la ficha de Lucía con la `version` vigente
+- **THEN** recibe 200 en ambas operaciones
 
 #### Scenario: require_role('recepcion') permite CRUD; odontólogo denegado en pacientes ajenos (Caso de Borde / Matriz RBAC)
 - **GIVEN** que el usuario autenticado tiene rol `recepcion` y otro usuario tiene rol `odontologo`
 - **WHEN** `recepcion` ejecuta `POST /api/panel/pacientes` (crear paciente) y `odontologo` ejecuta `PUT /api/panel/pacientes/{id_ajeno}` (editar paciente ajeno)
 - **THEN** `recepcion` recibe 201 (CRUD permitido) y `odontologo` recibe 403 (denegado: solo lectura de sus pacientes)
+
+#### Scenario: La odontóloga intenta una escritura administrativa (Error de Negocio)
+- **GIVEN** el mismo usuario `odontologo` y su paciente "Lucía Ejemplo"
+- **WHEN** intenta cancelar un turno propio, crear un presupuesto para Lucía o registrarle un pago
+- **THEN** recibe 403 en los tres casos y no cambia nada
+
+#### Scenario: Alcance del rol odontologo (Matriz RBAC)
+- **GIVEN** un usuario `odontologo` asociado a una profesional y una paciente suya (al menos un turno `atendido` con esa profesional, O2)
+- **WHEN** se evalúan sus permisos
+- **THEN** puede leer su agenda, marcar `atendido` los turnos de su profesional (O15), leer los datos administrativos de sus pacientes sin teléfono ni email, y leer ficha, odontograma y presupuestos
+- **AND** solo puede escribir ficha y odontograma con acceso clínico vigente (O3, O4, O16), y nunca datos administrativos, vínculos, presupuestos ni pagos
 
 ### Requirement: Reserva pública sin login
 El sistema SHALL permitir crear un turno público sin autenticación: `POST /api/public/turnos` con nombre + teléfono suficiente (RN-TU-06, DD-01). El paciente no tiene `Usuario`; la gestión posterior se hace por código/enlace por turno (interfaz delegada a C-05, documentada aquí).

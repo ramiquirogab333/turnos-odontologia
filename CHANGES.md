@@ -41,7 +41,8 @@ C-01 crear-turno-sin-solape
               │           │           ├── C-09 whatsapp-recordatorios-confirmacion
               │           │           └── C-10 google-calendar-sync
               │           └── C-11 ficha-odontograma-presupuestos-os
-              │                 └── C-12 panel-admin-caja-ausentismo
+              │                 ├── C-12 panel-admin-caja-ausentismo
+              │                 └── C-16 panel-ficha-presupuestos-ui   (nuevo, O13; UI sobre frontend-panel/)
 ```
 
 ### Paralelismo por fase
@@ -85,6 +86,9 @@ GATE 8: C-08 + C-11 ✓
 
 GATE 9: C-12 ✓
   → C-13 auditoria-exportacion          [Agente A]
+
+GATE 8b: C-11 ✓                         ← C-16 no depende de C-12
+  → C-16 panel-ficha-presupuestos-ui    [Agente C — UI sobre frontend-panel/]
 ```
 
 ### Camino crítico (9 changes — mínimo irreducible)
@@ -285,6 +289,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - Auth endurecida dentro de C-08 (O2/O3): refresh solo por cookie con `X-Panel-Csrf`, logout que revoca el refresh por 7 días, `POST /api/turnos` exige recepción/admin
   - Regla nueva RN-TU-12 (O14): `atendido` desde las 00:00 local del turno; `ausente` desde el inicio más `AUSENTE_TOLERANCIA_MINUTOS` (10)
   - Reglas verificables: RN-TU-03 (sin solapes visibles), R8 (`en_espera` atenuada y en banda aparte; excepción del alta manual), R9 (ausente retiene seña), RN-TU-12, R1, R2, R3
+  - Modificado por C-11 (O15, 2026-11-10): la odontóloga ya puede marcar `atendido` sus propios turnos (`403 turno_ajeno` para los ajenos); `ausente`, cancelar y el alta manual siguen siendo de recepción/admin (capacidad `turnos/gestion-panel`)
   - Fuera de C-08 (seguimiento): deshacer un `atendido` marcado por error → C-12; UI de catálogo y disponibilidad → C-14; resto del endurecimiento de auth → C-15; Google Calendar en la vista → C-10
 - **Dependencias**: C-07
 - **Governance**: MEDIO (con cambios CRÍTICOS de auth aprobados por el usuario el 2026-11-09)
@@ -340,12 +345,13 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ## FASE 4 — Clínica y administración
 
 ### [C-11] `ficha-odontograma-presupuestos-os`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado 2026-11-10 (`openspec/changes/archive/2026-11-10-c-11-ficha-odontograma-presupuestos-os/`, specs en `openspec/specs/pacientes/registro-paciente/spec.md` (nuevo), `openspec/specs/pacientes/ficha-clinica/spec.md` (nuevo), `openspec/specs/clinica/odontograma/spec.md` (nuevo), `openspec/specs/clinica/presupuestos/spec.md` (nuevo), `openspec/specs/pagos/pagos-presupuesto/spec.md` (nuevo), y `openspec/specs/auth/panel-login/spec.md`, `openspec/specs/turnos/agenda-panel/spec.md`, `openspec/specs/turnos/gestion-panel/spec.md` (modificados); pendiente de CI remota, primera corrida tras el push)
 - **Scope**: Ficha clínica mínima + odontograma FDI básico + presupuestos con cobertura OS (US-009)
   - Modelos: `Ficha` (antecedentes, historia de turnos), `Odontograma` FDI básico por paciente, `Presupuesto` (líneas tratamiento + cobertura OS, total, estado) — `Pago` de presupuestos aquí o reutilizando medio MP/transferencia de C-06 (RN-PG-01)
   - Endpoints panel: `/api/panel/pacientes/{id}/ficha`, `/odontograma`, `/presupuestos` (CRUD recepción/admin; lectura odontólogo sus pacientes; Pydantic in/out R15)
   - Presupuesto descuenta cobertura según nomenclador AR precargado (RN-PG-02, seed C-02); sin ARCA nativa en v1 (RN-PG-03)
-  - Migración Alembic 008 (reversible): tablas ficha/odontograma/presupuesto (la 006 es de C-06 y la 007 de C-08; verificar con `ls backend/src/alembic/versions` el siguiente número libre antes de crearla)
+  - Migración Alembic 008 (reversible): `ficha`, `odontograma_registro`, `presupuesto`, `presupuesto_linea` y `pago_presupuesto` (la 006 es de C-06 y la 007 de C-08)
+  - Implementado además (decisiones O1-O16 de `design.md`): alta/consulta/edición mínima de pacientes y búsqueda exacta por DNI, vínculo `PUT /api/panel/turnos/{id}/paciente`, auditoría de lecturas y escrituras sin contenido clínico, pagos manuales de presupuesto (MP/transferencia) con tope y anulación sin borrado, y la odontóloga escribe ficha y odontograma de sus pacientes (O4) dentro de una ventana de 12 meses (O16) y marca `atendido` sus turnos (O15)
   - Reglas verificables: RN-PG-02 (descuento por cobertura), RN-PG-03 (sin ARCA), R4 (montos `Numeric`)
   - Done-criteria (test): cálculo total con cobertura, permisos por rol, seed nomenclador aplicado
 - **Dependencias**: C-04
@@ -364,6 +370,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 - **Scope**: Panel de operación diaria: pacientes, ausentismo, ocupación por sillón, caja y liquidaciones (US-007)
   - `GET /api/panel/pacientes` (alta, ficha, historial, ausentes), `GET /api/panel/ocupacion?sillon_id&dia` (solo turnos bloqueantes cuentan; `en_espera` excluida — multi-sillón día 1); marcar `ausente` ya lo entrega C-08 (seña no reembolsada, R9): C-12 solo lo consume en caja y ausentismo, y suma deshacer un `atendido` marcado por error (pendiente que dejó C-08)
   - Caja: `GET /api/panel/caja` (señas acreditadas/no reembolsadas + pagos de presupuestos), `POST /api/panel/caja/cierre` (cierres y liquidaciones)
+  - Consume lo que dejó C-11: `pago_presupuesto` con `estado = 'registrado'` por `fecha_cobro` (índice propio) y medio (`app.clinica.service_pagos.resumen_por_dia_y_medio`); `pacientes` ya tiene alta, consulta por DNI y edición (C-12 suma el listado y la búsqueda libre); y corregir/deshacer un marcado de `atendido` queda como seguimiento (O15: la odontóloga no deshace)
   - Frontend panel recepción/admin (sobre el scaffolding de C-08): dashboard ocupación, ausentismo, recupero, caja
   - Reglas verificables: R8 (ocupación excluye `en_espera`), R9 (ausente retiene seña en caja), RN-GL-01 (cierre auditado)
   - Done-criteria (test): ocupación excluye `en_espera`, ausente retiene seña en caja, cierre cuadra
@@ -406,6 +413,21 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - `knowledge-base/03_actores_y_roles.md` §RBAC
   - `openspec/changes/archive/2026-11-10-c-08-agenda-profesional-panel/design.md` §D10 (qué quedó en C-15)
   - `openspec/changes/archive/*-c-03-auth-panel-rbac/design.md`
+
+---
+
+### [C-16] `panel-ficha-presupuestos-ui`
+- **Estado**: `[ ]` pendiente (propuesto en C-11, decisión O13 del 2026-11-10)
+- **Scope**: Pantallas del panel para lo que C-11 entregó solo por API
+  - Ficha clínica (antecedentes con control de versión), odontograma FDI (registro en lote y estado vigente), presupuestos (armado, estados, cobro) sobre `frontend-panel/`
+  - La odontóloga edita ficha y odontograma de sus pacientes desde la UI (O4, O16: lectura si el acceso venció); recepción/admin operan presupuestos y pagos
+  - Reglas verificables: R1, R2 (cargas en paralelo), R3 (360 px), R7 (E2E Playwright de la edición de ficha y del registro de odontograma)
+- **Dependencias**: C-11
+- **Governance**: MEDIO (datos de salud: respetar el alcance por rol de C-11)
+- **Leer antes**:
+  - `openspec/changes/archive/2026-11-10-c-11-ficha-odontograma-presupuestos-os/design.md` §D1 (matriz de rutas por rol) y §D2
+  - `knowledge-base/06_funcionalidades.md` §US-009
+  - `knowledge-base/03_actores_y_roles.md` §RBAC — Matriz de permisos
 
 ---
 
