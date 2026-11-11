@@ -26,6 +26,8 @@ from app.catalogo.router import (
     router_sillones,
     router_tratamientos,
 )
+from app.caja.http import registrar_handlers as registrar_handlers_caja
+from app.caja.router import router as caja_router
 from app.pagos.barrido import ciclo_barrido
 from app.gestion.router import router as gestion_router
 from app.pagos.router_admin import router as sena_admin_router
@@ -35,6 +37,7 @@ from app.clinica.router import router as clinica_router
 from app.pacientes.http import registrar_handlers as registrar_handlers_clinicos
 from app.pacientes.router import router as pacientes_router
 from app.panel.router import router as panel_router
+from app.panel.router_indicadores import router as indicadores_router
 from app.public.router import router as public_router
 
 logger = get_logger(__name__)
@@ -74,7 +77,10 @@ app.include_router(gestion_router)
 app.include_router(panel_router)
 app.include_router(pacientes_router)
 app.include_router(clinica_router)
+app.include_router(caja_router)
+app.include_router(indicadores_router)
 registrar_handlers_clinicos(app)
+registrar_handlers_caja(app)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ReferenceNotFoundError, referencia_handler)  # type: ignore[arg-type]
 

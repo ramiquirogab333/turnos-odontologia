@@ -19,14 +19,17 @@ from app.catalogo.router import require_recepcion_o_admin
 from app.pagos.errores import (
     MarcadoNoHabilitadoError,
     OperacionReintentableError,
+    PlazoVencidoError,
     TurnoAjenoError,
     TurnoInexistenteError,
 )
 from app.pagos.estados import TransicionInvalidaError
+from app.pagos.service import deshacer_atendido
 from app.panel.schemas import (
     AgendaQuery,
     AgendaResponse,
     CambioEstadoResponse,
+    DeshacerAtendidoIn,
     ErrorPanelBody,
     OpcionesResponse,
     TurnoManualCreado,
@@ -155,6 +158,10 @@ def _rechazo_estado(exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=409, content=ErrorPanelBody(
             detail=f"El turno está {exc.actual} y no se puede pasar a {exc.destino}",
             motivo="transicion_invalida").model_dump(mode="json"))
+    if isinstance(exc, PlazoVencidoError):
+        return JSONResponse(status_code=409, content=ErrorPanelBody(
+            detail=str(exc), motivo="plazo_vencido",
+            limite_correccion=exc.limite.astimezone(zona)).model_dump(mode="json"))
     if isinstance(exc, MarcadoNoHabilitadoError):
         return JSONResponse(status_code=409, content=ErrorPanelBody(
             detail="Todavía no se puede marcar este turno", motivo="marcado_no_habilitado",
@@ -167,7 +174,7 @@ def _rechazo_estado(exc: Exception) -> JSONResponse:
 
 
 _ERRORES_DE_ESTADO = (TurnoInexistenteError, TurnoAjenoError, TransicionInvalidaError, MarcadoNoHabilitadoError, FueraDePlazoError,
-                      OperacionReintentableError)
+                      OperacionReintentableError, PlazoVencidoError)
 
 
 @router.post(
@@ -230,6 +237,26 @@ async def cancelar(
 ) -> CambioEstadoResponse | JSONResponse:
     try:
         r = await cancelar_turno_panel(session, turno_id, contexto.usuario_id, ahora, notificador)
+    except _ERRORES_DE_ESTADO as exc:
+        return _rechazo_estado(exc)
+    return CambioEstadoResponse(turno_id=r.turno_id, estado=r.estado_turno, estado_sena=r.estado_pago)
+
+
+@router.post(
+    "/turnos/{turno_id}/deshacer-atendido",
+    response_model=CambioEstadoResponse,
+    summary="Devuelve un turno `atendido` marcado por error a `reservado` (recepción/admin, hasta 7 días después del inicio)",
+    responses={**_ERRORES_ESTADO, 422: {"description": "Motivo fuera del catálogo"}},
+)
+async def deshacer_atendido_panel(
+    turno_id: int,
+    data: DeshacerAtendidoIn,
+    contexto: PermissionContext = Depends(require_recepcion_o_admin),
+    session: AsyncSession = Depends(get_session),
+    ahora: datetime = Depends(get_reloj),
+) -> CambioEstadoResponse | JSONResponse:
+    try:
+        r = await deshacer_atendido(session, turno_id, contexto.usuario_id, data.motivo, ahora)
     except _ERRORES_DE_ESTADO as exc:
         return _rechazo_estado(exc)
     return CambioEstadoResponse(turno_id=r.turno_id, estado=r.estado_turno, estado_sena=r.estado_pago)

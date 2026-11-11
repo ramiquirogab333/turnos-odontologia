@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta, tzinfo
 
 VENTANA_CANCELACION = timedelta(hours=24)
+VENTANA_DESHACER_ATENDIDO = timedelta(days=7)  # C-12 O8 [SUPUESTO]: plazo para corregir un atendido marcado por error
 
 TRANSICIONES_TURNO: dict[str, frozenset[str]] = {
     "en_espera": frozenset({"reservado", "cancelado"}),
@@ -52,6 +53,18 @@ def atendido_habilitado_desde(inicio: datetime, zona: tzinfo) -> datetime:
     _exigir_zona(inicio, "inicio")
     dia_local = inicio.astimezone(zona).date()
     return datetime.combine(dia_local, time.min, tzinfo=zona)
+
+
+def deshacer_habilitado_hasta(inicio: datetime) -> datetime:
+    """Último instante en que se puede deshacer un ``atendido``: el inicio más 7 días corridos (C-12, O8)."""
+    _exigir_zona(inicio, "inicio")
+    return inicio + VENTANA_DESHACER_ATENDIDO
+
+
+def deshacer_dentro_de_plazo(inicio: datetime, ahora: datetime) -> bool:
+    """True hasta el límite inclusive: exactamente 7 días se acepta, un segundo después no. Instantes absolutos."""
+    _exigir_zona(ahora, "ahora")
+    return ahora <= deshacer_habilitado_hasta(inicio)
 
 
 class TransicionInvalidaError(Exception):

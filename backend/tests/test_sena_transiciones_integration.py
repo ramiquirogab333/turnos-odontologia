@@ -188,3 +188,31 @@ async def test_el_resultado_trae_estado_anterior_profesional_y_horario_para_el_e
     r = await _cambiar(session_factory, reserva["turno_id"], "cancelado", ahora=inicio - timedelta(hours=48))
     assert r.estado_anterior == "reservado" and r.profesional_id == seed_ids["profesional_id"]
     assert r.inicio == inicio and r.fin == inicio + timedelta(minutes=30)
+
+
+# --- C-12 (5.9): la corrección de un atendido es la única excepción a los estados finales ----------------------------
+
+async def test_c12_la_correccion_deja_el_turno_reservado_con_su_sena_y_ausente_y_cancelado_siguen_finales(
+        client, seed_ids, session_factory, pasarela) -> None:
+    from app.pagos.service import deshacer_atendido
+    from tests.conftest import crear_usuario_panel
+
+    uid, _ = await crear_usuario_panel(session_factory, "correccion@turnos.test", ["recepcion"])
+    reserva, inicio = await _reservado_con_sena(client, seed_ids, session_factory)
+    await _cambiar(session_factory, reserva["turno_id"], "atendido", ahora=inicio)
+    with pytest.raises(TransicionInvalidaError):  # la vía general sigue sin salida desde atendido
+        await _cambiar(session_factory, reserva["turno_id"], "reservado")
+    async with session_factory() as s:
+        r = await deshacer_atendido(s, reserva["turno_id"], uid, "turno_equivocado", ahora=inicio + timedelta(hours=1))
+    assert (r.estado_turno, r.estado_pago, r.estado_anterior) == ("reservado", "acreditado", "atendido")
+    assert (await turno_de(session_factory, reserva["turno_id"])).estado == "reservado"
+    assert [p.estado for p in await pagos_de(session_factory, reserva["turno_id"])] == ["acreditado"]
+
+    await _cambiar(session_factory, reserva["turno_id"], "ausente", ahora=inicio + timedelta(hours=1))
+    cancelado, inicio2 = await _reservado_con_sena(client, seed_ids, session_factory, hhmm="12:00")
+    await _cambiar(session_factory, cancelado["turno_id"], "cancelado", ahora=inicio2 - timedelta(hours=48))
+    for turno_id, estado in ((reserva["turno_id"], "ausente"), (cancelado["turno_id"], "cancelado")):
+        async with session_factory() as s:
+            with pytest.raises(TransicionInvalidaError):
+                await deshacer_atendido(s, turno_id, uid, "otro", ahora=inicio + timedelta(hours=2))
+        assert (await turno_de(session_factory, turno_id)).estado == estado

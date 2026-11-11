@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.rbac import PermissionContext
+from app.caja.cierres import bloquear_caja, exigir_dia_abierto
 from app.clinica.errores import (
     FechaCobroFuturaError,
     MontoExcedeSaldoError,
@@ -43,14 +44,16 @@ async def _total_pagado(session: AsyncSession, presupuesto_id: int) -> Decimal:
 
 async def registrar_pago(session: AsyncSession, usuario_id: int, paciente_id: int, presupuesto_id: int,
                          data: PagoCreate, ahora: datetime) -> PagoRegistradoOut:
-    """Raises: ``PresupuestoNoAceptadoError``, ``FechaCobroFuturaError``, ``MontoExcedeSaldoError``,
-    ``ReferenciaDuplicadaError`` (más los 404 de paciente y presupuesto)."""
+    """Raises: ``PresupuestoNoAceptadoError``, ``FechaCobroFuturaError``, ``CajaCerradaError`` (el día de la fecha de
+    cobro tiene un cierre vigente, C-12), ``MontoExcedeSaldoError``, ``ReferenciaDuplicadaError`` (más los 404)."""
+    await bloquear_caja(session)  # C-12: orden de locks LOCK_CAJA -> presupuesto (nunca al revés)
     p = await _bloquear(session, paciente_id, presupuesto_id)
     if p.estado != "aceptado":
         raise PresupuestoNoAceptadoError(p.estado)
     fecha = data.fecha_cobro or ahora
     if fecha > ahora:
         raise FechaCobroFuturaError()
+    await exigir_dia_abierto(session, fecha)
     pagado = await _total_pagado(session, presupuesto_id)
     saldo = p.total_paciente - pagado
     if data.monto > saldo:
@@ -74,8 +77,14 @@ async def registrar_pago(session: AsyncSession, usuario_id: int, paciente_id: in
 
 async def anular_pago(session: AsyncSession, usuario_id: int, paciente_id: int, presupuesto_id: int, pago_id: int,
                       motivo: str, ahora: datetime) -> PagoRegistradoOut:
-    """Raises: ``PagoInexistenteError`` (404), ``TransicionInvalidaError`` (ya anulado, 409)."""
+    """Raises: ``PagoInexistenteError`` (404), ``TransicionInvalidaError`` (ya anulado, 409), ``CajaCerradaError`` (el
+    día del cobro tiene un cierre vigente, C-12: hay que anular antes el cierre)."""
+    await bloquear_caja(session)  # C-12: orden de locks LOCK_CAJA -> presupuesto
     p = await _bloquear(session, paciente_id, presupuesto_id)
+    fila = (await session.execute(select(PagoPresupuesto.fecha_cobro, PagoPresupuesto.estado).where(
+        PagoPresupuesto.id == pago_id, PagoPresupuesto.presupuesto_id == presupuesto_id))).one_or_none()
+    if fila is not None and fila.estado == "registrado":
+        await exigir_dia_abierto(session, fila.fecha_cobro)
     actualizado = (await session.execute(
         update(PagoPresupuesto).where(PagoPresupuesto.id == pago_id, PagoPresupuesto.presupuesto_id == presupuesto_id,
                                       PagoPresupuesto.estado == "registrado")

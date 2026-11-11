@@ -31,13 +31,19 @@ from app.pagos.errores import (
     OperacionReintentableError,
     PagoNoAcreditableError,
     PagoNoEncontradoError,
+    PlazoVencidoError,
     SenaNoEncontradaError,
     SenaNoRequeridaError,
     TurnoAjenoError,
     TurnoInexistenteError,
     TurnoNoPendienteError,
 )
-from app.pagos.estados import CancelacionFueraDePlazoError, TransicionInvalidaError, aplicar_transicion
+from app.pagos.estados import (
+    CancelacionFueraDePlazoError,
+    TransicionInvalidaError,
+    aplicar_transicion,
+    deshacer_habilitado_hasta,
+)
 from app.pagos.models import AprobacionPago, ConfiguracionSena, PagoSena
 from app.pagos.pasarela import PasarelaNoDisponibleError, PasarelaPagos
 from app.public.service import (
@@ -358,7 +364,7 @@ async def _acreditar_una_vez(session: AsyncSession, pago_id: int, *, mp_payment_
         await session.rollback()
         return ResultadoAcreditacion("sin_cambios", pago_id_, turno_id)
 
-    if pago.estado in ("acreditado", "a_reembolsar", "no_reembolsado"):
+    if pago.estado in ("acreditado", "a_reembolsar", "no_reembolsado", "reembolsado"):
         if manual or mp_payment_id is None:  # reintento de la acreditación manual
             await session.rollback()
             return ResultadoAcreditacion("sin_cambios", pago_id_, turno_id)
@@ -615,6 +621,8 @@ async def _cambiar_estado_una_vez(session: AsyncSession, turno_id: int, destino:
     estado_pago_final = resultado.estado_pago
     for revisado in en_revision:
         revisado.estado = "a_reembolsar"  # conserva monto_reportado/mp_payment_id para la devolución
+        revisado.acreditado_en = revisado.acreditado_en or ahora or _ahora()  # C-12 D2: instante en que se recibió el dinero
+        await _cerrar_revisiones(session, revisado.id, None)  # RN-SN-10: sus pagos en revisión también se devuelven
         _auditar(session, usuario_id=usuario_id, accion="UPDATE", entidad="pago_sena", entidad_id=revisado.id,
                  antes={"estado": "en_revision"},
                  despues={"estado": "a_reembolsar", "turno_id": turno.id, "origen": origen,
@@ -647,4 +655,59 @@ async def cambiar_estado_turno(session: AsyncSession, turno_id: int, destino: st
             if sqlstate not in TRANSITORIOS:
                 raise
             logger.warning("cambio de estado: %s en el intento %s del turno %s", sqlstate, intento + 1, turno_id)
+    raise OperacionReintentableError()
+
+
+# ---------------------------------------------------------------------------
+# C-12: corrección de un ``atendido`` marcado por error (D6)
+# ---------------------------------------------------------------------------
+
+async def _deshacer_una_vez(session: AsyncSession, turno_id: int, usuario_id: int, motivo: str,
+                            ahora: datetime) -> ResultadoCambioEstado:
+    await _bloquear_reservas(session)  # mismo orden que ``cambiar_estado_turno``: advisory -> turno
+    turno = (await session.execute(
+        select(Turno).where(Turno.id == turno_id).with_for_update().execution_options(populate_existing=True)
+    )).scalar_one_or_none()
+    if turno is None:
+        await session.rollback()
+        raise TurnoInexistenteError()
+    if turno.estado != "atendido":
+        actual = turno.estado
+        await session.rollback()
+        raise TransicionInvalidaError(actual, "reservado")
+    limite = deshacer_habilitado_hasta(turno.inicio)
+    if ahora > limite:
+        await session.rollback()
+        raise PlazoVencidoError(limite)
+    turno.estado = "reservado"  # vuelve siempre a reservado (precedente RN-TU-10); la seña y el horario no cambian
+    _auditar(session, usuario_id=usuario_id, accion="UPDATE", entidad="turno", entidad_id=turno.id,
+             antes={"estado": "atendido"},
+             despues={"estado": "reservado", "origen": "deshacer_atendido_panel", "motivo": motivo})
+    estado_pago = (await session.execute(
+        select(PagoSena.estado).where(PagoSena.turno_id == turno.id).order_by(PagoSena.id.desc()).limit(1)
+    )).scalar_one_or_none()
+    profesional_id, inicio, fin = turno.profesional_id, turno.inicio, turno.fin
+    await session.commit()
+    return ResultadoCambioEstado(turno_id, "reservado", estado_pago, "atendido", profesional_id, inicio, fin)
+
+
+async def deshacer_atendido(session: AsyncSession, turno_id: int, usuario_id: int, motivo: str,
+                            ahora: datetime | None = None) -> ResultadoCambioEstado:
+    """``atendido -> reservado`` hasta 7 días después del inicio. Única salida del estado ``atendido``.
+
+    No es una transición de ``TRANSICIONES_TURNO``: la vía general sigue sin salida. La seña no cambia, el turno sigue
+    ocupando el horario (nunca puede chocar con el EXCLUDE) y no publica eventos. Reintenta deadlocks.
+
+    Raises: ``TurnoInexistenteError`` (404), ``TransicionInvalidaError`` (no está ``atendido``, 409),
+    ``PlazoVencidoError`` (409), ``OperacionReintentableError`` (503).
+    """
+    ahora = ahora or _ahora()
+    for intento in range(MAX_REINTENTOS_ACREDITACION + 1):
+        try:
+            return await _deshacer_una_vez(session, turno_id, usuario_id, motivo, ahora)
+        except (IntegrityError, DBAPIError) as exc:
+            await session.rollback()
+            if getattr(getattr(exc, "orig", None), "sqlstate", "") not in TRANSITORIOS:
+                raise
+            logger.warning("deshacer atendido: transitorio en el intento %s del turno %s", intento + 1, turno_id)
     raise OperacionReintentableError()

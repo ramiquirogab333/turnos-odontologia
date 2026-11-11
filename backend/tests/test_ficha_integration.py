@@ -293,3 +293,46 @@ async def test_atendido_sin_vincular_no_cuenta_para_la_ventana_de_escritura(sess
     await client.put(f"/api/panel/turnos/{turno_id}/paciente", json={"paciente_id": lucia},
                      headers=bearer(esc.recepcion))
     assert (await client.put(url, json=_cuerpo(0), headers=h)).status_code == 200
+
+
+# --- C-12 (5.7): deshacer un atendido recalcula el acceso clínico (O2, O9, O16) -------------------------------------
+
+async def _deshacer(client: AsyncClient, token: str, turno_id: int) -> None:
+    r = await client.post(f"/api/panel/turnos/{turno_id}/deshacer-atendido", json={"motivo": "turno_equivocado"},
+                          headers=bearer(token))
+    assert r.status_code == 200, r.text
+
+
+async def test_c12_si_quedan_otras_atenciones_la_odontologa_sigue_leyendo_y_escribiendo(session_factory, client: AsyncClient, esc) -> None:  # type: ignore[no-untyped-def]
+    paciente = await crear_paciente(session_factory, nombre="Mateo", apellido="Prueba")
+    await turno_de(session_factory, esc, paciente, hace(dias=30))
+    por_error = await turno_de(session_factory, esc, paciente, hace(dias=1))
+    await _deshacer(client, esc.recepcion, por_error)
+    assert (await client.get(f"/api/panel/pacientes/{paciente}/ficha", headers=bearer(esc.ana))).status_code == 200
+    r = await client.put(f"/api/panel/pacientes/{paciente}/ficha", json=_cuerpo(0), headers=bearer(esc.ana))
+    assert r.status_code == 200, r.text
+
+
+async def test_c12_si_era_la_unica_atencion_la_odontologa_pierde_el_acceso(session_factory, client: AsyncClient, esc) -> None:  # type: ignore[no-untyped-def]
+    paciente = await crear_paciente(session_factory)
+    por_error = await turno_de(session_factory, esc, paciente, hace(dias=1))
+    assert (await client.get(f"/api/panel/pacientes/{paciente}/ficha", headers=bearer(esc.ana))).status_code == 200
+    await _deshacer(client, esc.recepcion, por_error)
+    r = await client.get(f"/api/panel/pacientes/{paciente}/ficha", headers=bearer(esc.ana))
+    assert r.status_code == 403 and r.json()["motivo"] == "paciente_ajeno"
+    assert (await client.put(f"/api/panel/pacientes/{paciente}/ficha", json=_cuerpo(0),
+                             headers=bearer(esc.ana))).status_code == 403
+    assert (await client.get(f"/api/panel/pacientes/{paciente}/ficha", headers=bearer(esc.recepcion))).status_code == 200
+
+
+async def test_c12_lo_escrito_antes_de_la_correccion_queda_en_el_historial_con_su_autora(session_factory, client: AsyncClient, esc) -> None:  # type: ignore[no-untyped-def]
+    paciente = await crear_paciente(session_factory)
+    por_error = await turno_de(session_factory, esc, paciente, hace(dias=1))
+    r = await client.post(f"/api/panel/pacientes/{paciente}/odontograma", headers=bearer(esc.ana),
+                          json={"registros": [{"pieza": 16, "cara": "O", "estado": "caries"}]})
+    assert r.status_code == 201, r.text
+    await _deshacer(client, esc.recepcion, por_error)
+    h = await client.get(f"/api/panel/pacientes/{paciente}/odontograma/historial", headers=bearer(esc.recepcion))
+    assert h.status_code == 200, h.text
+    [registro] = h.json()["registros"]
+    assert (registro["pieza"], registro["estado"], registro["registrado_por"]) == (16, "caries", esc.ana_id)

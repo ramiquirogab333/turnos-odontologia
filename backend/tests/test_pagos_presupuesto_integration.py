@@ -1,7 +1,7 @@
 """C-11 (grupo 8): pagos de presupuesto (saldo, tope, referencia única, anulación sin borrado). Datos sintéticos (R19)."""
 
 import asyncio
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -272,3 +272,65 @@ async def test_el_filtro_por_fecha_de_cobro_usa_el_indice(session_factory, clien
             "WHERE estado = 'registrado' AND fecha_cobro >= :a AND fecha_cobro < :b GROUP BY 1, 2"),
             {"a": AHORA - timedelta(days=10), "b": AHORA})).scalars())
     assert "ix_pago_presupuesto_fecha_cobro" in explicacion and "Seq Scan" not in explicacion
+
+
+# --- C-12 (3.7): un día cerrado no admite cobros nuevos ni anulaciones ---------------------------------------------
+
+async def test_c12_cobro_de_hoy_con_ayer_cerrado_se_registra(session_factory, client: AsyncClient, esc, plan) -> None:  # type: ignore[no-untyped-def]
+    from tests.caja_helpers import insertar_cierre
+
+    await insertar_cierre(session_factory, date(2026, 11, 9))  # ayer en la clínica (AHORA = 2026-11-10 09:00 local)
+    resp = await client.post(_url(plan), json=_pago("1500.00"), headers=bearer(esc.recepcion))
+    assert resp.status_code == 201, resp.text
+
+
+async def test_c12_cobro_con_fecha_en_un_dia_cerrado_da_409_caja_cerrada_y_no_crea_nada(session_factory, client: AsyncClient, esc, plan) -> None:  # type: ignore[no-untyped-def]
+    from tests.caja_helpers import insertar_cierre
+    from tests.panel_helpers import local
+
+    await insertar_cierre(session_factory, date(2026, 11, 9))
+    resp = await client.post(_url(plan), json=_pago("1500.00", fecha_cobro=local(date(2026, 11, 9), "23:30").isoformat()),
+                             headers=bearer(esc.recepcion))
+    assert resp.status_code == 409
+    assert (resp.json()["motivo"], resp.json()["dia"]) == ("caja_cerrada", "2026-11-09")
+    assert await contar(session_factory, "pago_presupuesto") == 0
+    # el mismo día, visto desde UTC: 2026-11-10 01:00 UTC sigue siendo el 9 en la clínica
+    resp = await client.post(_url(plan), json=_pago("1500.00", fecha_cobro="2026-11-10T01:00:00+00:00"),
+                             headers=bearer(esc.recepcion))
+    assert (resp.status_code, resp.json()["dia"]) == (409, "2026-11-09")
+
+
+async def test_c12_anular_un_cobro_de_un_dia_cerrado_da_409_y_el_pago_sigue_registrado(session_factory, client: AsyncClient, esc, plan) -> None:  # type: ignore[no-untyped-def]
+    from tests.caja_helpers import insertar_cierre
+    from tests.panel_helpers import local
+
+    pago = await insertar_pago(session_factory, plan["presupuesto"], "1500.00", local(date(2026, 11, 9), "11:00"))
+    cierre = await insertar_cierre(session_factory, date(2026, 11, 9))
+    resp = await client.post(_url(plan, f"/{pago}/anular"), json={"motivo": "cargado dos veces"},
+                             headers=bearer(esc.recepcion))
+    assert resp.status_code == 409 and (resp.json()["motivo"], resp.json()["dia"]) == ("caja_cerrada", "2026-11-09")
+    async with session_factory() as s:
+        assert (await s.execute(select(PagoPresupuesto.estado).where(PagoPresupuesto.id == pago))).scalar_one() == "registrado"
+    # Corrección: anulado el cierre, la anulación del pago se acepta y el nuevo cierre no lo incluye (ver test de caja).
+    async with session_factory() as s:
+        await s.execute(text("UPDATE cierre_caja SET estado='anulado', anulado_en=now(), anulado_motivo='error sintetico' "
+                             "WHERE id=:i"), {"i": cierre})
+        await s.commit()
+    resp = await client.post(_url(plan, f"/{pago}/anular"), json={"motivo": "cargado dos veces"},
+                             headers=bearer(esc.recepcion))
+    assert resp.status_code == 200 and resp.json()["pago"]["estado"] == "anulado"
+    assert resp.json()["saldo"] == "4000.00"
+    async with session_factory() as s:
+        assert (await s.execute(select(PagoPresupuesto.estado).where(PagoPresupuesto.id == pago))).scalar_one() == "anulado"
+
+
+async def test_c12_un_dia_abierto_no_cambia_las_reglas_de_c11_aunque_haya_otros_dias_cerrados(session_factory, client: AsyncClient, esc, plan) -> None:  # type: ignore[no-untyped-def]
+    from tests.caja_helpers import insertar_cierre
+    from tests.panel_helpers import local
+
+    await insertar_cierre(session_factory, date(2026, 11, 8))
+    pago = await insertar_pago(session_factory, plan["presupuesto"], "100.00", local(date(2026, 11, 9), "11:00"))
+    assert (await client.post(_url(plan, f"/{pago}/anular"), json={"motivo": "cargado dos veces"},
+                              headers=bearer(esc.recepcion))).status_code == 200
+    assert (await client.post(_url(plan), json=_pago("100.00", fecha_cobro=local(date(2026, 11, 9), "10:00").isoformat()),
+                              headers=bearer(esc.recepcion))).status_code == 201
