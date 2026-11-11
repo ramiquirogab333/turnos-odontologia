@@ -126,6 +126,15 @@ class TurnoManualCreado(_Base):
     codigo_gestion: str
 
 
+MotivoDeshacer = Literal["turno_equivocado", "paciente_no_asistio", "otro"]
+
+
+class DeshacerAtendidoIn(_Base):
+    """Motivo de un catálogo: se puede auditar sin riesgo de texto libre con datos personales (C-12, D6)."""
+
+    motivo: MotivoDeshacer
+
+
 class CambioEstadoResponse(_Base):
     turno_id: int
     estado: str
@@ -139,3 +148,4 @@ class ErrorPanelBody(_Base):
     motivo: str
     limite_cambios: datetime | None = None
     habilitado_desde: datetime | None = None
+    limite_correccion: datetime | None = None  # C-12: último instante para deshacer un atendido

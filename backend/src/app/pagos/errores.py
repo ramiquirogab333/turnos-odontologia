@@ -83,3 +83,36 @@ class MarcadoNoHabilitadoError(Exception):
     def __init__(self, habilitado_desde: datetime) -> None:
         super().__init__("Todavía no se puede marcar este turno")
         self.habilitado_desde = habilitado_desde
+
+
+class NoEstaEnRevisionError(Exception):
+    """Solo se rechaza un pago en revision (409 no_esta_en_revision, C-12)."""
+
+    def __init__(self, estado: str) -> None:
+        super().__init__(f"El pago está {estado}: no está en revisión")
+        self.estado = estado
+
+
+class NoEsDevolucionPendienteError(Exception):
+    """El pago no es una devolucion pendiente (409 no_es_devolucion_pendiente; no_reembolsado nunca, R9)."""
+
+    def __init__(self, estado: str) -> None:
+        super().__init__(f"El pago está {estado}: no hay una devolución pendiente")
+        self.estado = estado
+
+
+class FechaDevolucionInvalidaError(Exception):
+    """La fecha de la devolucion es futura o anterior a la recepcion del dinero (422, con su motivo)."""
+
+    def __init__(self, motivo: str) -> None:
+        super().__init__("La fecha de la devolución no puede ser futura" if motivo == "fecha_futura"
+                         else "La fecha de la devolución no puede ser anterior a la recepción del dinero")
+        self.motivo = motivo
+
+
+class PlazoVencidoError(Exception):
+    """Pasó el plazo para deshacer un atendido (409 plazo_vencido, con el instante limite, C-12 O8)."""
+
+    def __init__(self, limite: datetime) -> None:
+        super().__init__("Ya pasaron 7 días: este turno no se puede corregir")
+        self.limite = limite

@@ -69,7 +69,7 @@ export async function sembrar(): Promise<Semilla> {
       throw new Error('La base no tiene las migraciones al día (falta turno.origen): corré `alembic upgrade head`.');
     }
     await c.query(
-      'TRUNCATE token_blacklist, pago_sena, turno, disponibilidad, profesional, sillon, tratamiento, usuario_rol, usuario, rol, registro_auditoria RESTART IDENTITY CASCADE',
+      'TRUNCATE token_blacklist, cierre_caja_linea, cierre_caja, pago_presupuesto, presupuesto_linea, presupuesto, ficha, odontograma_registro, paciente, pago_sena_aprobacion, pago_sena, turno, disponibilidad, profesional, sillon, tratamiento, usuario_rol, usuario, rol, registro_auditoria RESTART IDENTITY CASCADE',
     );
     const ana = await insertar(
       c,
@@ -122,7 +122,11 @@ export interface OpcionesTurno {
   readonly nombre?: string | null;
   readonly origen?: 'web' | 'manual';
   /** Si se indica, crea también la seña con ese estado (monto 4500.00). */
-  readonly sena?: 'acreditado' | 'pendiente';
+  readonly sena?: 'acreditado' | 'pendiente' | 'a_reembolsar' | 'no_reembolsado';
+  /** Cuándo se recibió el dinero (por defecto, ahora). Sirve para sembrar movimientos de un día pasado. */
+  readonly acreditadoEn?: Date;
+  /** Paciente al que se vincula el turno. */
+  readonly pacienteId?: number;
   readonly minutos?: number;
 }
 
@@ -134,9 +138,9 @@ export async function sembrarTurno(semilla: Semilla, o: OpcionesTurno): Promise<
     const id = await insertar(
       c,
       `INSERT INTO turno (profesional_id, sillon_id, tratamiento_id, inicio, fin, estado, origen, codigo_gestion,
-                          contacto_nombre, contacto_telefono, en_espera_vence_en)
+                          contacto_nombre, contacto_telefono, en_espera_vence_en, paciente_id)
        VALUES ($1, $2, $3, $4::timestamptz, $4::timestamptz + make_interval(mins => $5), $6, $7, $8, $9, $10,
-               CASE WHEN $6 = 'en_espera' THEN now() + interval '2 hours' END)
+               CASE WHEN $6 = 'en_espera' THEN now() + interval '2 hours' END, $11)
        RETURNING id`,
       [
         o.profesional === 'bruno' ? semilla.profesional2Id : semilla.profesionalId,
@@ -149,13 +153,15 @@ export async function sembrarTurno(semilla: Semilla, o: OpcionesTurno): Promise<
         `E2E-CODIGO-${String(Date.now())}-${String(Math.random()).slice(2, 8)}`,
         nombre,
         nombre === null ? null : '+5491144445555',
+        o.pacienteId ?? null,
       ],
     );
     if (o.sena !== undefined) {
       await c.query(
         `INSERT INTO pago_sena (turno_id, medio, monto, porcentaje_aplicado, estado, referencia_externa, vence_en, acreditado_en)
-         VALUES ($1, 'mercadopago', 4500.00, 30.00, $2, $3, now() + interval '1 day', CASE WHEN $2 = 'acreditado' THEN now() END)`,
-        [id, o.sena, `SENA-E2E-${String(id)}`],
+         VALUES ($1, 'mercadopago', 4500.00, 30.00, $2, $3, now() + interval '1 day',
+                 CASE WHEN $2 <> 'pendiente' THEN COALESCE($4::timestamptz, now()) END)`,
+        [id, o.sena, `SENA-E2E-${String(id)}`, o.acreditadoEn?.toISOString() ?? null],
       );
     }
     return id;
@@ -192,5 +198,51 @@ export async function contarPagos(): Promise<number> {
   return ejecutar(async (c) => {
     const r = await c.query<{ n: string }>('SELECT count(*) AS n FROM pago_sena');
     return Number(r.rows[0]?.n);
+  });
+}
+
+/** Paciente sintético (R19): el DNI es de fantasía y único. */
+export async function sembrarPaciente(nombre: string, apellido: string, dni: string): Promise<number> {
+  return ejecutar((c) =>
+    insertar(
+      c,
+      "INSERT INTO paciente (nombre, apellido, dni, telefono) VALUES ($1, $2, $3, '+5491144446666') RETURNING id",
+      [nombre, apellido, dni],
+    ),
+  );
+}
+
+/** Presupuesto aceptado de un paciente (hace falta uno para cobrarlo por la API). */
+export async function sembrarPresupuestoAceptado(pacienteId: number): Promise<number> {
+  return ejecutar((c) =>
+    insertar(
+      c,
+      `INSERT INTO presupuesto (paciente_id, estado, subtotal, total_paciente, presentado_en, resuelto_en)
+       VALUES ($1, 'aceptado', 20000.00, 20000.00, now(), now()) RETURNING id`,
+      [pacienteId],
+    ),
+  );
+}
+
+/** Cambia el estado de un turno sin pasar por la pantalla (para comparar el mismo turno en dos estados). */
+export async function cambiarEstadoTurno(turnoId: number, estado: 'reservado' | 'en_espera'): Promise<void> {
+  await ejecutar(async (c) => {
+    await c.query(
+      `UPDATE turno SET estado = $2, en_espera_vence_en = CASE WHEN $2 = 'en_espera' THEN now() + interval '2 hours' END
+       WHERE id = $1`,
+      [turnoId, estado],
+    );
+  });
+}
+
+export interface CierreGuardado {
+  readonly dia: string;
+  readonly estado: string;
+}
+
+export async function leerCierres(): Promise<CierreGuardado[]> {
+  return ejecutar(async (c) => {
+    const r = await c.query<CierreGuardado>("SELECT to_char(dia, 'YYYY-MM-DD') AS dia, estado FROM cierre_caja ORDER BY id");
+    return r.rows;
   });
 }

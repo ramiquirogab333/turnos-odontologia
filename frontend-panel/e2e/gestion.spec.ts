@@ -233,3 +233,53 @@ test('cancelar a 24 h + 5 min se acepta y devuelve la seña; a 23 h 55 min la pa
   await expect(page.getByRole('listitem').filter({ hasText: 'Carlos Sintético' })).toHaveCount(0); // los cancelados se ocultan
   expect(await leerEstadoPago(idDentro)).toBe('a_reembolsar');
 });
+
+// --- C-12: corrección de un atendido -----------------------------------------------------------------------------
+
+test('recepción deshace un atendido de hoy: el turno vuelve a ofrecer «Marcar atendido» y «Marcar ausente»', async ({ page }) => {
+  const inicio = enMs(-15 * MINUTO);
+  const id = await sembrarTurno(semilla, { inicio, estado: 'atendido', sena: 'acreditado' });
+  await ingresar(page);
+  await irAlDia(page, diaDe(inicio));
+
+  await expect(page.getByText('Atendido', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Marcar atendido' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Deshacer atendido' }).click();
+  const dialogo = page.getByRole('dialog', { name: '¿Deshacer el atendido de Carlos Sintético?' });
+  await expect(dialogo).toContainText('vuelve a reservado');
+  await expect(dialogo).toContainText('puede perder el acceso a la ficha');
+  await verificarPantalla(page, 'diálogo para deshacer un atendido');
+
+  // Sin motivo no se envía nada.
+  await dialogo.getByRole('button', { name: 'Sí, deshacer el atendido' }).click();
+  await expect(dialogo.getByRole('alert')).toContainText('Elegí el motivo');
+  expect((await leerTurnos()).find((t) => t.id === id)?.estado).toBe('atendido');
+
+  await dialogo.getByLabel('Motivo').selectOption({ label: 'Marqué el turno equivocado' });
+  await dialogo.getByRole('button', { name: 'Sí, deshacer el atendido' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await expect(page.getByText('Reservado', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Marcar atendido' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Marcar ausente' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Deshacer atendido' })).toHaveCount(0);
+  expect((await leerTurnos()).find((t) => t.id === id)?.estado).toBe('reservado');
+  expect(await leerEstadoPago(id)).toBe('acreditado'); // la seña no se toca
+});
+
+test('la odontóloga dueña del turno no ve «Deshacer atendido» y el servidor se lo rechaza', async ({ page, request }) => {
+  const inicio = enMs(-15 * MINUTO);
+  const id = await sembrarTurno(semilla, { inicio, estado: 'atendido', sena: 'acreditado' });
+  await ingresar(page, EMAIL_ODONTOLOGA);
+  await irAlDia(page, diaDe(inicio));
+
+  await expect(page.getByText('Atendido', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Deshacer atendido' })).toHaveCount(0);
+
+  const r = await request.post(`${API}/api/panel/turnos/${String(id)}/deshacer-atendido`, {
+    headers: await accesoPorApi(request, EMAIL_ODONTOLOGA),
+    data: { motivo: 'otro' },
+  });
+  expect(r.status()).toBe(403);
+  expect((await leerTurnos()).find((t) => t.id === id)?.estado).toBe('atendido');
+});

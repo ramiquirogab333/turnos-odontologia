@@ -92,3 +92,38 @@ def test_en_espera_a_reservado_no_cambia_el_pago_aqui() -> None:
     """La única vía a reservado es la acreditación (servicio acreditar_pago), que maneja el pago."""
     r = aplicar_transicion("en_espera", "reservado", estado_pago="pendiente", inicio=INICIO, ahora=INICIO)
     assert r.estado_pago is None
+
+
+# --- C-12 (5.2): plazo para deshacer un atendido ----------------------------------------------------------------
+
+def test_deshacer_habilitado_hasta_es_el_inicio_mas_siete_dias() -> None:
+    from app.pagos.estados import VENTANA_DESHACER_ATENDIDO, deshacer_habilitado_hasta
+
+    assert VENTANA_DESHACER_ATENDIDO == timedelta(days=7)
+    assert deshacer_habilitado_hasta(INICIO) == INICIO + timedelta(days=7)
+
+
+def test_exactamente_siete_dias_se_acepta_y_un_segundo_despues_no() -> None:
+    from app.pagos.estados import deshacer_dentro_de_plazo
+
+    limite = INICIO + timedelta(days=7)
+    assert deshacer_dentro_de_plazo(INICIO, limite) is True
+    assert deshacer_dentro_de_plazo(INICIO, limite + timedelta(seconds=1)) is False
+    assert deshacer_dentro_de_plazo(INICIO, INICIO + timedelta(hours=26)) is True
+    assert deshacer_dentro_de_plazo(INICIO, INICIO - timedelta(hours=1)) is True  # marcado antes de su hora
+
+
+def test_el_plazo_exige_zona_horaria() -> None:
+    from app.pagos.estados import deshacer_dentro_de_plazo, deshacer_habilitado_hasta
+
+    with pytest.raises(ValueError):
+        deshacer_habilitado_hasta(datetime(2031, 3, 3, 13, 0))
+    with pytest.raises(ValueError):
+        deshacer_dentro_de_plazo(INICIO, datetime(2031, 3, 3, 13, 0))
+
+
+@pytest.mark.parametrize("final", ["atendido", "ausente", "cancelado"])
+def test_la_via_general_sigue_sin_salida_desde_los_estados_finales_incluido_atendido_a_reservado(final: str) -> None:
+    for destino in ("reservado", "en_espera"):
+        with pytest.raises(TransicionInvalidaError):
+            transicionar(final, destino)

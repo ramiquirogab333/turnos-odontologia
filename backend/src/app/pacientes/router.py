@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.rbac import PermissionContext, get_current_user, require_recepcion_o_admin
 from app.gestion.deps import get_reloj
-from app.pacientes import ficha_service, service
+from app.pacientes import ficha_service, listado, service
 from app.pacientes.alcance import alcance_paciente
 from app.pacientes.schemas import (
     FichaOut,
@@ -24,6 +24,7 @@ from app.pacientes.schemas import (
     VinculoTurnoOut,
     VinculoTurnoUpdate,
 )
+from app.pacientes.schemas_listado import ListadoOut, ListadoQuery
 from app.panel.schemas import ErrorPanelBody
 from app.shared.db import get_session
 
@@ -56,6 +57,18 @@ async def buscar_paciente(
     session: AsyncSession = Depends(get_session),
 ) -> list[PacienteOut]:
     return await service.buscar_por_dni(session, dni)
+
+
+# Declarado ANTES de ``/pacientes/{paciente_id}``: si no, "listado" se interpretaría como un id.
+@router.get("/pacientes/listado", response_model=ListadoOut,
+            summary="Listado paginado con búsqueda libre (nombre, apellido o comienzo del DNI) y ausencias por paciente",
+            responses={401: _ERRORES[401], 403: _ERRORES[403], 422: {"description": "`q` de 2 a 60 caracteres, `orden` o paginación inválidos"}})
+async def listar_pacientes(
+    query: Annotated[ListadoQuery, Query()],
+    contexto: PermissionContext = Depends(require_recepcion_o_admin),
+    session: AsyncSession = Depends(get_session),
+) -> ListadoOut:
+    return await listado.listar_pacientes(session, query)
 
 
 @router.get("/pacientes/{paciente_id}", response_model=PacienteOut | PacienteVistaClinicaOut,

@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Agenda } from './components/Agenda';
+import { Caja } from './components/Caja';
 import { Cargando } from './components/Cargando';
 import { ErrorCarga } from './components/ErrorCarga';
+import { Indicadores } from './components/Indicadores';
 import { Ingreso } from './components/Ingreso';
+import { Navegacion } from './components/Navegacion';
+import { Pacientes } from './components/Pacientes';
 import type { Api } from './lib/api';
+import { leerSeccion, TITULO_SECCION, type Seccion } from './lib/ruta';
 import { ErrorSesion, type MotivoCierre, type Sesion } from './lib/sesion';
 import type { Usuario } from './lib/tipos';
 
@@ -25,6 +30,46 @@ const ROLES_DEL_PANEL = ['admin', 'odontologo', 'recepcion'] as const;
 
 function tieneAcceso(usuario: Usuario): boolean {
   return usuario.roles.some((rol) => ROLES_DEL_PANEL.includes(rol));
+}
+
+/** Pacientes, indicadores y caja son de recepción y admin; la odontóloga solo ve la agenda. */
+function puedeVerSecciones(usuario: Usuario): boolean {
+  return usuario.roles.includes('recepcion') || usuario.roles.includes('admin');
+}
+
+function suscribirHash(avisar: () => void): () => void {
+  window.addEventListener('hashchange', avisar);
+  return () => {
+    window.removeEventListener('hashchange', avisar);
+  };
+}
+
+const hashActual = (): string => window.location.hash;
+
+interface PropsPanel {
+  readonly usuario: Usuario;
+  readonly api: Api;
+  readonly hoy: string;
+}
+
+/** La sección sale del hash; sin permiso, un hash de otra sección se ignora y queda la agenda. */
+function Secciones({ usuario, api, hoy }: PropsPanel) {
+  const ve = puedeVerSecciones(usuario);
+  const hash = useSyncExternalStore(suscribirHash, hashActual);
+  const seccion: Seccion = ve ? leerSeccion(hash) : 'agenda';
+
+  return (
+    <>
+      <h1 className="titulo-seccion">{TITULO_SECCION[seccion]}</h1>
+      {ve && <Navegacion actual={seccion} />}
+      <main>
+        {seccion === 'agenda' && <Agenda api={api} hoy={hoy} />}
+        {seccion === 'pacientes' && <Pacientes api={api} />}
+        {seccion === 'indicadores' && <Indicadores api={api} hoy={hoy} />}
+        {seccion === 'caja' && <Caja api={api} hoy={hoy} esAdmin={usuario.roles.includes('admin')} />}
+      </main>
+    </>
+  );
 }
 
 export function App({ sesion, api, hoy }: Props) {
@@ -148,7 +193,7 @@ export function App({ sesion, api, hoy }: Props) {
       return (
         <div className="app app-panel">
           <header className="cabecera-panel">
-            <h1>Agenda</h1>
+            <p className="marca">Panel de la clínica</p>
             <div className="sesion">
               <span className="sesion-nombre">{fase.usuario.nombre_completo}</span>
               <button type="button" className="boton boton-secundario" onClick={() => void salir()}>
@@ -161,9 +206,7 @@ export function App({ sesion, api, hoy }: Props) {
               {errorAlSalir}
             </p>
           )}
-          <main>
-            <Agenda api={api} hoy={hoy()} />
-          </main>
+          <Secciones usuario={fase.usuario} api={api} hoy={hoy()} />
         </div>
       );
   }

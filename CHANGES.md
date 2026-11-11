@@ -366,7 +366,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-12] `panel-admin-caja-ausentismo`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado 2026-11-11 (`openspec/changes/archive/2026-11-11-c-12-panel-admin-caja-ausentismo/`, specs nuevas en `openspec/specs/caja/movimientos-caja/spec.md`, `openspec/specs/caja/cierre-caja/spec.md`, `openspec/specs/pagos/devoluciones-sena/spec.md`, `openspec/specs/turnos/indicadores-panel/spec.md` (nuevas), y `openspec/specs/pacientes/registro-paciente/spec.md`, `openspec/specs/pagos/pagos-presupuesto/spec.md`, `openspec/specs/pagos/sena-turno/spec.md`, `openspec/specs/turnos/agenda-panel/spec.md`, `openspec/specs/turnos/gestion-panel/spec.md` (modificadas))
 - **Scope**: Panel de operación diaria: pacientes, ausentismo, ocupación por sillón, caja y liquidaciones (US-007)
   - `GET /api/panel/pacientes` (alta, ficha, historial, ausentes), `GET /api/panel/ocupacion?sillon_id&dia` (solo turnos bloqueantes cuentan; `en_espera` excluida — multi-sillón día 1); marcar `ausente` ya lo entrega C-08 (seña no reembolsada, R9): C-12 solo lo consume en caja y ausentismo, y suma deshacer un `atendido` marcado por error (pendiente que dejó C-08)
   - Caja: `GET /api/panel/caja` (señas acreditadas/no reembolsadas + pagos de presupuestos), `POST /api/panel/caja/cierre` (cierres y liquidaciones)
@@ -374,6 +374,12 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - Frontend panel recepción/admin (sobre el scaffolding de C-08): dashboard ocupación, ausentismo, recupero, caja
   - Reglas verificables: R8 (ocupación excluye `en_espera`), R9 (ausente retiene seña en caja), RN-GL-01 (cierre auditado)
   - Done-criteria (test): ocupación excluye `en_espera`, ausente retiene seña en caja, cierre cuadra
+  - Entregado (DD-11, O1-O16 aprobadas el 2026-11-11): caja por día, cierres inmutables (anulación solo admin), pendientes de la seña (acreditar o rechazar un `en_revision`, registrar la devolución de un `a_reembolsar` y de un excedente de Mercado Pago, estado `reembolsado`), liquidación, ocupación, ausentismo, listado de pacientes y `deshacer-atendido` (7 días); migración `009_caja_cierres_devol`; frontend con navegación por hash (Agenda, Pacientes, Indicadores, Caja) para recepción y admin
+  - Seguimientos registrados (fuera de C-12):
+    - Devolución de un cobro de presupuesto (egreso de caja por presupuesto, O2): C-11 solo permite anular un cobro por error de carga; un cobro devuelto fuera del sistema no tiene reflejo en la caja. Requiere change propio (decisión del usuario del 2026-11-11)
+    - Deshacer un `ausente` (O10): devolvería una seña retenida a `acreditado` y toca R9; necesita decisión de negocio
+    - Honorarios por profesional y liquidación a obras sociales (O3): la "liquidación" de C-12 es solo el consolidado por medio de pago (supuesto)
+    - Resolver solos los `en_revision` vencidos (O6 b): hoy se listan y se resuelven a mano; si se aprueba, el barrido va con el scheduler de C-09
 - **Dependencias**: C-08, C-11
 - **Governance**: ALTO
 - **Leer antes**:
@@ -422,6 +428,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - Ficha clínica (antecedentes con control de versión), odontograma FDI (registro en lote y estado vigente), presupuestos (armado, estados, cobro) sobre `frontend-panel/`
   - La odontóloga edita ficha y odontograma de sus pacientes desde la UI (O4, O16: lectura si el acceso venció); recepción/admin operan presupuestos y pagos
   - Reglas verificables: R1, R2 (cargas en paralelo), R3 (360 px), R7 (E2E Playwright de la edición de ficha y del registro de odontograma)
+  - Pantallas de alta, edición y vínculo de pacientes (turno ↔ paciente): quedan acá por la decisión O16 de C-12 (C-12 solo entrega el listado y la búsqueda); sin el vínculo, el ausentismo por paciente no cuenta turnos
 - **Dependencias**: C-11
 - **Governance**: MEDIO (datos de salud: respetar el alcance por rol de C-11)
 - **Leer antes**:
@@ -439,6 +446,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - `GET /api/panel/export?entidad=turnos|pacientes&formato=csv` — exportación tabular descargable (RN-GL-02), streaming para datasets grandes
   - Reglas verificables: RN-GL-01 (toda acción de panel deja rastro), RN-GL-02 (exportación masiva tabular)
   - Done-criteria (test): toda acción de panel deja rastro, exportación con datos grandes vía streaming, permisos de lectura
+  - Acciones de auditoría nuevas de C-12 que la lectura y la exportación deben incluir: cierre y anulación de caja, devolución de seña y de excedente, rechazo de una revisión, `deshacer_atendido` y la lectura del listado de pacientes; la exportación de cierres de caja también es de C-13
 - **Dependencias**: C-12
 - **Governance**: CRITICO
 - **Leer antes**:

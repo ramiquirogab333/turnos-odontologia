@@ -56,7 +56,7 @@ def test_en_espera_solo_se_puede_cancelar_en_cualquier_momento() -> None:
     assert _acciones("en_espera", INICIO + timedelta(hours=3)) == ["cancelar"]
 
 
-@pytest.mark.parametrize("estado", ["ausente", "atendido", "cancelado"])
+@pytest.mark.parametrize("estado", ["ausente", "cancelado"])
 def test_los_estados_finales_no_tienen_acciones(estado: str) -> None:
     assert _acciones(estado, INICIO + timedelta(hours=1)) == []
 
@@ -93,3 +93,24 @@ def test_solo_atendido_no_ofrece_nada_en_en_espera_ni_en_estados_finales(estado:
 
 def test_con_tolerancia_cero_ausente_aparece_a_la_hora_exacta() -> None:
     assert acciones_permitidas("reservado", INICIO, INICIO, "total", BA, timedelta(0)) == ["atendido", "ausente"]
+
+
+# --- C-12 (5.8): deshacer_atendido ---------------------------------------------------------------------------------
+
+def test_un_atendido_de_hace_dos_dias_trae_deshacer_atendido_solo_con_permiso_total() -> None:
+    ahora = INICIO + timedelta(days=2)
+    assert _acciones("atendido", ahora) == ["deshacer_atendido"]
+    assert _acciones("atendido", ahora, permiso="solo_atendido") == []  # la odontóloga nunca (C-11 O15)
+    assert _acciones("atendido", ahora, permiso="ninguno") == []
+
+
+def test_el_plazo_de_la_accion_incluye_los_siete_dias_exactos_y_excluye_el_segundo_siguiente() -> None:
+    limite = INICIO + timedelta(days=7)
+    assert _acciones("atendido", limite) == ["deshacer_atendido"]
+    assert _acciones("atendido", limite + timedelta(seconds=1)) == []
+    assert _acciones("atendido", INICIO + timedelta(days=8)) == []
+
+
+@pytest.mark.parametrize("estado", ["ausente", "cancelado"])
+def test_los_otros_estados_finales_no_traen_la_accion_de_correccion(estado: str) -> None:
+    assert _acciones(estado, INICIO + timedelta(days=1)) == []

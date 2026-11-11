@@ -582,3 +582,169 @@ fieldset.grupo legend {
     }
   }
 }
+
+/* Secciones del panel (C-12): navegación, pacientes, indicadores y caja.
+   Mismo lenguaje que la agenda: bordes finos, texto antes que color, sin tarjetas de números grandes. */
+.marca {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-texto-suave);
+}
+
+.titulo-seccion {
+  margin: 4px 0 8px;
+}
+
+.secciones ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 2px;
+  margin: 0 0 8px;
+  padding: 0;
+  border-bottom: 1px solid var(--color-borde-fuerte);
+  list-style: none;
+}
+
+.seccion-enlace {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--objetivo-tactil);
+  padding: 8px 8px;
+  border-bottom: 3px solid transparent;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-primario);
+  text-decoration: none;
+}
+
+.seccion-enlace:hover {
+  background: var(--color-info-fondo);
+}
+
+.seccion-enlace.activa {
+  border-bottom-color: var(--color-primario);
+  color: var(--color-texto);
+}
+
+.campo-busqueda {
+  flex: 1 1 14rem;
+  margin-bottom: 0;
+}
+
+.filtro {
+  border: 2px solid var(--color-primario);
+  border-radius: var(--radio);
+}
+
+.lista-pacientes,
+.lista-pendientes {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paciente,
+.pendiente {
+  padding: 10px 12px;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+}
+
+.paciente-nombre,
+.pendiente-titulo {
+  margin: 0;
+  font-weight: 600;
+}
+
+.paciente .nota,
+.pendiente .nota {
+  margin: 2px 0 0;
+}
+
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 8px 0 16px;
+}
+
+.selector-periodo {
+  display: flex;
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px 0 16px;
+}
+
+.selector-periodo .selector-boton {
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.bloque {
+  margin: 0 0 24px;
+}
+
+.sillon {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--color-borde-fuerte);
+}
+
+.sillon h3 {
+  margin: 0 0 4px;
+}
+
+.sillon p {
+  margin: 0 0 4px;
+}
+
+.lista-simple {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-simple li {
+  padding: 4px 0;
+}
+
+.indicador,
+.total-dia {
+  margin: 0 0 4px;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.profesional-nombre {
+  font-weight: 600;
+}
+
+.estado-caja {
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: var(--color-texto-suave);
+}
+
+.resumen-caja,
+.pendientes,
+.cierre-caja {
+  margin: 0 0 24px;
+}
+
+.aviso-exito {
+  border-color: var(--color-exito);
+  background: var(--color-exito-fondo);
+}
+
+details > summary {
+  min-height: var(--objetivo-tactil);
+  padding: 12px 0;
+  font-weight: 600;
+  color: var(--color-primario);
+  cursor: pointer;
+}

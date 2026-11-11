@@ -85,7 +85,7 @@ turnos-odontologia/
 ├── backend/                        # Código backend: FastAPI + SQLAlchemy + Alembic + tests
 │   ├── src/
 │   │   ├── app/                    # `main` y módulos por dominio: `turnos/`, `auth/`, `catalogo/`, `public/`, `pagos/`, `panel/`, `pacientes/`, `clinica/`, `gestion/`, `models/`, `repositories/`, `db/`, `shared/`
-│   │   └── alembic/                # Entorno + migraciones (001..008: agenda con EXCLUDE, modelos, auth, catálogo, reserva pública, seña/pagos, origen/ocupación del turno y ficha/odontograma/presupuestos)
+│   │   └── alembic/                # Entorno + migraciones (001..009: agenda con EXCLUDE, modelos, auth, catálogo, reserva pública, seña/pagos, origen/ocupación del turno, ficha/odontograma/presupuestos y caja/cierres/devoluciones)
 │   ├── tests/                      # Suite pytest (`conftest.py`, helpers y tests unitarios e integración por change; `pythonpath = src`)
 │   ├── pytest.ini                  # `asyncio_mode = auto`, `testpaths = tests`, `pythonpath = src`
 │   ├── requirements.txt            # Pins del backend
@@ -207,6 +207,68 @@ Solo API por ahora (la UI es C-16). Todo bajo `/api/panel` con `Authorization: B
 - **Reglas:** la cobertura es el porcentaje del nomenclador sobre el bruto (half-up a centavos por línea; `arancel_diferencial` es un copago por unidad a cargo del paciente, supuesto de O9); al presentar, el presupuesto queda congelado; los pagos solo se registran sobre presupuestos aceptados, nunca superan el total a cargo (409 `monto_excede_saldo`, con el saldo) y se anulan sin borrarlos; no hay facturación electrónica (RN-PG-03). Toda lectura y escritura de datos de salud queda auditada sin su contenido (RN-CL-03).
 - **Migración:** `cd backend && alembic upgrade head` aplica `008_ficha_odonto_presup` (cinco tablas nuevas, sin tocar las existentes; el `downgrade` las borra).
 - **Tests nuevos:** `cd backend && python -m pytest tests/test_clinica_*.py tests/test_pacientes_*.py tests/test_ficha_integration.py tests/test_odontograma_integration.py tests/test_presupuestos_integration.py tests/test_pagos_presupuesto_integration.py -q`; la matriz completa ruta × actor está en `tests/test_clinica_rbac_matriz.py`. E2E del marcado de `atendido` por la odontóloga: `cd frontend-panel && npm run e2e`.
+
+### Caja, cierres, pendientes de la seña, indicadores y pacientes (C-12)
+Todo bajo `/api/panel` con `Authorization: Bearer <access>`, solo para recepción y admin (la odontóloga recibe 403); anular un cierre es solo de admin. Importes como texto decimal (`"3000.00"`); el día es el calendario de la clínica (`APP_TZ`). Datos de ejemplo 100 % sintéticos.
+
+- **Caja del día** (`GET /caja?dia=AAAA-MM-DD`, sin `dia` = hoy en la clínica): ingresos y egresos por concepto (`sena`, `pago_presupuesto`, `devolucion_sena`) y medio, `total_ingresos`, `total_egresos`, `total_neto`, `senas_retenidas`, el detalle del día y si el día está `abierto` o `cerrado`.
+
+  ```bash
+  curl -s "$API/api/panel/caja?dia=2026-11-17" -H "Authorization: Bearer $TOKEN"
+  ```
+- **Qué es ingreso y egreso:** una seña es ingreso el día en que la clínica recibió el dinero (`acreditado_en`), por el importe recibido, sin importar si después se canceló, faltó o se devolvió; un cobro de presupuesto `registrado` es ingreso por su `fecha_cobro` (uno `anulado` no cuenta); una devolución de seña registrada es egreso el día de la devolución. `pendiente`, `vencido`, `en_revision` y los pagos excedentes de Mercado Pago no entran en los totales. La seña de un ausente (`no_reembolsado`, R9) sigue siendo ingreso y se informa en `senas_retenidas`. La consulta queda auditada como `lectura_caja`.
+
+- **Cierre de caja** (`POST /caja/cierres`, `GET /caja/cierres?desde=&hasta=`, `GET /caja/cierres/{id}`, `POST /caja/cierres/{id}/anular` solo admin): un cierre vigente por día terminado (desde las 00:15 del día siguiente, 409 `dia_no_terminado`); el cliente solo envía el día (y observaciones), los importes los calcula el servidor; el cierre no se edita ni se borra (405) y `GET …/{id}` informa `cuadra` y las diferencias. Con el día cerrado, registrar o anular un cobro de presupuesto con fecha de ese día responde 409 `caja_cerrada`.
+
+  ```bash
+  curl -s -X POST $API/api/panel/caja/cierres -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json"     -d '{"dia":"2026-11-17","observaciones":"cierre de ejemplo"}'
+  curl -s "$API/api/panel/caja/cierres?desde=2026-11-01&hasta=2026-11-30" -H "Authorization: Bearer $TOKEN"
+  curl -s $API/api/panel/caja/cierres/1 -H "Authorization: Bearer $TOKEN"
+  curl -s -X POST $API/api/panel/caja/cierres/1/anular -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json"     -d '{"motivo":"cobro cargado en el presupuesto equivocado"}'
+  ```
+- **Procedimiento "anular el cierre → corregir → volver a cerrar":** (1) un admin anula el cierre del día con motivo; (2) recepción anula o registra el cobro o la devolución con fecha de ese día; (3) recepción vuelve a cerrar el día y el nuevo cierre refleja la corrección (el anulado queda en el historial).
+- **Liquidación** (`GET /caja/liquidacion?desde=&hasta=`, hasta 366 días): consolidado por medio de pago de los cierres vigentes (ingresos, egresos, neto y detalle por concepto) y los días del rango sin cierre vigente; sirve para conciliar con Mercado Pago y el banco. No calcula honorarios ni obras sociales.
+
+  ```bash
+  curl -s "$API/api/panel/caja/liquidacion?desde=2026-11-16&hasta=2026-11-17" -H "Authorization: Bearer $TOKEN"
+  ```
+
+- **Pendientes de la seña** (`GET /caja/pendientes`, `POST /caja/revisiones/{pago_id}/rechazar`, `POST /caja/devoluciones/senas/{pago_id}`, `POST /caja/devoluciones/excedentes/{id}`): lista del más antiguo al más nuevo con tipo `revision`, `sena` o `excedente_mp`. Aceptar una revisión sigue siendo `POST /api/admin/pagos-sena/{id}/acreditar`. El sistema no devuelve dinero: la devolución se hace por Mercado Pago o el banco y acá se registra con su referencia (3 a 64 caracteres) y una fecha opcional (no futura, no anterior a la recepción, en un día de caja abierto). El importe lo fija el sistema.
+
+  | Qué hay que hacer con cada pago pendiente | Acción |
+  |---|---|
+  | `revision` (la pasarela informó otro importe) | Acreditar a mano o rechazar (queda a devolver; el turno no se cancela) |
+  | `sena` (cancelación con 24 h, pago tardío o horario perdido) | Devolver por fuera y registrar la devolución con la referencia |
+  | `excedente_mp` (pago de más o duplicado) | Devolver por Mercado Pago y registrar la devolución del excedente |
+  | seña de un ausente (`no_reembolsado`) | Nada: se retiene (R9) |
+
+  ```bash
+  curl -s $API/api/panel/caja/pendientes -H "Authorization: Bearer $TOKEN"
+  curl -s -X POST $API/api/panel/caja/revisiones/1/rechazar -H "Authorization: Bearer $TOKEN"
+  curl -s -X POST $API/api/panel/caja/devoluciones/senas/1 -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json"     -d '{"referencia":"DEV-SINT-0001"}'
+  curl -s -X POST $API/api/panel/caja/devoluciones/excedentes/1 -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json"     -d '{"referencia":"DEV-SINT-0002","fecha":"2026-11-19T10:00:00-03:00"}'
+  ```
+
+- **Deshacer un `atendido`** (`POST /turnos/{id}/deshacer-atendido`, solo recepción y admin; la odontóloga recibe 403 aun sobre sus turnos): vuelve a `reservado` hasta 7 días después del inicio (409 `plazo_vencido` con `limite_correccion`), con `motivo` del catálogo `turno_equivocado`, `paciente_no_asistio` u `otro`; la seña y el horario no cambian, queda auditado (origen `deshacer_atendido_panel`) y no se avisa a nadie. La agenda informa la acción `deshacer_atendido` solo donde corresponde.
+
+  ```bash
+  curl -s -X POST $API/api/panel/turnos/1/deshacer-atendido -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json"     -d '{"motivo":"turno_equivocado"}'
+  ```
+
+- **Indicadores** (`GET /ocupacion?desde=&hasta=&sillon_id=`, hasta 31 días; `GET /ausentismo?desde=&hasta=`, hasta 366 días): la ocupación trae, por sillón y día, `minutos_ocupados`, `minutos_atencion`, `porcentaje` (vacío sin atención), `turnos` y `minutos_perdidos` (ausentes); una pre-reserva `en_espera` no ocupa nada (R8). El ausentismo trae atendidos, ausentes, `tasa`, `sin_marcar`, el desglose por profesional y el `recupero` (señas retenidas: cantidad, importe y porcentaje). Solo cantidades, minutos, importes y nombres de sillones y profesionales.
+
+  ```bash
+  curl -s "$API/api/panel/ocupacion?desde=2026-11-17&hasta=2026-11-23" -H "Authorization: Bearer $TOKEN"
+  curl -s "$API/api/panel/ausentismo?desde=2026-11-01&hasta=2026-11-30" -H "Authorization: Bearer $TOKEN"
+  ```
+
+- **Listado de pacientes** (`GET /pacientes/listado`, solo recepción y admin): paginado (`pagina` desde 1, `por_pagina` de 1 a 50, 20 por defecto) y ordenado por apellido y nombre (o `orden=ausencias`, de más a menos). `q` (2 a 60 caracteres) busca en nombre y apellido sin distinguir mayúsculas ni acentos (extensión `unaccent`) y, si son dígitos, en el comienzo del DNI; los comodines se escapan y el texto buscado no se audita ni se loguea. Cada paciente trae `atendidos`, `ausentes` y `ultimo_turno` de sus turnos vinculados (`reservado`/`confirmado`/`atendido`/`ausente`; `en_espera`, `cancelado` y turnos sin vincular no cuentan); `con_ausencias=true` deja solo a quienes faltaron. La búsqueda exacta `GET /pacientes?dni=` no cambia.
+
+  ```bash
+  curl -s "$API/api/panel/pacientes/listado?q=lucia&con_ausencias=false&pagina=1" -H "Authorization: Bearer $TOKEN"
+  ```
+- **Migración:** `cd backend && alembic upgrade head` aplica `009_caja_cierres_devol` (tablas `cierre_caja` y `cierre_caja_linea` con triggers de inmutabilidad, estado `reembolsado` de la seña y extensión `unaccent`); el `downgrade` es completo pero **pierde los cierres y los datos de devolución** (los `reembolsado` vuelven a `a_reembolsar`): avisar antes de producción.
+- **Tests nuevos:** `cd backend && python -m pytest tests/test_caja_*.py tests/test_cierre_caja_integration.py tests/test_devoluciones_*.py tests/test_panel_deshacer_integration.py tests/test_ocupacion_integration.py tests/test_ausentismo_integration.py tests/test_indicadores_calculo.py tests/test_pacientes_listado_integration.py -q`.
 
 ---
 

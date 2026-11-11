@@ -49,4 +49,4 @@ Núcleo priorizado por el usuario (MVP primero): reserva (1), cancelación/repro
 - Reducción del ausentismo (referencia de mercado: DentalSoft AR declara −82%; sin auditoría — ver `10_preguntas_abiertas.md`).
 - Cero dobles reservas (turnos superpuestos por profesional/sillón).
 - Tiempo ahorrado en confirmación manual de turnos.
-- Ocupación por sillón y tasa de recupero de ausentes visibles en el panel.
+- Ocupación por sillón y tasa de recupero de ausentes visibles en el panel. Definiciones adoptadas en C-12 (2026-11-11): **ocupación** = minutos de turnos `reservado`/`confirmado`/`atendido` que empiezan ese día sobre los minutos de atención (unión de las franjas activas) del sillón, nunca contando una pre-reserva `en_espera` (RN-IN-01); **ausentismo** = ausentes ÷ (atendidos + ausentes) y **recupero** = señas retenidas de ausentes: cantidad, importe y porcentaje de ausentes con seña retenida (RN-IN-02, supuesto).

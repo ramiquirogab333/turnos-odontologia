@@ -49,6 +49,7 @@
 - Vencimiento de `en_espera`: 30 min con Mercado Pago y 24 h con transferencia, nunca después del inicio del turno; editable por el admin (RN-SN-07).
 - Cancelación con 24 h o más: la seña se devuelve (`a_reembolsar`, devolución manual). El ausente no se reembolsa (RN-SN-04, RN-SN-02).
 - Pago aprobado tardío u horario ganado por otro: `a_reembolsar`, y el turno no revive (RN-SN-05).
+- **Desde C-12 (2026-11-11):** una vez hecha la devolución a mano, recepción/admin la registra con su referencia y la seña pasa a `reembolsado` (estado final; RN-SN-11). Un `en_revision` se acredita (acreditación manual de C-06) o se rechaza (queda `a_reembolsar` y el turno no se cancela). `no_reembolsado` nunca se devuelve (R9).
 - Precio base 0: exento de seña, nace `reservado` (RN-SN-06).
 - Seña inicial: 30% del precio base (RN-SN-03).
 - Transferencia: acreditación manual de recepción/admin por la API (la UI llega en C-12), con alias, CBU y un código de referencia del turno en el concepto (RN-SN-08).
@@ -105,6 +106,30 @@
 **Alternativas consideradas**: acceso permanente de la odontóloga sin ventana; ventana que vence también la lectura; que la odontóloga marque también `ausente` o deshaga un `atendido`; UI dentro de C-11.
 **Justificación**: minimización de datos de salud (Ley 25.326) con auditoría de cada acceso; el acceso se gana al atender, no al agendar.
 **Trade-offs aceptados**: la ventana se mide sobre `turno.inicio` (un turno marcado tarde cuenta desde su inicio); una odontóloga podría darse acceso marcando `atendido` un turno propio de alguien que no vino (mitigado: solo turnos propios, auditado, estado final y requiere el vínculo de recepción); un GET escribe auditoría.
+
+### DD-11 — Panel admin: caja, cierres, devoluciones, ausentismo y listado de pacientes (C-12, decisiones del usuario 2026-11-11)
+**Decisión**: el usuario aprobó la opción recomendada (a) de O1 a O16 de `openspec/changes/c-12-panel-admin-caja-ausentismo/design.md`; ninguna cambió specs ni tareas. Se confirmaron dos aclaraciones: el bloqueo de caja rige por la fecha del movimiento (O2) y rechazar un `en_revision` no cancela el turno (O6). Decisión final de cada una:
+- O1: un cierre por día de la clínica, solo de días terminados (desde las 00:15 del día siguiente); foto en `cierre_caja` + líneas; sin edición ni borrado por API; un trigger rechaza cambios de importes; corregir = anular con motivo y volver a cerrar.
+- O2 (**cambia C-11**): el cierre cuadra si coincide con los movimientos del día recalculados; mientras el día esté cerrado, registrar o anular cobros de presupuesto y registrar devoluciones con fecha en ese día responde 409 `caja_cerrada`.
+- O3 **[SUPUESTO]**: la "liquidación" no está definida en la KB; es el consolidado por medio de pago y concepto de los cierres de un rango, sin honorarios ni obras sociales (seguimiento).
+- O4: ingresos = señas por el día en que se recibió el dinero (aunque después se cancelen, falten o se devuelvan) y cobros de presupuesto `registrado` por fecha de cobro; egresos = devoluciones por su fecha; la seña de un ausente sigue siendo ingreso y se muestra retenida; `en_revision` y excedentes quedan fuera de los totales.
+- O5: estado nuevo `reembolsado` (final); recepción o admin registra la devolución hecha con referencia obligatoria; el importe lo fija el sistema; los excedentes de Mercado Pago se devuelven aparte y no mueven la caja.
+- O6: un `en_revision` se acepta con la acreditación manual de C-06 o se rechaza (queda `a_reembolsar`); rechazar no cancela el turno; resolver solos los vencidos queda como seguimiento.
+- O7 (**enmienda de RN-TU-12**): recepción y admin deshacen un `atendido`; vuelve siempre a `reservado`; motivo de un catálogo; auditado; la odontóloga no deshace; la seña no cambia.
+- O8 **[SUPUESTO]**: plazo de 7 días corridos desde el inicio del turno (exactamente 7 días se acepta).
+- O9: el acceso clínico de la odontóloga se recalcula solo (puede perderlo si era su única atención); lo que escribió queda con su autoría; el diálogo lo avisa.
+- O10: deshacer un `ausente` no entra (devolvería una seña retenida a `acreditado`, R9); seguimiento.
+- O11: ocupación por sillón y día: minutos de turnos `reservado`/`confirmado`/`atendido` que empiezan ese día sobre los minutos de atención; `en_espera` y `cancelado` no cuentan (R8); `ausente` se informa aparte; hasta 31 días; usa la disponibilidad actual.
+- O12 **[SUPUESTO]**: ausentismo = ausentes ÷ (atendidos + ausentes); la "tasa de recupero" se lee como las señas retenidas de los ausentes (cantidad, importe y porcentaje); la KB no la define.
+- O13: `GET /api/panel/pacientes/listado` paginado, con búsqueda por nombre, apellido o comienzo del DNI sin distinguir mayúsculas ni acentos, contadores de atendidos y ausentes y filtro «con ausencias».
+- O14: "día" es el día calendario de `APP_TZ` (America/Argentina/Buenos_Aires).
+- O15: todo C-12 es solo de recepción y admin; anular un cierre, solo admin.
+- O16: navegación por secciones sin dependencias nuevas (Agenda, Pacientes, Indicadores, Caja), visible solo para recepción y admin; alta, edición y vínculo de pacientes quedan en C-16.
+
+**Contexto**: C-06 dejó pagos `en_revision` y `a_reembolsar` sin forma de resolverlos y C-08/C-11 dejaron pendientes la corrección de `atendido`, la caja y los indicadores.
+**Alternativas consideradas**: las de la columna "Alternativas" de cada O en `design.md` (cierre por corte horario, libro de devoluciones, honorarios como liquidación, solo API sin pantallas, entre otras).
+**Justificación**: dinero y estados son criticidad ALTA: cada decisión se aprobó antes de implementar, con importes en texto decimal (R4) y reglas auditables.
+**Trade-offs aceptados**: el cierre solo se hace al día siguiente; la ocupación histórica usa la disponibilidad actual y puede superar 100 %; una clínica con un solo admin depende de esa persona para anular un cierre; un cobro de presupuesto devuelto fuera del sistema no tiene reflejo en la caja (seguimiento).
 
 ## Supuestos inferidos
 

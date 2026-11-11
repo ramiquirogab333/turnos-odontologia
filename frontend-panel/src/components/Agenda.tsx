@@ -1,6 +1,6 @@
 import { Suspense, startTransition, use, useEffect, useState } from 'react';
 import { ErrorApiPanel, type Api } from '../lib/api';
-import { ErrorSesion } from '../lib/sesion';
+import { iniciar } from '../lib/iniciar';
 import { diaClinica, etiquetaDiaCorta, etiquetaDiaLarga, etiquetaSemana, inicioSemana, sumarDias } from '../lib/tiempo';
 import type { Agenda as DatosAgenda, Consulta, Opciones, TurnoAgenda, Vista } from '../lib/tipos';
 import { AltaManual } from './AltaManual';
@@ -13,19 +13,6 @@ interface Props {
   readonly api: Api;
   /** "Hoy" en la clínica ("YYYY-MM-DD"). */
   readonly hoy: string;
-}
-
-/**
- * Arranca el pedido ya y evita el aviso de rechazo sin manejar: el error lo recoge el ErrorBoundary vía `use()`.
- * Si la sesión terminó, la app ya volvió al ingreso (lo hace el oyente de la sesión): acá no hay nada que mostrar.
- */
-function iniciar<T>(pedido: () => Promise<T>): Promise<T> {
-  const promesa = pedido().catch((error: unknown) => {
-    if (error instanceof ErrorSesion) return new Promise<T>(() => undefined);
-    throw error;
-  });
-  promesa.catch(() => undefined);
-  return promesa;
 }
 
 /** Semana en pantalla ancha: una grilla de lunes a domingo; en pantallas chicas, una lista agrupada por día. */

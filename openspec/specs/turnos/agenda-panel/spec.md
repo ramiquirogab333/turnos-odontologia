@@ -25,7 +25,7 @@ Las referencias `(Ox)` remiten a las decisiones resueltas en `design.md`.
 - **THEN** el primero está en la respuesta y el segundo no
 
 ### Requirement: Contenido de cada turno de la agenda
-Cada turno SHALL traer inicio y fin con el offset de la clínica, estado, si bloquea la agenda, origen, profesional, sillón, tratamiento, nombre de la o el paciente, estado de la seña y las acciones que quien consulta puede hacer en ese momento, calculadas por el servidor con las mismas reglas que aplican los endpoints. Para `odontologo` la única acción posible SHALL ser `atendido` (RN-TU-12, O15).
+Cada turno SHALL traer inicio y fin con el offset de la clínica, estado, bloqueo, origen, profesional, sillón, tratamiento, nombre del paciente, estado de la seña y sus acciones posibles para quien consulta, calculadas por el servidor (RN-TU-12, O15). Para `odontologo` la única acción SHALL ser `atendido`. Para recepción y admin, un turno `atendido` dentro del plazo de corrección SHALL traer `deshacer_atendido` (C-12 O7, O8).
 
 #### Scenario: Turno con seña acreditada (Happy Path)
 - **GIVEN** un turno `reservado` de "Carlos Sintético" con seña acreditada de "3000.00" que empieza el 2026-11-17 a las 09:00 (-03:00)
@@ -47,6 +47,11 @@ Cada turno SHALL traer inicio y fin con el offset de la clínica, estado, si blo
 - **WHEN** consulta la agenda
 - **THEN** la única acción posible es `atendido`, en las mismas condiciones que para recepción, y nunca `ausente` ni `cancelar`
 - **AND** el indicador `puede_escribir` de las opciones del panel sigue en `false` (no da altas manuales)
+
+#### Scenario: Acción de corrección en un turno atendido (Caso de Borde)
+- **GIVEN** un turno `atendido` que empezó hace 2 días, otro `atendido` que empezó hace 8 días y un turno `ausente` de ayer
+- **WHEN** recepción consulta la agenda de cada día, y la odontóloga dueña de esos turnos también
+- **THEN** recepción recibe `deshacer_atendido` solo en el primero y ninguna acción en los otros dos; la odontóloga no recibe ninguna acción en ninguno
 
 ### Requirement: Aislamiento de la agenda por rol
 La agenda SHALL requerir un token de acceso válido. Un usuario con rol `odontologo` SHALL ver solamente los turnos de la profesional asociada a su usuario. Un usuario con rol `recepcion` o `admin` SHALL ver todas las agendas. Si una persona tiene más de un rol, SHALL aplicar el permiso más amplio.

@@ -24,7 +24,7 @@ from app.models.core import Usuario  # noqa: F401  (resuelve la FK usuario.id en
 from app.turnos.models import Turno  # noqa: F401  (resuelve la FK turno.id en el metadata)
 
 MEDIOS_SENA = ("mercadopago", "transferencia")
-ESTADOS_PAGO = ("pendiente", "acreditado", "vencido", "no_reembolsado", "a_reembolsar", "en_revision")
+ESTADOS_PAGO = ("pendiente", "acreditado", "vencido", "no_reembolsado", "a_reembolsar", "en_revision", "reembolsado")
 
 
 class ConfiguracionSena(Base):
@@ -60,16 +60,23 @@ class AprobacionPago(Base):
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     pago_id: Mapped[int] = mapped_column(ForeignKey("pago_sena.id", ondelete="RESTRICT"), nullable=False)
     mp_payment_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    estado: Mapped[str] = mapped_column(Text, nullable=False)  # aplicado | en_revision | a_reembolsar
+    estado: Mapped[str] = mapped_column(Text, nullable=False)  # aplicado | en_revision | a_reembolsar | reembolsado
     monto_reportado: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     moneda_reportada: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # C-12 (D5): devolución de un pago excedente, registrada a mano con su referencia.
+    reembolsado_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reembolsado_por_usuario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuario.id", ondelete="RESTRICT"), nullable=True)
+    reembolso_referencia: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
-        CheckConstraint("estado IN ('aplicado','en_revision','a_reembolsar')", name="ck_pago_sena_aprobacion_estado"),
+        CheckConstraint("estado IN ('aplicado','en_revision','a_reembolsar','reembolsado')",
+                        name="ck_pago_sena_aprobacion_estado"),
         CheckConstraint("monto_reportado IS NULL OR monto_reportado >= 0", name="ck_pago_sena_aprobacion_monto"),
         Index("ix_pago_sena_aprobacion_pago", "pago_id"),  # R6
+        Index("ix_pago_sena_aprobacion_reembolsado_por", "reembolsado_por_usuario_id"),  # R6
     )
 
 
@@ -95,6 +102,11 @@ class PagoSena(Base):
     acreditado_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     acreditado_por_usuario_id: Mapped[int | None] = mapped_column(
         ForeignKey("usuario.id", ondelete="RESTRICT"), nullable=True)
+    # C-12 (D5): ``acreditado_en`` es el momento en que la clínica RECIBIÓ el dinero (también de un a_reembolsar).
+    reembolsado_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reembolsado_por_usuario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuario.id", ondelete="RESTRICT"), nullable=True)
+    reembolso_referencia: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -104,10 +116,12 @@ class PagoSena(Base):
         CheckConstraint("medio IN ('mercadopago','transferencia')", name="ck_pago_sena_medio"),
         CheckConstraint("monto > 0", name="ck_pago_sena_monto"),
         CheckConstraint(
-            "estado IN ('pendiente','acreditado','vencido','no_reembolsado','a_reembolsar','en_revision')",
+            "estado IN ('pendiente','acreditado','vencido','no_reembolsado','a_reembolsar','en_revision',"
+            "'reembolsado')",
             name="ck_pago_sena_estado"),
         Index("ix_pago_sena_turno", "turno_id"),  # R6
         Index("ix_pago_sena_acreditado_por", "acreditado_por_usuario_id"),  # R6
+        Index("ix_pago_sena_reembolsado_por", "reembolsado_por_usuario_id"),  # R6
         Index("uq_pago_sena_activo", "turno_id", unique=True,
               postgresql_where="estado IN ('pendiente','acreditado')"),
         Index("ix_pago_sena_pendiente_vence", "vence_en", postgresql_where="estado = 'pendiente'"),

@@ -231,7 +231,7 @@ Cuando un turno `reservado` o `confirmado` con seña acreditada pasa a `ausente`
 - **THEN** la transición se rechaza por inválida y el turno y su pago no cambian
 
 ### Requirement: Transiciones de estado válidas del turno
-El sistema SHALL permitir solo estas transiciones: `en_espera → reservado | cancelado`; `reservado → confirmado | cancelado | ausente | atendido`; `confirmado → cancelado | ausente | atendido`. `cancelado`, `ausente` y `atendido` son finales. Una transición inválida SHALL rechazarse con 409 sin modificar nada.
+El sistema SHALL permitir solo estas transiciones: `en_espera → reservado | cancelado`; `reservado → confirmado | cancelado | ausente | atendido`; `confirmado → cancelado | ausente | atendido`. `cancelado`, `ausente` y `atendido` son finales, con una única excepción: `atendido → reservado` por la corrección de un marcado equivocado, que solo existe como operación propia de recepción y admin (`turnos/gestion-panel`, C-12 O7). Una transición inválida SHALL rechazarse con 409 sin modificar nada.
 
 #### Scenario: Transición permitida (Happy Path)
 - **GIVEN** que el turno 60 está `reservado`
@@ -240,13 +240,18 @@ El sistema SHALL permitir solo estas transiciones: `en_espera → reservado | ca
 
 #### Scenario: Transición desde un estado final (Error de Negocio)
 - **GIVEN** que el turno 61 está `atendido`
-- **WHEN** se intenta pasarlo a `reservado` o a `en_espera`
+- **WHEN** se intenta pasarlo a `reservado` o a `en_espera` por un cambio de estado común (marcar, cancelar, confirmar o acreditar)
 - **THEN** se rechaza con 409 `transicion_invalida` y el turno sigue `atendido`
 
 #### Scenario: Cancelación de una pre-reserva en espera (Caso de Borde)
 - **GIVEN** que el turno 62 está `en_espera` con un pago pendiente
 - **WHEN** se lo pasa a `cancelado`
 - **THEN** el turno queda `cancelado` y el pago `vencido`, sin devolución porque no se cobró nada
+
+#### Scenario: Corrección de un atendido y estados que siguen finales (Caso de Borde)
+- **GIVEN** el turno 63 `atendido` dentro del plazo de corrección, el turno 64 `ausente` y el turno 65 `cancelado`
+- **WHEN** recepción aplica la corrección de C-12 a cada uno
+- **THEN** el 63 queda `reservado` con su seña sin cambios, y el 64 y el 65 responden 409 `transicion_invalida` y siguen como estaban
 
 ### Requirement: La cancelación con 24 horas o más devuelve la seña
 Cuando un turno `reservado` o `confirmado` con seña acreditada se cancela con 24 horas o más de anticipación, el sistema SHALL liberar el horario y dejar el pago `a_reembolsar`, para devolución manual (RN-SN-04). Con menos de 24 horas la cancelación SHALL rechazarse (RN-TU-01). La regla vale igual para la cancelación del paciente con el código de gestión (`POST /api/public/gestion/cancelar`, C-07) y para el servicio de cambio de estado.
