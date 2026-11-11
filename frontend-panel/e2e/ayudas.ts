@@ -84,7 +84,7 @@ export async function verificarObjetivosTactiles(page: Page, donde: string): Pro
   const chicos = await page.evaluate(() => {
     const tocables = Array.from(
       document.querySelectorAll<HTMLElement>(
-        'button, select, input[type="text"], input[type="tel"], input[type="email"], input[type="password"], input[type="date"]',
+        'button, select, input[type="text"], input[type="search"], input[type="tel"], input[type="email"], input[type="password"], input[type="date"]',
       ),
     );
     return tocables
@@ -106,4 +106,15 @@ export async function verificarPantalla(page: Page, donde: string): Promise<void
 /** Abre una página nueva en un contexto propio con las mismas condiciones del proyecto (misma zona horaria). */
 export async function contextoNuevo(browser: Browser, ancho: number, alto: number) {
   return browser.newContext({ viewport: { width: ancho, height: alto }, locale: 'es-AR', timezoneId: 'Asia/Tokyo' });
+}
+
+/** Pasa a otra sección del panel con la navegación y espera su título. */
+export async function irASeccion(page: Page, seccion: 'Agenda' | 'Pacientes' | 'Indicadores' | 'Caja'): Promise<void> {
+  await page.getByRole('navigation', { name: 'Secciones del panel' }).getByRole('link', { name: seccion }).click();
+  await expect(page.getByRole('heading', { level: 1, name: seccion })).toBeVisible();
+}
+
+/** Día de la clínica de un instante, a medianoche -03:00 + `hhmm` (para sembrar movimientos de un día pasado). */
+export function instanteClinica(dia: string, hhmm: string): Date {
+  return new Date(inicioClinica(dia, hhmm));
 }
