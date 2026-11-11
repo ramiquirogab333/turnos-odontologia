@@ -250,3 +250,125 @@ describe('App: ingreso y salida', () => {
     expect(screen.queryByRole('heading', { name: 'Agenda' })).toBeNull();
   });
 });
+
+describe('App: secciones del panel (C-12)', () => {
+  const CAJA = {
+    dia: '2031-11-18',
+    estado: 'abierto',
+    cierre_id: null,
+    lineas: [],
+    total_ingresos: '0.00',
+    total_egresos: '0.00',
+    total_neto: '0.00',
+    senas_retenidas: { cantidad: 0, total: '0.00' },
+    movimientos: [],
+  };
+  const LISTADO = { total: 0, pagina: 1, por_pagina: 20, pacientes: [] };
+  const OCUPACION = { desde: '2031-11-18', hasta: '2031-11-18', sillones: [] };
+  const AUSENTISMO = {
+    desde: '2031-11-18',
+    hasta: '2031-11-18',
+    atendidos: 0,
+    ausentes: 0,
+    tasa: null,
+    sin_marcar: 0,
+    por_profesional: [],
+    recupero: { senas_retenidas: 0, importe_retenido: '0.00', porcentaje: null },
+  };
+  const refresco = ruta('POST /api/auth/refresh', { access_token: 'ACCESS-1', token_type: 'bearer' });
+  const secciones: Manejador[] = [
+    ruta('GET /api/panel/caja', CAJA),
+    ruta('GET /api/panel/caja/pendientes', []),
+    ruta('GET /api/panel/pacientes/listado', LISTADO),
+    ruta('GET /api/panel/ocupacion', OCUPACION),
+    ruta('GET /api/panel/ausentismo', AUSENTISMO),
+  ];
+  const pedidos = (fetchFn: ReturnType<typeof servidor>) => fetchFn.mock.calls.map((c) => urlDe(c[0]).split('?')[0] ?? '');
+
+  afterEach(() => {
+    window.location.hash = '';
+  });
+
+  it('recepción ve las cuatro secciones y empieza en la agenda', async () => {
+    await abrir(servidor(refresco, ...panel, ...secciones));
+    const nav = await screen.findByRole('navigation', { name: 'Secciones del panel' });
+    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja']);
+    expect(screen.getByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Agenda' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('cambia de sección sin recargar: no vuelve a pedir la sesión y cada pantalla pide lo suyo', async () => {
+    const fetchFn = servidor(refresco, ...panel, ...secciones);
+    await abrir(fetchFn);
+    await usuario.click(await screen.findByRole('link', { name: 'Caja' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Caja' })).toBeInTheDocument();
+    await screen.findByText('No hubo movimientos este día');
+    await usuario.click(screen.getByRole('link', { name: 'Pacientes' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Pacientes' })).toBeInTheDocument();
+    await usuario.click(screen.getByRole('link', { name: 'Indicadores' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Indicadores' })).toBeInTheDocument();
+    const llamadas = pedidos(fetchFn);
+    expect(llamadas.filter((u) => u === '/api/auth/refresh')).toHaveLength(1);
+    expect(llamadas.filter((u) => u === '/api/auth/me')).toHaveLength(1);
+    expect(llamadas).toEqual(
+      expect.arrayContaining([
+        '/api/panel/caja',
+        '/api/panel/caja/pendientes',
+        '/api/panel/pacientes/listado',
+        '/api/panel/ocupacion',
+        '/api/panel/ausentismo',
+      ]),
+    );
+    expect(screen.getByRole('link', { name: 'Indicadores' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('un hash conocido abre directamente esa sección', async () => {
+    window.location.hash = '#/pacientes';
+    await abrir(servidor(refresco, ...panel, ...secciones));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Pacientes' })).toBeInTheDocument();
+  });
+
+  it('la odontóloga no ve la navegación', async () => {
+    const odontologa = ruta('GET /api/auth/me', { ...ME, roles: ['odontologo'] });
+    await abrir(servidor(refresco, odontologa, ...panel, ...secciones));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Secciones del panel' })).toBeNull();
+  });
+
+  it('un hash #/caja deja a la odontóloga en la agenda y no pide nada de caja', async () => {
+    window.location.hash = '#/caja';
+    const odontologa = ruta('GET /api/auth/me', { ...ME, roles: ['odontologo'] });
+    const fetchFn = servidor(refresco, odontologa, ...panel, ...secciones);
+    await abrir(fetchFn);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Caja' })).toBeNull();
+    expect(pedidos(fetchFn).some((u) => u.startsWith('/api/panel/caja'))).toBe(false);
+  });
+
+  it('solo el administrador ve «Anular cierre»', async () => {
+    const cerrada = ruta('GET /api/panel/caja', { ...CAJA, estado: 'cerrado', cierre_id: 3 });
+    const cierre = ruta('GET /api/panel/caja/cierres/3', {
+      id: 3, dia: '2031-11-18', estado: 'vigente', total_ingresos: '0.00', total_egresos: '0.00', total_neto: '0.00',
+      observaciones: null, cerrado_por_nombre: 'Rita Recepción', cerrado_en: '2031-11-19T00:20:00-03:00',
+      anulado_en: null, anulado_motivo: null, lineas: [], cuadra: true, diferencias: [],
+    });
+    window.location.hash = '#/caja';
+    await abrir(servidor(refresco, ...panel, cerrada, cierre, ...secciones));
+    await screen.findByText('El cierre cuadra');
+    expect(screen.queryByRole('button', { name: 'Anular cierre' })).toBeNull();
+  });
+
+  it('el administrador sí ve «Anular cierre»', async () => {
+    const admin = ruta('GET /api/auth/me', { ...ME, roles: ['admin'] });
+    const cerrada = ruta('GET /api/panel/caja', { ...CAJA, estado: 'cerrado', cierre_id: 3 });
+    const cierre = ruta('GET /api/panel/caja/cierres/3', {
+      id: 3, dia: '2031-11-18', estado: 'vigente', total_ingresos: '0.00', total_egresos: '0.00', total_neto: '0.00',
+      observaciones: null, cerrado_por_nombre: 'Rita Recepción', cerrado_en: '2031-11-19T00:20:00-03:00',
+      anulado_en: null, anulado_motivo: null, lineas: [], cuadra: true, diferencias: [],
+    });
+    window.location.hash = '#/caja';
+    await abrir(servidor(refresco, admin, ...panel, cerrada, cierre, ...secciones));
+    await screen.findByText('El cierre cuadra');
+    expect(screen.getByRole('button', { name: 'Anular cierre' })).toBeInTheDocument();
+  });
+});

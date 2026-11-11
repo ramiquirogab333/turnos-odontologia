@@ -2,6 +2,27 @@ import { esNumero, esRegistro, esTexto, type Registro } from './guardas';
 import { ErrorSesion, type Sesion } from './sesion';
 import type {
   Accion,
+  AccionMarcable,
+  Acreditacion,
+  Ausentismo,
+  AusentismoProfesional,
+  CajaDia,
+  CierreCaja,
+  CierreDetalle,
+  ConsultaPacientes,
+  Devolucion,
+  DiferenciaCierre,
+  ErrorCaja,
+  LineaCaja,
+  ListadoPacientes,
+  MotivoDeshacer,
+  MovimientoCaja,
+  Ocupacion,
+  OcupacionDia,
+  OcupacionSillon,
+  PacienteListado,
+  Pendiente,
+  Rechazo,
   Agenda,
   Alternativa,
   CambioEstado,
@@ -44,7 +65,7 @@ export class ErrorApiPanel extends Error {
 // --- guardas -------------------------------------------------------------------------------------------------
 
 const ESTADOS: readonly string[] = ['en_espera', 'reservado', 'confirmado', 'cancelado', 'ausente', 'atendido'];
-const ACCIONES: readonly string[] = ['atendido', 'ausente', 'cancelar'];
+const ACCIONES: readonly string[] = ['atendido', 'ausente', 'cancelar', 'deshacer_atendido'];
 const ROLES: readonly string[] = ['admin', 'odontologo', 'recepcion'];
 
 function textoONulo(v: unknown): v is string | null {
@@ -158,6 +179,287 @@ function esCambio(v: unknown): v is CambioEstado {
   return esRegistro(v) && esNumero(v['turno_id']) && esTexto(v['estado']) && textoONulo(v['estado_sena']);
 }
 
+// --- guardas de C-12 (caja, indicadores, pacientes) ------------------------------------------------------------
+
+const CONCEPTOS: readonly string[] = ['sena', 'pago_presupuesto', 'devolucion_sena'];
+const MEDIOS: readonly string[] = ['mercadopago', 'transferencia'];
+const DECIMAL = /^-?\d+(\.\d+)?$/;
+
+function esDinero(v: unknown): v is string {
+  return esTexto(v) && DECIMAL.test(v);
+}
+
+function dineroONulo(v: unknown): v is string | null {
+  return v === null || esDinero(v);
+}
+
+function esLinea(v: unknown): v is LineaCaja {
+  return (
+    esRegistro(v) &&
+    esTexto(v['concepto']) &&
+    CONCEPTOS.includes(v['concepto']) &&
+    esTexto(v['medio']) &&
+    MEDIOS.includes(v['medio']) &&
+    esNumero(v['cantidad']) &&
+    esDinero(v['total'])
+  );
+}
+
+function esMovimiento(v: unknown): v is MovimientoCaja {
+  return (
+    esRegistro(v) &&
+    esTexto(v['concepto']) &&
+    CONCEPTOS.includes(v['concepto']) &&
+    esTexto(v['medio']) &&
+    MEDIOS.includes(v['medio']) &&
+    esDinero(v['importe']) &&
+    esTexto(v['hora']) &&
+    textoONulo(v['referencia'])
+  );
+}
+
+function aCaja(v: unknown): CajaDia {
+  if (
+    !esRegistro(v) ||
+    !esTexto(v['dia']) ||
+    (v['estado'] !== 'abierto' && v['estado'] !== 'cerrado') ||
+    !(v['cierre_id'] === null || esNumero(v['cierre_id'])) ||
+    !esDinero(v['total_ingresos']) ||
+    !esDinero(v['total_egresos']) ||
+    !esDinero(v['total_neto']) ||
+    !esRegistro(v['senas_retenidas']) ||
+    !esNumero(v['senas_retenidas']['cantidad']) ||
+    !esDinero(v['senas_retenidas']['total'])
+  ) {
+    throw new ErrorDeRespuesta();
+  }
+  return {
+    dia: v['dia'],
+    estado: v['estado'],
+    cierre_id: v['cierre_id'],
+    lineas: lista(v['lineas'], esLinea),
+    total_ingresos: v['total_ingresos'],
+    total_egresos: v['total_egresos'],
+    total_neto: v['total_neto'],
+    senas_retenidas: { cantidad: v['senas_retenidas']['cantidad'], total: v['senas_retenidas']['total'] },
+    movimientos: lista(v['movimientos'], esMovimiento),
+  };
+}
+
+function esPendiente(v: unknown): v is Pendiente {
+  return (
+    esRegistro(v) &&
+    (v['tipo'] === 'revision' || v['tipo'] === 'sena' || v['tipo'] === 'excedente_mp') &&
+    esNumero(v['id']) &&
+    esNumero(v['pago_id']) &&
+    esNumero(v['turno_id']) &&
+    esTexto(v['estado_turno']) &&
+    esTexto(v['medio']) &&
+    MEDIOS.includes(v['medio']) &&
+    dineroONulo(v['importe']) &&
+    typeof v['importe_a_verificar'] === 'boolean' &&
+    textoONulo(v['mp_payment_id']) &&
+    esTexto(v['pendiente_desde'])
+  );
+}
+
+function esRechazo(v: unknown): v is Rechazo {
+  return (
+    esRegistro(v) &&
+    esNumero(v['pago_id']) &&
+    esNumero(v['turno_id']) &&
+    esTexto(v['estado_pago']) &&
+    esTexto(v['estado_turno']) &&
+    esDinero(v['importe'])
+  );
+}
+
+function esAcreditacion(v: unknown): v is Acreditacion {
+  return (
+    esRegistro(v) &&
+    esNumero(v['pago_id']) &&
+    esNumero(v['turno_id']) &&
+    esTexto(v['efecto']) &&
+    esTexto(v['estado_pago']) &&
+    esTexto(v['estado_turno'])
+  );
+}
+
+function esDevolucion(v: unknown): v is Devolucion {
+  return (
+    esRegistro(v) &&
+    esNumero(v['id']) &&
+    (v['tipo'] === 'sena' || v['tipo'] === 'excedente_mp') &&
+    esNumero(v['pago_id']) &&
+    esNumero(v['turno_id']) &&
+    dineroONulo(v['importe']) &&
+    esTexto(v['reembolsado_en']) &&
+    esTexto(v['referencia'])
+  );
+}
+
+function esCierre(v: unknown): v is CierreCaja {
+  return (
+    esRegistro(v) &&
+    esNumero(v['id']) &&
+    esTexto(v['dia']) &&
+    (v['estado'] === 'vigente' || v['estado'] === 'anulado') &&
+    esDinero(v['total_ingresos']) &&
+    esDinero(v['total_egresos']) &&
+    esDinero(v['total_neto']) &&
+    textoONulo(v['observaciones']) &&
+    textoONulo(v['cerrado_por_nombre']) &&
+    esTexto(v['cerrado_en']) &&
+    textoONulo(v['anulado_en']) &&
+    textoONulo(v['anulado_motivo']) &&
+    Array.isArray(v['lineas']) &&
+    (v['lineas'] as unknown[]).every(esLinea)
+  );
+}
+
+function esDiferencia(v: unknown): v is DiferenciaCierre {
+  return (
+    esRegistro(v) &&
+    esTexto(v['concepto']) &&
+    CONCEPTOS.includes(v['concepto']) &&
+    esTexto(v['medio']) &&
+    MEDIOS.includes(v['medio']) &&
+    esDinero(v['total_cierre']) &&
+    esDinero(v['total_actual']) &&
+    esNumero(v['cantidad_cierre']) &&
+    esNumero(v['cantidad_actual'])
+  );
+}
+
+function aCierreDetalle(v: unknown): CierreDetalle {
+  if (!esCierre(v) || !esRegistro(v)) throw new ErrorDeRespuesta();
+  const cuadra = v['cuadra'];
+  if (!(cuadra === null || typeof cuadra === 'boolean')) throw new ErrorDeRespuesta();
+  return { ...v, cuadra, diferencias: lista(v['diferencias'], esDiferencia) };
+}
+
+function esDiaOcupacion(v: unknown): v is OcupacionDia {
+  return (
+    esRegistro(v) &&
+    esTexto(v['dia']) &&
+    esNumero(v['minutos_ocupados']) &&
+    esNumero(v['minutos_atencion']) &&
+    dineroONulo(v['porcentaje']) &&
+    esNumero(v['turnos']) &&
+    esNumero(v['minutos_perdidos'])
+  );
+}
+
+function esSillonOcupacion(v: unknown): v is OcupacionSillon {
+  return (
+    esRegistro(v) &&
+    esNumero(v['sillon_id']) &&
+    esTexto(v['nombre']) &&
+    (v['estado'] === 'activo' || v['estado'] === 'inactivo' || v['estado'] === 'mantenimiento') &&
+    Array.isArray(v['dias']) &&
+    (v['dias'] as unknown[]).every(esDiaOcupacion)
+  );
+}
+
+function aOcupacion(v: unknown): Ocupacion {
+  if (!esRegistro(v) || !esTexto(v['desde']) || !esTexto(v['hasta'])) throw new ErrorDeRespuesta();
+  return { desde: v['desde'], hasta: v['hasta'], sillones: lista(v['sillones'], esSillonOcupacion) };
+}
+
+function esAusentismoProfesional(v: unknown): v is AusentismoProfesional {
+  return (
+    esRegistro(v) &&
+    esNumero(v['profesional_id']) &&
+    esTexto(v['nombre']) &&
+    esNumero(v['atendidos']) &&
+    esNumero(v['ausentes']) &&
+    dineroONulo(v['tasa']) &&
+    esNumero(v['sin_marcar'])
+  );
+}
+
+function aAusentismo(v: unknown): Ausentismo {
+  if (
+    !esRegistro(v) ||
+    !esTexto(v['desde']) ||
+    !esTexto(v['hasta']) ||
+    !esNumero(v['atendidos']) ||
+    !esNumero(v['ausentes']) ||
+    !dineroONulo(v['tasa']) ||
+    !esNumero(v['sin_marcar']) ||
+    !esRegistro(v['recupero']) ||
+    !esNumero(v['recupero']['senas_retenidas']) ||
+    !esDinero(v['recupero']['importe_retenido']) ||
+    !dineroONulo(v['recupero']['porcentaje'])
+  ) {
+    throw new ErrorDeRespuesta();
+  }
+  return {
+    desde: v['desde'],
+    hasta: v['hasta'],
+    atendidos: v['atendidos'],
+    ausentes: v['ausentes'],
+    tasa: v['tasa'],
+    sin_marcar: v['sin_marcar'],
+    por_profesional: lista(v['por_profesional'], esAusentismoProfesional),
+    recupero: {
+      senas_retenidas: v['recupero']['senas_retenidas'],
+      importe_retenido: v['recupero']['importe_retenido'],
+      porcentaje: v['recupero']['porcentaje'],
+    },
+  };
+}
+
+function esPacienteListado(v: unknown): v is PacienteListado {
+  return (
+    esRegistro(v) &&
+    esNumero(v['id']) &&
+    esTexto(v['nombre']) &&
+    esTexto(v['apellido']) &&
+    esTexto(v['dni']) &&
+    esTexto(v['telefono']) &&
+    (v['obra_social'] === null || esRef(v['obra_social'])) &&
+    esNumero(v['atendidos']) &&
+    esNumero(v['ausentes']) &&
+    textoONulo(v['ultimo_turno'])
+  );
+}
+
+function aListado(v: unknown): ListadoPacientes {
+  if (!esRegistro(v) || !esNumero(v['total']) || !esNumero(v['pagina']) || !esNumero(v['por_pagina'])) {
+    throw new ErrorDeRespuesta();
+  }
+  return { total: v['total'], pagina: v['pagina'], por_pagina: v['por_pagina'], pacientes: lista(v['pacientes'], esPacienteListado) };
+}
+
+function mensajeDeCaja(cuerpo: Registro): string {
+  const detail = cuerpo['detail'];
+  if (esTexto(detail)) return detail;
+  if (Array.isArray(detail)) {
+    for (const item of detail as unknown[]) {
+      if (esRegistro(item) && esTexto(item['msg'])) return limpiar(item['msg']);
+    }
+  }
+  return 'Revisá los datos que escribiste.';
+}
+
+function errorCaja(status: number, cuerpo: Registro): ErrorCaja {
+  const motivo = cuerpo['motivo'];
+  if (status === 403) return { tipo: 'sin_permiso' };
+  if (status === 404) return { tipo: 'no_encontrado' };
+  if (status === 503) return { tipo: 'reintentar' };
+  if (status === 409) {
+    if (motivo === 'caja_cerrada') return { tipo: 'caja_cerrada', dia: esTexto(cuerpo['dia']) ? cuerpo['dia'] : null };
+    if (motivo === 'dia_no_terminado') {
+      return { tipo: 'dia_no_terminado', cerrableDesde: esTexto(cuerpo['cerrable_desde']) ? cuerpo['cerrable_desde'] : null };
+    }
+    if (motivo === 'dia_ya_cerrado') return { tipo: 'dia_ya_cerrado' };
+    return { tipo: 'estado_cambiado' }; // el pago ya no está en el estado que se mostraba
+  }
+  if (status === 422) return { tipo: 'validacion', mensaje: mensajeDeCaja(cuerpo) };
+  return { tipo: 'desconocido' };
+}
+
 async function cuerpoDe(r: Response): Promise<Registro> {
   try {
     const v: unknown = await r.json();
@@ -207,6 +509,9 @@ function errorEstado(status: number, cuerpo: Registro): ErrorEstado {
     return { tipo: 'fuera_de_plazo', limiteCambios: esTexto(cuerpo['limite_cambios']) ? cuerpo['limite_cambios'] : null };
   }
   if (status === 409 && motivo === 'transicion_invalida') return { tipo: 'transicion_invalida' };
+  if (status === 409 && motivo === 'plazo_vencido') {
+    return { tipo: 'plazo_vencido', limiteCorreccion: esTexto(cuerpo['limite_correccion']) ? cuerpo['limite_correccion'] : null };
+  }
   return { tipo: 'desconocido' };
 }
 
@@ -218,7 +523,22 @@ export interface Api {
   opciones(): Promise<Opciones>;
   disponibilidad(profesionalId: number, tratamientoId: number, dia: string): Promise<readonly Slot[]>;
   crearTurno(datos: DatosAlta): Promise<Resultado<TurnoCreado, ErrorAlta>>;
-  marcar(turnoId: number, accion: Accion): Promise<Resultado<CambioEstado, ErrorEstado>>;
+  marcar(turnoId: number, accion: AccionMarcable): Promise<Resultado<CambioEstado, ErrorEstado>>;
+  deshacerAtendido(turnoId: number, motivo: MotivoDeshacer): Promise<Resultado<CambioEstado, ErrorEstado>>;
+  // Caja, pendientes y cierres (C-12)
+  caja(dia: string): Promise<CajaDia>;
+  pendientes(): Promise<readonly Pendiente[]>;
+  rechazarRevision(pagoId: number): Promise<Resultado<Rechazo, ErrorCaja>>;
+  acreditarRevision(pagoId: number): Promise<Resultado<Acreditacion, ErrorCaja>>;
+  registrarDevolucion(pagoId: number, referencia: string): Promise<Resultado<Devolucion, ErrorCaja>>;
+  registrarDevolucionExcedente(aprobacionId: number, referencia: string): Promise<Resultado<Devolucion, ErrorCaja>>;
+  cerrarCaja(dia: string): Promise<Resultado<CierreCaja, ErrorCaja>>;
+  cierre(cierreId: number): Promise<CierreDetalle>;
+  anularCierre(cierreId: number, motivo: string): Promise<Resultado<CierreCaja, ErrorCaja>>;
+  // Indicadores y pacientes (C-12)
+  ocupacion(desde: string, hasta: string): Promise<Ocupacion>;
+  ausentismo(desde: string, hasta: string): Promise<Ausentismo>;
+  listarPacientes(consulta: ConsultaPacientes): Promise<ListadoPacientes>;
 }
 
 export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fetch(...args)): Api {
@@ -322,6 +642,66 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
       return escribir(`/api/panel/turnos/${String(turnoId)}/${accion}`, undefined, esCambio, errorEstado, {
         tipo: 'desconocido',
       });
+    },
+    deshacerAtendido(turnoId, motivo) {
+      return escribir(`/api/panel/turnos/${String(turnoId)}/deshacer-atendido`, { motivo }, esCambio, errorEstado, {
+        tipo: 'desconocido',
+      });
+    },
+    async caja(dia) {
+      return aCaja(await leer(`/api/panel/caja?${new URLSearchParams({ dia }).toString()}`));
+    },
+    async pendientes() {
+      return lista(await leer('/api/panel/caja/pendientes'), esPendiente);
+    },
+    rechazarRevision(pagoId) {
+      return escribir(`/api/panel/caja/revisiones/${String(pagoId)}/rechazar`, undefined, esRechazo, errorCaja, {
+        tipo: 'desconocido',
+      });
+    },
+    acreditarRevision(pagoId) {
+      return escribir(`/api/admin/pagos-sena/${String(pagoId)}/acreditar`, undefined, esAcreditacion, errorCaja, {
+        tipo: 'desconocido',
+      });
+    },
+    registrarDevolucion(pagoId, referencia) {
+      return escribir(`/api/panel/caja/devoluciones/senas/${String(pagoId)}`, { referencia }, esDevolucion, errorCaja, {
+        tipo: 'desconocido',
+      });
+    },
+    registrarDevolucionExcedente(aprobacionId, referencia) {
+      return escribir(
+        `/api/panel/caja/devoluciones/excedentes/${String(aprobacionId)}`,
+        { referencia },
+        esDevolucion,
+        errorCaja,
+        { tipo: 'desconocido' },
+      );
+    },
+    cerrarCaja(dia) {
+      return escribir('/api/panel/caja/cierres', { dia }, esCierre, errorCaja, { tipo: 'desconocido' });
+    },
+    async cierre(cierreId) {
+      return aCierreDetalle(await leer(`/api/panel/caja/cierres/${String(cierreId)}`));
+    },
+    anularCierre(cierreId, motivo) {
+      return escribir(`/api/panel/caja/cierres/${String(cierreId)}/anular`, { motivo }, esCierre, errorCaja, {
+        tipo: 'desconocido',
+      });
+    },
+    async ocupacion(desde, hasta) {
+      return aOcupacion(await leer(`/api/panel/ocupacion?${new URLSearchParams({ desde, hasta }).toString()}`));
+    },
+    async ausentismo(desde, hasta) {
+      return aAusentismo(await leer(`/api/panel/ausentismo?${new URLSearchParams({ desde, hasta }).toString()}`));
+    },
+    async listarPacientes(c) {
+      const q = new URLSearchParams();
+      if (c.q !== null) q.set('q', c.q);
+      q.set('pagina', String(c.pagina));
+      q.set('por_pagina', String(c.porPagina));
+      if (c.conAusencias) q.set('con_ausencias', 'true');
+      return aListado(await leer(`/api/panel/pacientes/listado?${q.toString()}`));
     },
   };
 }

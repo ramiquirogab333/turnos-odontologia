@@ -55,11 +55,11 @@ describe('AccionesTurno: confirmación', () => {
     expect(dialogo).toHaveTextContent('no se puede deshacer');
   });
 
-  it('atendido avisa que el cambio es definitivo y que el horario sigue ocupado', async () => {
+  it('atendido avisa que recepción puede corregirlo y que el horario sigue ocupado', async () => {
     montar({ acciones: ['atendido'] });
     await usuario.click(screen.getByRole('button', { name: 'Marcar atendido' }));
     const dialogo = screen.getByRole('dialog', { name: '¿Marcar a Carlos Sintético como atendido?' });
-    expect(dialogo).toHaveTextContent('no se puede deshacer');
+    expect(dialogo).toHaveTextContent('recepción puede corregirlo');
     expect(dialogo).toHaveTextContent('sigue ocupado');
   });
 
@@ -161,5 +161,85 @@ describe('AccionesTurno: rechazos del servidor', () => {
     expect(api.marcar).toHaveBeenCalledTimes(2);
     expect(onCambio).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('Pantalla para deshacer un atendido', () => {
+  const atendido = { estado: 'atendido' as const, acciones: ['deshacer_atendido' as const] };
+
+  it('«Deshacer atendido» aparece solo si el servidor informa la acción', () => {
+    montar({ ...atendido });
+    expect(screen.getByRole('button', { name: 'Deshacer atendido' })).toBeInTheDocument();
+  });
+
+  it('sin la acción del servidor no hay botón (la odontóloga dueña del turno no lo ve)', () => {
+    montar({ estado: 'atendido', acciones: [] });
+    expect(screen.queryByRole('button', { name: 'Deshacer atendido' })).toBeNull();
+  });
+
+  it('el diálogo pide el motivo y avisa que el turno vuelve a reservado y que la odontóloga puede perder el acceso a la ficha', async () => {
+    const { api } = montar({ ...atendido });
+    await usuario.click(screen.getByRole('button', { name: 'Deshacer atendido' }));
+    const dialogo = screen.getByRole('dialog', { name: '¿Deshacer el atendido de Carlos Sintético?' });
+    expect(dialogo).toHaveTextContent('vuelve a reservado');
+    expect(dialogo).toHaveTextContent('puede perder el acceso a la ficha');
+    expect(within(dialogo).getByLabelText('Motivo')).toBeInTheDocument();
+    expect(api.deshacerAtendido).not.toHaveBeenCalled();
+  });
+
+  it('sin motivo no envía nada y dice qué falta', async () => {
+    const { api } = montar({ ...atendido });
+    await usuario.click(screen.getByRole('button', { name: 'Deshacer atendido' }));
+    await usuario.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Sí, deshacer el atendido' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Elegí el motivo para deshacer el atendido');
+    expect(api.deshacerAtendido).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['turno_equivocado', 'Marqué el turno equivocado'],
+    ['paciente_no_asistio', 'La persona no vino'],
+    ['otro', 'Otro motivo'],
+  ] as const)('con el motivo "%s" llama al servidor, avisa el cambio y cierra', async (clave, etiqueta) => {
+    const { api, onCambio } = montar({ ...atendido });
+    await usuario.click(screen.getByRole('button', { name: 'Deshacer atendido' }));
+    const dialogo = screen.getByRole('dialog');
+    await act(() => base.selectOptions(within(dialogo).getByLabelText('Motivo'), etiqueta));
+    await usuario.click(within(dialogo).getByRole('button', { name: 'Sí, deshacer el atendido' }));
+    expect(api.deshacerAtendido).toHaveBeenCalledWith(11, clave);
+    expect(api.marcar).not.toHaveBeenCalled();
+    expect(onCambio).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('plazo_vencido dice que ya pasaron 7 días y recarga la agenda', async () => {
+    const api = apiFalsa({
+      deshacerAtendido: vi.fn().mockResolvedValue(rechazo({ tipo: 'plazo_vencido', limiteCorreccion: '2031-11-25T09:00:00-03:00' })),
+    });
+    const { onCambio } = montar({ ...atendido }, api);
+    await usuario.click(screen.getByRole('button', { name: 'Deshacer atendido' }));
+    const dialogo = screen.getByRole('dialog');
+    await act(() => base.selectOptions(within(dialogo).getByLabelText('Motivo'), 'Otro motivo'));
+    await usuario.click(within(dialogo).getByRole('button', { name: 'Sí, deshacer el atendido' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Ya pasaron 7 días: este turno no se puede corregir');
+    expect(onCambio).toHaveBeenCalledTimes(1);
+  });
+
+  it('un rechazo de permiso no recarga y deja intentar de nuevo', async () => {
+    const api = apiFalsa({ deshacerAtendido: vi.fn().mockResolvedValue(rechazo({ tipo: 'sin_permiso' })) });
+    const { onCambio } = montar({ ...atendido }, api);
+    await usuario.click(screen.getByRole('button', { name: 'Deshacer atendido' }));
+    const dialogo = screen.getByRole('dialog');
+    await act(() => base.selectOptions(within(dialogo).getByLabelText('Motivo'), 'Otro motivo'));
+    await usuario.click(within(dialogo).getByRole('button', { name: 'Sí, deshacer el atendido' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Tu usuario no puede hacer este cambio.');
+    expect(onCambio).not.toHaveBeenCalled();
+  });
+
+  it('marcar atendido ya no promete que no se puede deshacer: dice que recepción lo puede corregir', async () => {
+    montar({ acciones: ['atendido'] });
+    await usuario.click(screen.getByRole('button', { name: 'Marcar atendido' }));
+    const dialogo = screen.getByRole('dialog');
+    expect(dialogo).toHaveTextContent('recepción puede corregirlo');
+    expect(dialogo).not.toHaveTextContent('no se puede deshacer');
   });
 });
