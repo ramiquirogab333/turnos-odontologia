@@ -82,8 +82,8 @@ Organizadas por **épica** y luego por **historia de usuario** (formato US-NNN).
 **Para** operar el consultorio sin papel ni planillas dispersas
 
 **Criterios de aceptación**:
-- [ ] CA-1: Consulto fichas, marco ausentes, veo ocupación por sillón.
-- [ ] CA-2: Genero cierres de caja y liquidaciones.
+- [ ] CA-1: Consulto fichas, marco ausentes, veo ocupación por sillón. *(C-12, backend entregado 2026-11-11: listado de pacientes con búsqueda libre sin acentos y ausencias por paciente `GET /api/panel/pacientes/listado`, ocupación por sillón `GET /api/panel/ocupacion`, ausentismo y recupero `GET /api/panel/ausentismo` y corrección de un `atendido`; falta la UI del panel.)*
+- [ ] CA-2: Genero cierres de caja y liquidaciones. *(C-12, backend entregado: caja del día, cierres inmutables, anulación por admin, liquidación por medio de pago y pendientes de la seña; falta la UI del panel.)*
 
 **Reglas relacionadas**: RN-GL-01, RN-GL-02
 

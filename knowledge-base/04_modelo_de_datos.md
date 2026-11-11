@@ -20,6 +20,7 @@ Paciente 1───0..1 Ficha (antecedentes, 1:1, con `version`)
 Paciente 1───* OdontogramaRegistro (FDI, solo se agregan registros)
 Paciente 1───* Presupuesto 1───* PresupuestoLinea (snapshot de precio y cobertura)
 Presupuesto 1───* PagoPresupuesto (MP / transferencia, desde C-11)
+CierreCaja 1───* CierreCajaLinea (foto inmutable de la caja de un día, desde C-12)
 Turno 1───* Recordatorio (WhatsApp)
 Profesional 1───* Disponibilidad (franjas configurables)
 Usuario *───1 Rol (paciente-público / odontólogo / recepción-admin)
@@ -65,12 +66,12 @@ ObraSocial 1───* Nomenclador (precargado AR)
 - Índices: (profesional_id, inicio), (sillon_id, inicio), (paciente_id, inicio), estado; índice sobre cada FK.
 
 ### PagoSena (desde C-06)
-- Atributos: id, turno_id, medio (Mercado Pago / transferencia), monto (`Numeric`, seña fija configurable, 30% del precio base por defecto), estado (pendiente / acreditado / vencido / no_reembolsado / a_reembolsar / en_revision), monto_reportado y moneda_reportada (lo que informó la pasarela cuando no coincidió con la seña, RN-SN-09), referencia externa única (`ref_unica`, idempotencia del webhook; en transferencia es el código corto del concepto).
+- Atributos: id, turno_id, medio (Mercado Pago / transferencia), monto (`Numeric`, seña fija configurable, 30% del precio base por defecto), estado (pendiente / acreditado / vencido / no_reembolsado / a_reembolsar / en_revision / reembolsado desde C-12), acreditado_en (desde C-12 significa «momento en que la clínica recibió el dinero»: también lo tiene todo `a_reembolsar`, y es el día en que la seña entra en la caja), reembolsado_en + reembolsado_por_usuario_id + reembolso_referencia (los tres presentes si y solo si el estado es `reembolsado`, estado final; referencia de 3 a 64 caracteres), monto_reportado y moneda_reportada (lo que informó la pasarela cuando no coincidió con la seña, RN-SN-09), referencia externa única (`ref_unica`, idempotencia del webhook; en transferencia es el código corto del concepto).
 - Relaciones: *───1 Turno.
 - Constraints: referencia externa única; ausente NO reembolsa (queda como recupero/no_reembolsado, R9); `a_reembolsar` = devolución manual pendiente por cancelación con ≥ 24 h (RN-SN-04) o por un pago aprobado tardío o un horario perdido (RN-SN-05). `en_revision` = la pasarela aprobó un monto o una moneda distintos de la seña: no bloquea agenda y espera acreditación manual o devolución (RN-SN-09).
 
 ### PagoSenaAprobacion (desde C-06, RN-SN-10)
-- Atributos: id, pago_id (FK indexada), mp_payment_id (único), estado (aplicado / en_revision / a_reembolsar), monto_reportado (`Numeric`), moneda_reportada, created_at.
+- Atributos: id, pago_id (FK indexada), mp_payment_id (único), estado (aplicado / en_revision / a_reembolsar / reembolsado desde C-12), monto_reportado (`Numeric`), moneda_reportada, reembolsado_en + reembolsado_por_usuario_id (FK indexada) + reembolso_referencia (devolución de un pago excedente, C-12), created_at.
 - Un registro por cada pago aprobado de la pasarela: garantiza la idempotencia por id y deja trazabilidad de los sobrantes y de los pagos en revisión para la devolución manual.
 
 ### ConfiguracionSena (desde C-06)
@@ -100,8 +101,13 @@ ObraSocial 1───* Nomenclador (precargado AR)
 - Nota: el pago de SEÑA del turno vive en `PagoSena` (entidad propia desde C-06), no en `PagoPresupuesto`.
 
 ```
-Turno 1───* PagoSena (seña: pendiente → acreditado/bloquea → vencido/no_reembolsado/a_reembolsar)
+Turno 1───* PagoSena (seña: pendiente → acreditado/bloquea → vencido/no_reembolsado/a_reembolsar → reembolsado)
 ```
+
+### CierreCaja y CierreCajaLinea (desde C-12)
+- `CierreCaja`: id, `dia` (`DATE`, día calendario de la clínica), `estado` (`vigente` / `anulado`), `total_ingresos`, `total_egresos`, `total_neto` (`NUMERIC(14,2)`, `total_neto = total_ingresos - total_egresos`), `observaciones` (≤ 500), `cerrado_por` + `cerrado_en`, y los datos de anulación (`anulado_por`, `anulado_en`, `anulado_motivo` de 3 a 300). Índice único parcial `(dia) WHERE estado = 'vigente'`: un cierre vigente por día. Un trigger rechaza cualquier cambio salvo `vigente → anulado`; corregir un día es anular el cierre y volver a cerrarlo.
+- `CierreCajaLinea`: id, `cierre_id` (FK, cubierta por el único `(cierre_id, concepto, medio)`), `concepto` (`sena` / `pago_presupuesto` / `devolucion_sena`), `medio` (`mercadopago` / `transferencia`), `cantidad`, `total` (`NUMERIC(14,2)`). Las líneas son inmutables (trigger).
+- Migración `009_caja_cierres_devol`; también crea la extensión `unaccent` (búsqueda de pacientes sin acentos).
 
 ### ObraSocial / Nomenclador
 - Atributos: id, nombre OS, código nomenclador, descripción, cobertura.
