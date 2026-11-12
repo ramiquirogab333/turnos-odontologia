@@ -4,6 +4,7 @@ import {
   diaClinica,
   etiquetaDiaCorta,
   etiquetaDiaLarga,
+  etiquetaDiaNumerica,
   horaClinica,
   hoyClinica,
   sumarDias,
@@ -61,5 +62,15 @@ describe('tiempo (siempre hora de la clínica, -03:00, nunca la del navegador)',
 
   it('agruparPorDia sin slots devuelve un mapa vacío', () => {
     expect(agruparPorDia([]).size).toBe(0);
+  });
+});
+
+describe('etiquetaDiaNumerica (C-09: "martes 17/11" del mensaje de confirmación)', () => {
+  it.each([
+    ['2026-11-17', 'martes 17/11'],
+    ['2026-11-21', 'sábado 21/11'],
+    ['2027-01-03', 'domingo 03/01'],
+  ])('%s -> %s', (dia, esperado) => {
+    expect(etiquetaDiaNumerica(dia)).toBe(esperado);
   });
 });

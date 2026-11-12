@@ -21,6 +21,7 @@ Cada regla tiene código único `RN-{DOMINIO}-{NN}` para trazabilidad. Fuente: d
 
 - **RN-WA-01**: Todo turno genera recordatorio(s) por WhatsApp.
 - **RN-WA-02**: La confirmación por botones de WhatsApp actualiza el estado del turno (confirmado).
+- **Decisiones aprobadas de C-09 (2026-11-11) sobre RN-WA-01..03**: la anticipación es `REMINDER_LEAD_TIME` = 48 h (O5); reciben recordatorio los turnos `reservado` que aún no empezaron, incluido el alta manual sin seña y el reservado tarde, no los `confirmado` ni los `en_espera` (O6, O9); el paciente confirma con el botón de `/confirmar#<código>` (no por webhook: no existe en v1, O3-O4), sin exigir las 24 h ni un recordatorio previo (O18); en v1 manual `enviado` significa que recepción abrió el link `wa.me` (O2) y "No se pudo enviar" lo deja `fallido` con motivo; cancelar o reprogramar anula el recordatorio del horario anterior (O7-O8).
 - **RN-WA-03**: WhatsApp MANUAL en v1 (Resolución 2026-09-30 nº2): links `wa.me/` con mensajes preformateados, sin API paga ni costo por mensaje; se mantiene la abstracción de proveedor para migrar a API después. Solo turnos que bloquean agenda reciben recordatorio (`en_espera` NO).
 
 ## Dominio: Calendario (RN-GC)

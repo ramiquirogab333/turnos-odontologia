@@ -45,11 +45,16 @@ proyecto/
 | Variable | Descripción | Ejemplo | Sensible |
 |----------|-------------|---------|----------|
 | `DATABASE_URL` | Conexión a la base de datos | `postgres://…` | Y |
-| `WHATSAPP_API_TOKEN` | Token del proveedor WhatsApp (solo si se migra a API; v1 MANUAL sin envío) | `EAAB…` | Y |
+| `WHATSAPP_API_TOKEN` | Token del proveedor WhatsApp (FUTURO: solo si se migra a API; C-09 no lo introduce, v1 MANUAL sin envío) | `EAAB…` | Y |
 | `WHATSAPP_SENDER` | Número remitente | `+54911…` | N |
 | `GCAL_CLIENT_ID` / `GCAL_CLIENT_SECRET` | OAuth Google Calendar | `….apps.googleusercontent.com` | Y |
 | `MP_ACCESS_TOKEN` | Token Mercado Pago | `APP-…` | Y |
-| `REMINDER_LEAD_TIME` | Anticipación del recordatorio | `24h` | N |
+| `REMINDER_LEAD_TIME` | Anticipación del recordatorio (horas; acepta `48` o `48h`). **C-09 O5 (2026-11-11): default 48 h** en lugar del ejemplo original de 24 h, porque con 24 h el enlace de cancelar casi siempre cae fuera de la ventana de 24 h de C-07 | `48h` | N |
+| `REDIS_URL` | Redis del worker (la API no lo usa) | `redis://redis:6379/0` | N |
+| `RECORDATORIOS_HABILITADO` / `RECORDATORIOS_INTERVALO_SEGUNDOS` | Trabajo de recordatorios y cada cuánto corre (> 0) | `true` / `300` | N |
+| `SENA_BARRIDO_HABILITADO` / `SENA_BARRIDO_SEGUNDOS` / `SENA_BARRIDO_EN_API` | Barrido de pre-reservas vencidas: lo corre el worker; la API solo con `SENA_BARRIDO_EN_API=true` (desarrollo sin Redis) | `true` / `60` / `false` | N |
+| `WHATSAPP_PROVEEDOR` | Proveedor de WhatsApp (`manual` en v1; `falso` solo con `APP_ENV=test`) | `manual` | N |
+| `CLINICA_NOMBRE` | Nombre de la clínica en el mensaje del recordatorio | `la clínica` | N |
 | `CANCEL_WINDOW_HOURS` | Ventana de cancelación | `24` | N |
 
 Stack congelado (ver arriba); nombres exactos vigentes para FastAPI + Docker Compose. `SENA_PORCENTAJE` y config de `PagoSena` se introducen en C-06.

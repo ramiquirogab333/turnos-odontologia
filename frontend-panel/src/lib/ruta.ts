@@ -1,5 +1,5 @@
 /** Secciones del panel. La sección activa vive en el hash de la URL (`#/caja`): sin dependencias y sin recargar. */
-export const SECCIONES = ['agenda', 'pacientes', 'indicadores', 'caja'] as const;
+export const SECCIONES = ['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios'] as const;
 export type Seccion = (typeof SECCIONES)[number];
 
 export const TITULO_SECCION: Readonly<Record<Seccion, string>> = {
@@ -7,6 +7,7 @@ export const TITULO_SECCION: Readonly<Record<Seccion, string>> = {
   pacientes: 'Pacientes',
   indicadores: 'Indicadores',
   caja: 'Caja',
+  recordatorios: 'Recordatorios',
 };
 
 function esSeccion(valor: string): valor is Seccion {

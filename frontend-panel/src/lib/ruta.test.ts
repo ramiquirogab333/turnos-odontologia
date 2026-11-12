@@ -11,6 +11,7 @@ describe('leerSeccion', () => {
     expect(leerSeccion('#/pacientes')).toBe('pacientes');
     expect(leerSeccion('#/indicadores')).toBe('indicadores');
     expect(leerSeccion('#/agenda')).toBe('agenda');
+    expect(leerSeccion('#/recordatorios')).toBe('recordatorios');
   });
 
   it('un hash vacío o desconocido cae en la agenda', () => {
@@ -21,7 +22,7 @@ describe('leerSeccion', () => {
   });
 
   it('todas las secciones tienen su ruta', () => {
-    expect(SECCIONES).toEqual(['agenda', 'pacientes', 'indicadores', 'caja']);
+    expect(SECCIONES).toEqual(['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios']);
   });
 });
 

@@ -7,6 +7,7 @@ import { Indicadores } from './components/Indicadores';
 import { Ingreso } from './components/Ingreso';
 import { Navegacion } from './components/Navegacion';
 import { Pacientes } from './components/Pacientes';
+import { Recordatorios } from './components/Recordatorios';
 import type { Api } from './lib/api';
 import { leerSeccion, TITULO_SECCION, type Seccion } from './lib/ruta';
 import { ErrorSesion, type MotivoCierre, type Sesion } from './lib/sesion';
@@ -66,6 +67,7 @@ function Secciones({ usuario, api, hoy }: PropsPanel) {
         {seccion === 'agenda' && <Agenda api={api} hoy={hoy} />}
         {seccion === 'pacientes' && <Pacientes api={api} />}
         {seccion === 'indicadores' && <Indicadores api={api} hoy={hoy} />}
+        {seccion === 'recordatorios' && <Recordatorios api={api} />}
         {seccion === 'caja' && <Caja api={api} hoy={hoy} esAdmin={usuario.roles.includes('admin')} />}
       </main>
     </>

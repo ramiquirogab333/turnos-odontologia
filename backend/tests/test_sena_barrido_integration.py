@@ -112,6 +112,7 @@ async def test_la_tarea_del_lifespan_arranca_barre_y_se_cancela_limpia(
     from app.pagos import barrido
 
     monkeypatch.setenv("SENA_BARRIDO_HABILITADO", "true")
+    monkeypatch.setenv("SENA_BARRIDO_EN_API", "true")  # C-09 (O11): la API ya no barre por defecto
     monkeypatch.setenv("SENA_BARRIDO_SEGUNDOS", "1")
     llamadas: list[datetime] = []
     original = barrido.expirar_pre_reservas

@@ -4,8 +4,10 @@ import type {
   Alternativa,
   ErrorGestion,
   GestionTurno,
+  MotivoNoConfirmable,
   MotivoNoModificable,
   TurnoCancelado,
+  TurnoConfirmado,
   TurnoReprogramado,
   Catalogo,
   ErrorSena,
@@ -297,7 +299,12 @@ const ERROR_GESTION_DESCONOCIDO: ErrorGestion = {
   mensaje: 'No pudimos conectar con la clínica. Revisá tu conexión e intentá de nuevo.',
 };
 
-const MOTIVOS: readonly string[] = ['fuera_de_plazo', 'turno_no_modificable', 'sena_pendiente'];
+const MOTIVOS: readonly string[] = ['fuera_de_plazo', 'turno_no_modificable', 'sena_pendiente', 'turno_iniciado'];
+const MOTIVOS_NO_CONFIRMABLE: readonly string[] = ['sena_pendiente', 'turno_no_modificable', 'turno_iniciado', 'ya_confirmado'];
+
+function esMotivoConfirmarONulo(v: unknown): v is MotivoNoConfirmable | null {
+  return v === null || (esTexto(v) && MOTIVOS_NO_CONFIRMABLE.includes(v));
+}
 
 function esMotivoONulo(v: unknown): v is MotivoNoModificable | null {
   return v === null || (esTexto(v) && MOTIVOS.includes(v));
@@ -329,6 +336,8 @@ function esGestionTurno(v: unknown): v is GestionTurno {
     typeof v['puede_reprogramar'] === 'boolean' &&
     esMotivoONulo(v['motivo_no_cancelable']) &&
     esMotivoONulo(v['motivo_no_reprogramable']) &&
+    typeof v['puede_confirmar'] === 'boolean' &&
+    esMotivoConfirmarONulo(v['motivo_no_confirmable']) &&
     esTexto(v['texto_politica_reembolso'])
   );
 }
@@ -356,6 +365,7 @@ function interpretarErrorGestion(status: number, cuerpo: unknown): ErrorGestion 
     }
     if (motivo === 'turno_no_modificable') return { tipo: 'turno_no_modificable' };
     if (motivo === 'sena_pendiente') return { tipo: 'sena_pendiente' };
+    if (motivo === 'turno_iniciado') return { tipo: 'turno_iniciado' };
     if (motivo === 'profesional' || motivo === 'sillon') {
       const lista = Array.isArray(cuerpo['alternativas']) ? (cuerpo['alternativas'] as unknown[]).filter(esAlternativa) : [];
       return { tipo: 'conflicto', motivo, alternativas: lista };
@@ -412,6 +422,22 @@ export async function cancelarTurno(codigoGestion: string): Promise<ResultadoCan
   const r = await pedirGestion('POST', '/cancelar', codigoGestion);
   if (r === null) return { ok: false, error: ERROR_GESTION_DESCONOCIDO };
   if (r.status === 200 && esTurnoCancelado(r.json)) return { ok: true, cancelacion: r.json };
+  return { ok: false, error: interpretarErrorGestion(r.status, r.json) };
+}
+
+function esTurnoConfirmado(v: unknown): v is TurnoConfirmado {
+  return esRegistro(v) && v['estado'] === 'confirmado' && esTexto(v['inicio']) && esTexto(v['fin']);
+}
+
+export type ResultadoConfirmacion =
+  | { readonly ok: true; readonly confirmacion: TurnoConfirmado }
+  | { readonly ok: false; readonly error: ErrorGestion };
+
+/** Confirma la asistencia (C-09). Solo se llama cuando el paciente toca el botón: abrir el enlace nunca confirma. */
+export async function confirmarTurno(codigoGestion: string): Promise<ResultadoConfirmacion> {
+  const r = await pedirGestion('POST', '/confirmar', codigoGestion);
+  if (r === null) return { ok: false, error: ERROR_GESTION_DESCONOCIDO };
+  if (r.status === 200 && esTurnoConfirmado(r.json)) return { ok: true, confirmacion: r.json };
   return { ok: false, error: interpretarErrorGestion(r.status, r.json) };
 }
 

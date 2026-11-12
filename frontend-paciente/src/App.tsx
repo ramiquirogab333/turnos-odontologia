@@ -3,6 +3,7 @@ import { Cargando } from './components/Cargando';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ErrorCarga } from './components/ErrorCarga';
 import { EsperaAcreditacion } from './components/EsperaAcreditacion';
+import { ConfirmarTurno, RUTA_CONFIRMAR } from './components/ConfirmarTurno';
 import { GestionTurno } from './components/GestionTurno';
 import { Reserva } from './components/Reserva';
 import { borrarPendiente, leerPendiente, type SenaPendiente } from './lib/almacen';
@@ -37,6 +38,17 @@ export function App({ inicial, recargar }: Props) {
   const [catalogo, setCatalogo] = useState(inicial);
   const [ronda, setRonda] = useState(0);
   const [retorno, setRetorno] = useState<Retorno | null>(leerRetorno);
+
+  if (window.location.pathname === RUTA_CONFIRMAR) {
+    return (
+      <main className="app">
+        <header className="cabecera">
+          <h1>Tu turno</h1>
+        </header>
+        <ConfirmarTurno />
+      </main>
+    );
+  }
 
   if (window.location.pathname === RUTA_GESTION) {
     return (

@@ -96,6 +96,8 @@ jobs:
       MP_WEBHOOK_SECRET: ci-secreto-webhook-sintetico
       E2E_MP_WEBHOOK_SECRET: ci-secreto-webhook-sintetico
       SENA_BARRIDO_SEGUNDOS: '3'
+      # C-09: el barrido y los recordatorios corren en el worker (cada 3 s para los E2E).
+      RECORDATORIOS_INTERVALO_SEGUNDOS: '3'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -110,21 +112,21 @@ jobs:
           cache-dependency-path: frontend-paciente/package-lock.json
       - name: Secreto JWT efímero (R17)
         run: echo "JWT_SECRET_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-      - name: PostgreSQL por Docker Compose (healthcheck)
-        run: docker compose up -d --wait postgres
+      - name: PostgreSQL y Redis por Docker Compose (healthcheck)
+        run: docker compose up -d --wait postgres redis
       - name: Migrar la base
         working-directory: backend
         run: |
           pip install -r requirements.txt
           alembic upgrade head
-      - name: Backend por Docker Compose
+      - name: Backend y worker por Docker Compose
         run: |
-          docker compose up -d --build backend
+          docker compose up -d --build backend worker
           for i in $(seq 1 30); do
             curl -fsS http://localhost:8000/api/health && exit 0
             sleep 2
           done
-          docker compose logs backend
+          docker compose logs backend worker
           exit 1
       - name: Dependencias del frontend y Chromium
         working-directory: frontend-paciente
@@ -145,9 +147,9 @@ jobs:
             frontend-paciente/playwright-report
             frontend-paciente/test-results
           retention-days: 7
-      - name: Logs del backend
+      - name: Logs del backend y del worker
         if: failure()
-        run: docker compose logs backend
+        run: docker compose logs backend worker
 
   # C-08 (D8): el panel interno tiene sus propios jobs, copia de los del frontend público.
   frontend-panel:
@@ -182,6 +184,8 @@ jobs:
       MP_GATEWAY: fake
       MP_WEBHOOK_SECRET: ci-secreto-webhook-sintetico
       SENA_BARRIDO_SEGUNDOS: '3'
+      # C-09: el barrido y los recordatorios corren en el worker (cada 3 s para los E2E).
+      RECORDATORIOS_INTERVALO_SEGUNDOS: '3'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -196,21 +200,21 @@ jobs:
           cache-dependency-path: frontend-panel/package-lock.json
       - name: Secreto JWT efímero (R17)
         run: echo "JWT_SECRET_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-      - name: PostgreSQL por Docker Compose (healthcheck)
-        run: docker compose up -d --wait postgres
+      - name: PostgreSQL y Redis por Docker Compose (healthcheck)
+        run: docker compose up -d --wait postgres redis
       - name: Migrar la base
         working-directory: backend
         run: |
           pip install -r requirements.txt
           alembic upgrade head
-      - name: Backend por Docker Compose
+      - name: Backend y worker por Docker Compose
         run: |
-          docker compose up -d --build backend
+          docker compose up -d --build backend worker
           for i in $(seq 1 30); do
             curl -fsS http://localhost:8000/api/health && exit 0
             sleep 2
           done
-          docker compose logs backend
+          docker compose logs backend worker
           exit 1
       - name: Dependencias del panel y Chromium
         working-directory: frontend-panel
@@ -231,6 +235,6 @@ jobs:
             frontend-panel/playwright-report
             frontend-panel/test-results
           retention-days: 7
-      - name: Logs del backend
+      - name: Logs del backend y del worker
         if: failure()
-        run: docker compose logs backend
+        run: docker compose logs backend worker

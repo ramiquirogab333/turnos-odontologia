@@ -40,3 +40,10 @@ class HorarioInvalidoError(Exception):
         super().__init__("Elegí un horario futuro distinto del actual" if motivo == "mismo_horario"
                          else "El horario elegido ya pasó")
         self.motivo = motivo
+
+
+class TurnoIniciadoError(Exception):
+    """El turno ya empezó: no se confirma (409 ``turno_iniciado``, C-09)."""
+
+    def __init__(self) -> None:
+        super().__init__("El turno ya empezó")

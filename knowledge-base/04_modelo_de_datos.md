@@ -84,8 +84,10 @@ ObraSocial 1───* Nomenclador (precargado AR)
 - Relaciones: base para el cálculo de horarios libres.
 
 ### Recordatorio
-- Atributos: id, turno_id, canal (WhatsApp), estado (pendiente / enviado / confirmado / fallido), fecha_envío.
-- Relaciones: *───1 Turno.
+- Atributos (desde C-09, migración `010_recordatorios`): `id`, `turno_id`, `canal` (`whatsapp`), `estado` (`pendiente` / `enviado` / `confirmado` / `fallido` / `anulado`), `turno_inicio` (foto del horario que se recuerda, `TIMESTAMPTZ`), `generado_en`, `enviado_en` (la "fecha_envío": último envío; en v1 manual, cuando recepción abre WhatsApp), `enviado_por_usuario_id`, `confirmado_en`, `intentos_fallidos`, `proximo_intento_en`, `motivo` y `ultimo_error` (≤ 500, sanitizado, sin datos personales). El mensaje NO se guarda.
+- Estado `anulado` (C-09 O7, agrega un quinto estado a los cuatro originales): el turno se canceló o se reprogramó (el recordatorio del horario anterior) o empezó sin que se avisara. Motivos: `sin_telefono`, `numero_invalido`, `sin_whatsapp`, `otro`, `error_proveedor` (estado `fallido`) y `turno_cancelado`, `turno_reprogramado`, `turno_iniciado` (estado `anulado`).
+- Constraints: un solo recordatorio no `anulado` por (`turno_id`, `turno_inicio`) (índice único parcial); `confirmado` ⇔ `confirmado_en`; `enviado` ⇒ `enviado_en`; `fallido`/`anulado` ⇒ `motivo`. Marcar `ausente` o `atendido` NO anula el recordatorio (historial).
+- Relaciones: *───1 Turno; *───0..1 Usuario (quien lo marcó enviado).
 
 ### Presupuesto (desde C-11)
 - Atributos: id, `paciente_id`, `obra_social_id` (nula = particular), `estado` (`borrador`, `presentado`, `aceptado`, `rechazado`, `anulado`), `subtotal`, `cobertura_total`, `diferencial_total`, `total_paciente` (todos `NUMERIC(12,2)`, con `CHECK total_paciente = subtotal - cobertura_total + diferencial_total`), `notas`, `creado_por`, fechas de presentación, resolución y anulación (+ motivo).

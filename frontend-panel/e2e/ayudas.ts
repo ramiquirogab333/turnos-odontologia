@@ -109,7 +109,7 @@ export async function contextoNuevo(browser: Browser, ancho: number, alto: numbe
 }
 
 /** Pasa a otra sección del panel con la navegación y espera su título. */
-export async function irASeccion(page: Page, seccion: 'Agenda' | 'Pacientes' | 'Indicadores' | 'Caja'): Promise<void> {
+export async function irASeccion(page: Page, seccion: 'Agenda' | 'Pacientes' | 'Indicadores' | 'Caja' | 'Recordatorios'): Promise<void> {
   await page.getByRole('navigation', { name: 'Secciones del panel' }).getByRole('link', { name: seccion }).click();
   await expect(page.getByRole('heading', { level: 1, name: seccion })).toBeVisible();
 }

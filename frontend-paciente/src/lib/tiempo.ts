@@ -79,3 +79,11 @@ export function agruparPorDia(slots: readonly Slot[]): Map<string, Slot[]> {
   }
   return grupos;
 }
+
+const formatoSemana = new Intl.DateTimeFormat('es-AR', { timeZone: 'UTC', weekday: 'long' });
+
+/** "martes 17/11" (día de la semana y fecha numérica, para frases cortas). */
+export function etiquetaDiaNumerica(dia: string): string {
+  const [, mes, numero] = dia.split('-');
+  return `${formatoSemana.format(aUtcMediodia(dia))} ${numero ?? ''}/${mes ?? ''}`;
+}

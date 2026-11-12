@@ -497,3 +497,23 @@ describe('App: ruta /gestionar (C-07)', () => {
     expect(await screen.findByRole('radio', { name: /limpieza/i })).toBeInTheDocument();
   });
 });
+
+describe('App: ruta /confirmar (C-09)', () => {
+  afterEach(() => {
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('muestra la confirmación y no pide el catálogo de reserva ni confirma al abrir', async () => {
+    window.history.replaceState(null, '', '/confirmar#CODIGO-SINTETICO-1');
+    const mock = vi.fn((entrada: string) =>
+      Promise.resolve(entrada === '/api/public/gestion' ? json({ detail: 'No encontramos un turno con ese código' }, 404) : json({}, 500)),
+    );
+    vi.stubGlobal('fetch', mock);
+    await montar(Promise.resolve({ tratamientos: [], profesionales: [] }));
+
+    expect(await screen.findByText(/No encontramos un turno con ese código/)).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /limpieza/i })).not.toBeInTheDocument();
+    expect(mock).toHaveBeenCalledTimes(1);
+    expect(mock.mock.calls.every(([u]) => u === '/api/public/gestion')).toBe(true);
+  });
+});

@@ -94,7 +94,7 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 - **Total**: 16 changes en 5 fases.
 - **Camino crítico** (9): detalle en `CHANGES.md` (eje `C-01 → … → C-13` con `C-06 sena-pagos-turno` como change propio de la restricción de seña).
 - **Primer change**: `C-01` (foundation-setup) → arrancar con `/opsx:propose C-01-foundation-setup`.
-- Estado actual: C-01 a C-08, C-11 y C-12 archivados; próximos por árbol: C-09 y C-10 (en paralelo), C-14 y C-15 (C-15 obligatorio antes de producción), C-16, y C-13 (requiere C-12).
+- Estado actual: C-01 a C-09, C-11 y C-12 archivados; próximos por árbol: C-10, C-14 y C-15 (C-15 obligatorio antes de producción), C-16, y C-13 (requiere C-12).
 
 **Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md), identificá las dependencias del change y los archivos de "Leer antes".
 

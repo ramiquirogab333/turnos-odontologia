@@ -246,3 +246,27 @@ export async function leerCierres(): Promise<CierreGuardado[]> {
     return r.rows;
   });
 }
+
+export interface RecordatorioGuardado {
+  readonly turno_id: number;
+  readonly estado: string;
+  readonly motivo: string | null;
+}
+
+/** Recordatorios de la base, en orden de creación (los genera el worker). */
+export async function leerRecordatorios(): Promise<RecordatorioGuardado[]> {
+  return ejecutar(async (c) => {
+    const r = await c.query<RecordatorioGuardado>(
+      'SELECT turno_id::int AS turno_id, estado, motivo FROM recordatorio ORDER BY id',
+    );
+    return r.rows;
+  });
+}
+
+/** Código de gestión de un turno sembrado (para cancelarlo desde la gestión del paciente). */
+export async function leerCodigoGestion(turnoId: number): Promise<string> {
+  return ejecutar(async (c) => {
+    const r = await c.query<{ codigo_gestion: string }>('SELECT codigo_gestion FROM turno WHERE id = $1', [turnoId]);
+    return r.rows[0]?.codigo_gestion ?? '';
+  });
+}

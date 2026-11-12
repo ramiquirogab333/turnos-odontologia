@@ -1,5 +1,7 @@
 """Application settings (R17: secrets only via env vars)."""
 
+import re
+from datetime import timedelta
 from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -46,11 +48,45 @@ class Settings(BaseSettings):
     mp_webhook_tolerancia_segundos: int = 300
     public_base_url: str = "http://localhost:5173"  # back_urls del checkout
     api_public_base_url: str = "http://localhost:8000"  # notification_url del webhook
-    sena_barrido_segundos: int = 60
+    sena_barrido_segundos: int = Field(60, gt=0)
     sena_barrido_habilitado: bool = True
 
     # Panel (C-08, O14): minutos después del inicio desde los que recepción puede marcar un turno ausente.
     ausente_tolerancia_minutos: int = Field(10, ge=0)
+
+    # C-09 (D8): trabajos programados, recordatorios y WhatsApp manual v1. Sin secretos (R17).
+    redis_url: str = "redis://localhost:6379/0"
+    reminder_lead_time: int = 48  # horas; acepta "48" y "48h" (O5)
+    recordatorios_habilitado: bool = True
+    recordatorios_intervalo_segundos: int = Field(300, gt=0)
+    whatsapp_proveedor: Literal["manual", "falso"] = "manual"
+    clinica_nombre: str = Field("la clínica", min_length=1, max_length=80)
+    sena_barrido_en_api: bool = False  # O11: el barrido corre en el worker; la API solo si se habilita
+
+    @field_validator("reminder_lead_time", mode="before")
+    @classmethod
+    def _parsear_anticipacion(cls, value: object) -> object:
+        """Acepta ``48`` o ``48h`` (horas) y exige un valor positivo."""
+        if isinstance(value, str):
+            coincidencia = re.fullmatch(r"\s*(\d+)\s*[hH]?\s*", value)
+            if coincidencia is None:
+                raise ValueError("REMINDER_LEAD_TIME debe ser un número de horas, p. ej. 48 o 48h")
+            value = int(coincidencia.group(1))
+        if isinstance(value, int) and value <= 0:
+            raise ValueError("REMINDER_LEAD_TIME debe ser mayor que cero")
+        return value
+
+    @property
+    def anticipacion_recordatorio(self) -> timedelta:
+        """Anticipación con la que se generan los recordatorios."""
+        return timedelta(hours=self.reminder_lead_time)
+
+    @model_validator(mode="after")
+    def _validar_proveedor_whatsapp(self) -> "Settings":
+        """El proveedor falso es solo de pruebas: nunca fuera de APP_ENV=test."""
+        if self.whatsapp_proveedor == "falso" and self.app_env != "test":
+            raise ValueError("WHATSAPP_PROVEEDOR=falso solo está permitido con APP_ENV=test")
+        return self
 
     @model_validator(mode="after")
     def _validar_pasarela(self) -> "Settings":

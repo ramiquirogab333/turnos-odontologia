@@ -15,11 +15,11 @@ function montar(actual: Seccion) {
 }
 
 describe('Navegacion', () => {
-  it('muestra las cuatro secciones en un nav con nombre', () => {
+  it('muestra las cinco secciones en un nav con nombre', () => {
     montar('agenda');
     const nav = screen.getByRole('navigation', { name: 'Secciones del panel' });
     expect(nav).toBeInTheDocument();
-    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja']);
+    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios']);
   });
 
   it('marca la sección activa con aria-current y solo a ella', () => {
@@ -28,6 +28,14 @@ describe('Navegacion', () => {
     for (const nombre of ['Agenda', 'Pacientes', 'Indicadores']) {
       expect(screen.getByRole('link', { name: nombre })).not.toHaveAttribute('aria-current');
     }
+  });
+
+  it('Recordatorios (C-09) enlaza a su hash y se marca cuando está activa', async () => {
+    montar('recordatorios');
+    expect(screen.getByRole('link', { name: 'Recordatorios' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Recordatorios' })).toHaveAttribute('href', '#/recordatorios');
+    await act(() => base.click(screen.getByRole('link', { name: 'Agenda' })));
+    expect(window.location.hash).toBe('#/agenda');
   });
 
   it('otra sección activa mueve la marca', () => {

@@ -13,6 +13,9 @@ import type {
   Devolucion,
   DiferenciaCierre,
   ErrorCaja,
+  ErrorRecordatorio,
+  MotivoFallo,
+  Recordatorio,
   LineaCaja,
   ListadoPacientes,
   MotivoDeshacer,
@@ -261,6 +264,33 @@ function esPendiente(v: unknown): v is Pendiente {
     textoONulo(v['mp_payment_id']) &&
     esTexto(v['pendiente_desde'])
   );
+}
+
+const ESTADOS_RECORDATORIO: readonly string[] = ['pendiente', 'enviado', 'confirmado', 'fallido'];
+
+function esRecordatorio(v: unknown): v is Recordatorio {
+  return (
+    esRegistro(v) &&
+    esNumero(v['id']) &&
+    esNumero(v['turno_id']) &&
+    esTexto(v['estado']) &&
+    ESTADOS_RECORDATORIO.includes(v['estado']) &&
+    textoONulo(v['motivo']) &&
+    esTexto(v['turno_inicio']) &&
+    esTexto(v['profesional']) &&
+    esTexto(v['tratamiento']) &&
+    textoONulo(v['contacto_nombre']) &&
+    textoONulo(v['enviado_en']) &&
+    esNumero(v['intentos_fallidos']) &&
+    (v['link'] === null || (esTexto(v['link']) && v['link'].startsWith('https://wa.me/')))
+  );
+}
+
+function errorRecordatorio(status: number, cuerpo: Registro): ErrorRecordatorio {
+  if (status === 403) return { tipo: 'sin_permiso' };
+  if (status === 404) return { tipo: 'no_encontrado' };
+  if (status === 409 && cuerpo['motivo'] === 'recordatorio_no_vigente') return { tipo: 'no_vigente' };
+  return { tipo: 'desconocido' };
 }
 
 function esRechazo(v: unknown): v is Rechazo {
@@ -539,6 +569,10 @@ export interface Api {
   ocupacion(desde: string, hasta: string): Promise<Ocupacion>;
   ausentismo(desde: string, hasta: string): Promise<Ausentismo>;
   listarPacientes(consulta: ConsultaPacientes): Promise<ListadoPacientes>;
+  // Recordatorios de WhatsApp (C-09)
+  recordatorios(): Promise<readonly Recordatorio[]>;
+  marcarRecordatorioEnviado(id: number): Promise<Resultado<Recordatorio, ErrorRecordatorio>>;
+  marcarRecordatorioFallido(id: number, motivo: MotivoFallo): Promise<Resultado<Recordatorio, ErrorRecordatorio>>;
 }
 
 export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fetch(...args)): Api {
@@ -702,6 +736,21 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
       q.set('por_pagina', String(c.porPagina));
       if (c.conAusencias) q.set('con_ausencias', 'true');
       return aListado(await leer(`/api/panel/pacientes/listado?${q.toString()}`));
+    },
+    async recordatorios() {
+      const cuerpo = await leer('/api/panel/recordatorios?estado=pendiente&estado=fallido&estado=enviado');
+      if (!esRegistro(cuerpo)) throw new ErrorDeRespuesta();
+      return lista(cuerpo['items'], esRecordatorio);
+    },
+    marcarRecordatorioEnviado(id) {
+      return escribir(`/api/panel/recordatorios/${String(id)}/enviado`, undefined, esRecordatorio, errorRecordatorio, {
+        tipo: 'desconocido',
+      });
+    },
+    marcarRecordatorioFallido(id, motivo) {
+      return escribir(`/api/panel/recordatorios/${String(id)}/fallido`, { motivo }, esRecordatorio, errorRecordatorio, {
+        tipo: 'desconocido',
+      });
     },
   };
 }
