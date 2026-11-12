@@ -2,7 +2,9 @@
 
 from datetime import datetime, timezone
 
-from app.gestion.eventos import NotificadorNulo, NotificadorTurnos
+from app.gestion.eventos import NotificadorTurnos
+from app.notificaciones.notificador import NotificadorCompuesto, NotificadorRecordatorios
+from app.shared.db import get_session_factory
 
 
 def get_reloj() -> datetime:
@@ -11,5 +13,5 @@ def get_reloj() -> datetime:
 
 
 def get_notificador() -> NotificadorTurnos:
-    """Puerto de eventos para C-09/C-10; hoy una implementación nula que solo loguea."""
-    return NotificadorNulo()
+    """Puerto de eventos: hoy solo recordatorios (C-09); C-10 suma el suyo al compuesto."""
+    return NotificadorCompuesto([NotificadorRecordatorios(get_session_factory())])

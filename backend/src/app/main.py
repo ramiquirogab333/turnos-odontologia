@@ -28,6 +28,7 @@ from app.catalogo.router import (
 )
 from app.caja.http import registrar_handlers as registrar_handlers_caja
 from app.caja.router import router as caja_router
+from app.notificaciones.router import router as recordatorios_router
 from app.pagos.barrido import ciclo_barrido
 from app.gestion.router import router as gestion_router
 from app.pagos.router_admin import router as sena_admin_router
@@ -46,10 +47,13 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-    """Arranca el barrido periódico de pre-reservas vencidas (C-06, D8) y lo cancela al apagar."""
+    """Barrido de pre-reservas vencidas dentro de la API solo si ``SENA_BARRIDO_EN_API`` (C-09, O11).
+
+    Por defecto lo corre el worker (``app.jobs``); la bandera sirve para desarrollo y pruebas sin Redis.
+    """
     settings = get_settings()
     application.state.barrido_task = None
-    if settings.sena_barrido_habilitado:
+    if settings.sena_barrido_habilitado and settings.sena_barrido_en_api:
         application.state.barrido_task = asyncio.create_task(
             ciclo_barrido(get_session_factory(), settings.sena_barrido_segundos))
     try:
@@ -79,6 +83,7 @@ app.include_router(pacientes_router)
 app.include_router(clinica_router)
 app.include_router(caja_router)
 app.include_router(indicadores_router)
+app.include_router(recordatorios_router)
 registrar_handlers_clinicos(app)
 registrar_handlers_caja(app)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]

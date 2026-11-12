@@ -18,6 +18,51 @@ services:
       retries: 10
       start_period: 10s
 
+  # C-09 (D1, R18): Redis solo lo usa el worker; la API no depende de él.
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+
+  # C-09 (D1): worker de trabajos programados (recordatorios y barrido de pre-reservas). Misma imagen del backend.
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["arq", "app.jobs.worker.WorkerSettings"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://turnos:turnos@postgres:5432/turnos
+      REDIS_URL: redis://redis:6379/0
+      APP_TZ: America/Argentina/Buenos_Aires
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+      APP_ENV: ${APP_ENV:-production}
+      MP_GATEWAY: ${MP_GATEWAY:-mercadopago}
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:?definí MP_WEBHOOK_SECRET en el entorno (no se commitea ningún secreto)}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
+      SENA_BARRIDO_HABILITADO: ${SENA_BARRIDO_HABILITADO:-true}
+      SENA_BARRIDO_SEGUNDOS: ${SENA_BARRIDO_SEGUNDOS:-60}
+      RECORDATORIOS_HABILITADO: ${RECORDATORIOS_HABILITADO:-true}
+      RECORDATORIOS_INTERVALO_SEGUNDOS: ${RECORDATORIOS_INTERVALO_SEGUNDOS:-300}
+      REMINDER_LEAD_TIME: ${REMINDER_LEAD_TIME:-48}
+      WHATSAPP_PROVEEDOR: ${WHATSAPP_PROVEEDOR:-manual}
+      CLINICA_NOMBRE: ${CLINICA_NOMBRE:-la clínica}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "arq", "--check", "app.jobs.worker.WorkerSettings"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 15s
+
   backend:
     build:
       context: ./backend
@@ -38,9 +83,15 @@ services:
       MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:?definí MP_WEBHOOK_SECRET en el entorno (no se commitea ningún secreto)}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
       API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:-http://localhost:8000}
-      # Barrido de pre-reservas vencidas (C-06 D8). Para los E2E de vencimiento conviene 3.
+      # Barrido de pre-reservas vencidas (C-06 D8). Desde C-09 (O11) lo corre el worker; la API solo lo hace con
+      # SENA_BARRIDO_EN_API=true (desarrollo sin Redis). Para los E2E de vencimiento conviene SENA_BARRIDO_SEGUNDOS=3.
       SENA_BARRIDO_HABILITADO: ${SENA_BARRIDO_HABILITADO:-true}
       SENA_BARRIDO_SEGUNDOS: ${SENA_BARRIDO_SEGUNDOS:-60}
+      SENA_BARRIDO_EN_API: ${SENA_BARRIDO_EN_API:-false}
+      # C-09: la API arma el link de WhatsApp del panel con estos datos (no usa Redis).
+      REMINDER_LEAD_TIME: ${REMINDER_LEAD_TIME:-48}
+      WHATSAPP_PROVEEDOR: ${WHATSAPP_PROVEEDOR:-manual}
+      CLINICA_NOMBRE: ${CLINICA_NOMBRE:-la clínica}
       # C-08 (O14): minutos tras el inicio desde los que recepción puede marcar un turno como ausente.
       AUSENTE_TOLERANCIA_MINUTOS: ${AUSENTE_TOLERANCIA_MINUTOS:-10}
     ports:

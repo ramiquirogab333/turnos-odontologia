@@ -17,11 +17,13 @@ from app.gestion.errores import (
     GestionNoEncontradaError,
     HorarioInvalidoError,
     SenaPendienteError,
+    TurnoIniciadoError,
     TurnoNoModificableError,
 )
 from app.gestion.eventos import NotificadorTurnos
 from app.gestion.schemas import (
     CancelacionResponse,
+    ConfirmacionResponse,
     ErrorGestionBody,
     GestionTurnoResponse,
     ReprogramacionResponse,
@@ -29,6 +31,7 @@ from app.gestion.schemas import (
 )
 from app.gestion.service import (
     cancelar_turno_publico,
+    confirmar_turno_publico,
     consultar_gestion,
     reprogramar_turno_publico,
     zona_clinica,
@@ -82,6 +85,38 @@ async def consultar(
     except GestionNoEncontradaError:
         return _respuesta_404()
     return GestionTurnoResponse.model_validate(datos)
+
+
+@router.post(
+    "/confirmar",
+    response_model=ConfirmacionResponse,
+    summary="Confirma la asistencia al turno reservado (sin ventana de 24 h)",
+    responses={
+        404: {"description": "Código de gestión ausente o desconocido"},
+        409: {"model": ErrorGestionBody, "description": "Seña pendiente, turno no modificable o ya iniciado"},
+        503: {"description": "Operación transitoria no completada: reintentar"},
+    },
+)
+async def confirmar(
+    codigo: CodigoGestion = None,
+    session: AsyncSession = Depends(get_session),
+    ahora: datetime = Depends(get_reloj),
+) -> ConfirmacionResponse | JSONResponse:
+    try:
+        datos = await confirmar_turno_publico(session, codigo, ahora=ahora)
+    except GestionNoEncontradaError:
+        return _respuesta_404()
+    except TurnoNoModificableError:
+        return _respuesta_no_modificable()
+    except SenaPendienteError as exc:
+        return JSONResponse(status_code=409, content=ErrorGestionBody(
+            detail=str(exc), motivo="sena_pendiente").model_dump(mode="json"))
+    except TurnoIniciadoError:
+        return JSONResponse(status_code=409, content=ErrorGestionBody(
+            detail="Este turno ya empezó, no se puede confirmar.", motivo="turno_iniciado").model_dump(mode="json"))
+    except OperacionReintentableError:
+        return _respuesta_reintentar()
+    return ConfirmacionResponse.model_validate(datos)
 
 
 @router.post(

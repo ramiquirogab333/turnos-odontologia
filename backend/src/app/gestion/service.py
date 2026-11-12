@@ -8,7 +8,7 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,12 +17,14 @@ from app.gestion.errores import (
     GestionNoEncontradaError,
     HorarioInvalidoError,
     SenaPendienteError,
+    TurnoIniciadoError,
     TurnoNoModificableError,
 )
 from app.gestion.eventos import EventoTurno, NotificadorTurnos
-from app.gestion.schemas import MotivoNoModificable
+from app.gestion.schemas import MotivoNoConfirmable, MotivoNoModificable
 from app.pagos.config import obtener_configuracion
 from app.models.core import RegistroAuditoria
+from app.notificaciones.models import Recordatorio
 from app.pagos.errores import OperacionReintentableError, TurnoInexistenteError
 from app.pagos.estados import (
     CancelacionFueraDePlazoError,
@@ -86,6 +88,17 @@ def _motivos(estado: str, inicio: datetime, ahora: datetime) -> tuple[MotivoNoMo
     return fuera, fuera
 
 
+def _motivo_no_confirmable(estado: str, inicio: datetime, ahora: datetime) -> MotivoNoConfirmable | None:
+    """Por qué no se puede confirmar (C-09 D5); ``None`` si es un ``reservado`` que todavía no empezó."""
+    if estado in ESTADOS_FINALES:
+        return "turno_no_modificable"
+    if estado == "en_espera":
+        return "sena_pendiente"
+    if estado == "confirmado":
+        return "ya_confirmado"
+    return "turno_iniciado" if inicio <= ahora else None
+
+
 async def consultar_gestion(session: AsyncSession, codigo: str | None, *, ahora: datetime) -> dict[str, object]:
     """Datos del turno para gestionarlo, sin teléfono ni nombre de contacto."""
     turno_id = await turno_id_por_codigo(session, codigo)
@@ -99,6 +112,7 @@ async def consultar_gestion(session: AsyncSession, codigo: str | None, *, ahora:
     assert tratamiento is not None and profesional is not None  # FK obligatorias
     zona = zona_clinica()
     no_cancelable, no_reprogramable = _motivos(turno.estado, turno.inicio, ahora)
+    no_confirmable = _motivo_no_confirmable(turno.estado, turno.inicio, ahora)
     return {
         "estado": turno.estado,
         "inicio": turno.inicio.astimezone(zona),
@@ -112,6 +126,8 @@ async def consultar_gestion(session: AsyncSession, codigo: str | None, *, ahora:
         "puede_reprogramar": no_reprogramable is None,
         "motivo_no_cancelable": no_cancelable,
         "motivo_no_reprogramable": no_reprogramable,
+        "puede_confirmar": no_confirmable is None,
+        "motivo_no_confirmable": no_confirmable,
         "texto_politica_reembolso": config.texto_politica_reembolso,
     }
 
@@ -150,6 +166,52 @@ async def cancelar_turno_publico(session: AsyncSession, codigo: str | None, *, a
             tipo="turno_cancelado", turno_id=r.turno_id, profesional_id=r.profesional_id,
             inicio_anterior=r.inicio, fin_anterior=r.fin, inicio_nuevo=None, fin_nuevo=None, ocurrido_en=ahora))
     return r
+
+
+async def confirmar_turno_publico(session: AsyncSession, codigo: str | None, *,
+                                  ahora: datetime) -> dict[str, object]:
+    """Confirma la asistencia del paciente (RN-WA-02): ``reservado`` que todavía no empezó -> ``confirmado``.
+
+    No exige 24 h ni publica eventos de calendario (el horario no cambia). Es idempotente sobre un ``confirmado``.
+    Cierra además el recordatorio vigente del horario; si esa marca falla, el ciclo del trabajo la corrige.
+
+    Raises:
+        GestionNoEncontradaError: código inválido (404).
+        TurnoNoModificableError: estado final (409).
+        SenaPendienteError: ``en_espera`` (409, R8).
+        TurnoIniciadoError: el inicio ya pasó (409).
+        OperacionReintentableError: agotados los reintentos transitorios (503).
+    """
+    turno_id = await turno_id_por_codigo(session, codigo)
+    turno = (await session.execute(select(Turno).where(Turno.id == turno_id))).scalar_one()
+    motivo = _motivo_no_confirmable(turno.estado, turno.inicio, ahora)
+    if motivo == "turno_no_modificable":
+        raise TurnoNoModificableError(turno.estado)
+    if motivo == "sena_pendiente":
+        raise SenaPendienteError()
+    if motivo == "turno_iniciado":
+        raise TurnoIniciadoError()
+    if motivo is None:  # ``ya_confirmado`` cae al return: idempotente, sin auditoría nueva
+        try:
+            await cambiar_estado_turno(session, turno_id, "confirmado", None, ahora=ahora,
+                                       origen="confirmacion_paciente")
+        except TurnoInexistenteError as exc:
+            raise GestionNoEncontradaError() from exc
+        except TransicionInvalidaError as exc:  # otro cambio ganó la carrera entre la lectura y el bloqueo
+            raise TurnoNoModificableError(exc.actual) from exc
+        try:
+            await session.execute(
+                update(Recordatorio)
+                .where(Recordatorio.turno_id == turno_id, Recordatorio.turno_inicio == turno.inicio,
+                       Recordatorio.estado.in_(("pendiente", "enviado", "fallido")))
+                .values(estado="confirmado", confirmado_en=ahora, motivo=None, proximo_intento_en=None)
+                .execution_options(synchronize_session=False))
+            await session.commit()
+        except Exception:  # noqa: BLE001 - la confirmación ya está hecha; el trabajo reconcilia el recordatorio
+            await session.rollback()
+            logger.exception("no se pudo cerrar el recordatorio del turno %s", turno_id)
+    zona = zona_clinica()
+    return {"estado": "confirmado", "inicio": turno.inicio.astimezone(zona), "fin": turno.fin.astimezone(zona)}
 
 
 async def _reprogramar_una_vez(session: AsyncSession, turno_id: int, nuevo_inicio: datetime, *,
