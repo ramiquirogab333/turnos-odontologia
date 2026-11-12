@@ -118,7 +118,10 @@ export interface ReservaRequest {
 
 // --- Gestión del turno por el paciente (C-07) --------------------------------------------------
 
-export type MotivoNoModificable = 'fuera_de_plazo' | 'turno_no_modificable' | 'sena_pendiente';
+export type MotivoNoModificable = 'fuera_de_plazo' | 'turno_no_modificable' | 'sena_pendiente' | 'turno_iniciado';
+
+/** Por qué la consulta de gestión no deja confirmar la asistencia (C-09). */
+export type MotivoNoConfirmable = 'sena_pendiente' | 'turno_no_modificable' | 'turno_iniciado' | 'ya_confirmado';
 
 /** Seña tal como la ve la gestión: el monto es un decimal serializado como texto (R4). */
 export interface SenaGestion {
@@ -139,12 +142,21 @@ export interface GestionTurno {
   readonly puede_reprogramar: boolean;
   readonly motivo_no_cancelable: MotivoNoModificable | null;
   readonly motivo_no_reprogramable: MotivoNoModificable | null;
+  readonly puede_confirmar: boolean;
+  readonly motivo_no_confirmable: MotivoNoConfirmable | null;
   readonly texto_politica_reembolso: string;
 }
 
 export interface TurnoCancelado {
   readonly estado: 'cancelado';
   readonly estado_sena: EstadoPago | null;
+}
+
+/** Respuesta de POST /api/public/gestion/confirmar: el turno ya confirmado, en hora de la clínica. */
+export interface TurnoConfirmado {
+  readonly estado: 'confirmado';
+  readonly inicio: string;
+  readonly fin: string;
 }
 
 export interface TurnoReprogramado {
@@ -160,6 +172,7 @@ export type ErrorGestion =
   | { readonly tipo: 'fuera_de_plazo'; readonly limite_cambios: string | null }
   | { readonly tipo: 'turno_no_modificable' }
   | { readonly tipo: 'sena_pendiente' }
+  | { readonly tipo: 'turno_iniciado' }
   | { readonly tipo: 'conflicto'; readonly motivo: 'profesional' | 'sillon'; readonly alternativas: readonly Alternativa[] }
   | { readonly tipo: 'horario_invalido'; readonly mensaje: string }
   | { readonly tipo: 'desconocido'; readonly mensaje: string };

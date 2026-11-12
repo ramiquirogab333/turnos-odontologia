@@ -289,10 +289,10 @@ describe('App: secciones del panel (C-12)', () => {
     window.location.hash = '';
   });
 
-  it('recepción ve las cuatro secciones y empieza en la agenda', async () => {
+  it('recepción ve las cinco secciones y empieza en la agenda', async () => {
     await abrir(servidor(refresco, ...panel, ...secciones));
     const nav = await screen.findByRole('navigation', { name: 'Secciones del panel' });
-    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja']);
+    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios']);
     expect(screen.getByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Agenda' })).toHaveAttribute('aria-current', 'page');
   });
@@ -333,6 +333,24 @@ describe('App: secciones del panel (C-12)', () => {
     await abrir(servidor(refresco, odontologa, ...panel, ...secciones));
     expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Secciones del panel' })).toBeNull();
+  });
+
+  it('un hash #/recordatorios deja a la odontóloga en la agenda y no pide recordatorios (C-09)', async () => {
+    window.location.hash = '#/recordatorios';
+    const odontologa = ruta('GET /api/auth/me', { ...ME, roles: ['odontologo'] });
+    const fetchFn = servidor(refresco, odontologa, ...panel, ...secciones);
+    await abrir(fetchFn);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Recordatorios' })).toBeNull();
+    expect(pedidos(fetchFn).some((u) => u.startsWith('/api/panel/recordatorios'))).toBe(false);
+  });
+
+  it('recepción entra a #/recordatorios y ve la sección (C-09)', async () => {
+    window.location.hash = '#/recordatorios';
+    const fetchFn = servidor(refresco, ...panel, ...secciones, ruta('GET /api/panel/recordatorios', { items: [] }));
+    await abrir(fetchFn);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Recordatorios' })).toBeInTheDocument();
+    expect(await screen.findByText('No hay recordatorios por enviar')).toBeInTheDocument();
   });
 
   it('un hash #/caja deja a la odontóloga en la agenda y no pide nada de caja', async () => {

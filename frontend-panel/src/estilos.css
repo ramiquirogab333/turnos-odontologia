@@ -748,3 +748,28 @@ details > summary {
   color: var(--color-primario);
   cursor: pointer;
 }
+
+/* C-09: el enlace "Abrir WhatsApp" se ve y se toca como un botón (objetivo táctil >= 48px). */
+a.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.insignia-recordatorio-enviado,
+.insignia-recordatorio-confirmado {
+  color: var(--color-primario);
+}
+
+.insignia-recordatorio-fallido {
+  border-style: dashed;
+  color: var(--color-aviso);
+}
+
+.opcion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--objetivo-tactil);
+}

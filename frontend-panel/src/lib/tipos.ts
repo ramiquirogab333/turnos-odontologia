@@ -315,3 +315,30 @@ export interface ListadoPacientes {
   readonly por_pagina: number;
   readonly pacientes: readonly PacienteListado[];
 }
+
+// --- Recordatorios de WhatsApp (C-09) ----------------------------------------------------------------------------
+
+export type EstadoRecordatorio = 'pendiente' | 'enviado' | 'confirmado' | 'fallido';
+/** Motivos que recepción puede declarar al marcar "No se pudo enviar". */
+export type MotivoFallo = 'numero_invalido' | 'sin_whatsapp' | 'otro';
+
+export interface Recordatorio {
+  readonly id: number;
+  readonly turno_id: number;
+  readonly estado: EstadoRecordatorio;
+  readonly motivo: string | null;
+  readonly turno_inicio: string;
+  readonly profesional: string;
+  readonly tratamiento: string;
+  readonly contacto_nombre: string | null;
+  readonly enviado_en: string | null;
+  readonly intentos_fallidos: number;
+  /** `https://wa.me/...` armado por el servidor; `null` si no hay teléfono válido o ya no corresponde avisar. */
+  readonly link: string | null;
+}
+
+export type ErrorRecordatorio =
+  | { readonly tipo: 'no_vigente' }
+  | { readonly tipo: 'no_encontrado' }
+  | { readonly tipo: 'sin_permiso' }
+  | { readonly tipo: 'desconocido' };

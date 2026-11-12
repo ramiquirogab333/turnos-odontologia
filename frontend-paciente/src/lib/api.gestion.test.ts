@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cancelarTurno, consultarGestion, reprogramarTurno } from './api';
+import { cancelarTurno, confirmarTurno, consultarGestion, reprogramarTurno } from './api';
 
 const GESTION = {
   estado: 'reservado',
@@ -13,6 +13,8 @@ const GESTION = {
   puede_reprogramar: true,
   motivo_no_cancelable: null,
   motivo_no_reprogramable: null,
+  puede_confirmar: true,
+  motivo_no_confirmable: null,
   texto_politica_reembolso: 'Texto sintético.',
 };
 
@@ -131,5 +133,65 @@ describe('reprogramarTurno', () => {
     const r2 = await reprogramarTurno('x', 'y');
     expect(r2.ok).toBe(false);
     if (!r2.ok) expect(r2.error.tipo).toBe('horario_invalido');
+  });
+});
+
+describe('consultarGestion: confirmación (C-09)', () => {
+  it('acepta puede_confirmar y los motivos del contrato', async () => {
+    for (const motivo of ['sena_pendiente', 'turno_no_modificable', 'turno_iniciado', 'ya_confirmado'] as const) {
+      servidor(json({ ...GESTION, puede_confirmar: false, motivo_no_confirmable: motivo }));
+      const r = await consultarGestion('x');
+      expect(r.ok && r.gestion.motivo_no_confirmable).toBe(motivo);
+    }
+  });
+
+  it('un motivo de confirmación desconocido rompe el contrato', async () => {
+    servidor(json({ ...GESTION, puede_confirmar: false, motivo_no_confirmable: 'inventado' }));
+    expect((await consultarGestion('x')).ok).toBe(false);
+  });
+
+  it('sin puede_confirmar rompe el contrato', async () => {
+    servidor(json({ ...GESTION, puede_confirmar: undefined }));
+    expect((await consultarGestion('x')).ok).toBe(false);
+  });
+});
+
+describe('confirmarTurno', () => {
+  const OK = { estado: 'confirmado', inicio: '2026-11-17T10:30:00-03:00', fin: '2026-11-17T11:00:00-03:00' };
+
+  it('POST con el código en la cabecera y nunca en la URL; devuelve el turno confirmado', async () => {
+    const mock = servidor(json(OK));
+    const r = await confirmarTurno('CODIGO-SINTETICO-1');
+    const [url, init] = mock.mock.calls[0] ?? ['', undefined];
+    expect(url).toBe('/api/public/gestion/confirmar');
+    expect(url).not.toContain('CODIGO');
+    expect(init?.method).toBe('POST');
+    expect(new Headers(init?.headers).get('X-Codigo-Gestion')).toBe('CODIGO-SINTETICO-1');
+    expect(r).toEqual({ ok: true, confirmacion: OK });
+  });
+
+  it('404 es no_encontrado', async () => {
+    servidor(json({ detail: 'x' }, 404));
+    expect(await confirmarTurno('x')).toEqual({ ok: false, error: { tipo: 'no_encontrado' } });
+  });
+
+  it.each([
+    ['sena_pendiente', { tipo: 'sena_pendiente' }],
+    ['turno_no_modificable', { tipo: 'turno_no_modificable' }],
+    ['turno_iniciado', { tipo: 'turno_iniciado' }],
+  ])('409 %s se mapea a su error tipado', async (motivo, esperado) => {
+    servidor(json({ detail: 'x', motivo }, 409));
+    expect(await confirmarTurno('x')).toEqual({ ok: false, error: esperado });
+  });
+
+  it('un 200 con un cuerpo roto, un 503 y la falta de red son errores desconocidos', async () => {
+    servidor(json({ estado: 'reservado' }));
+    const roto = await confirmarTurno('x');
+    expect(roto.ok === false && roto.error.tipo).toBe('desconocido');
+    servidor(json({ detail: 'reintentar' }, 503));
+    const reintentar = await confirmarTurno('x');
+    expect(reintentar.ok === false && reintentar.error.tipo).toBe('desconocido');
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('red'))));
+    expect((await confirmarTurno('x')).ok).toBe(false);
   });
 });

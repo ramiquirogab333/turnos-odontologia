@@ -1,5 +1,6 @@
 import { Suspense, use, useEffect, useRef, useState, type FormEvent } from 'react';
 import { cancelarTurno, consultarGestion, obtenerDisponibilidad, reprogramarTurno, type ResultadoGestion } from '../lib/api';
+import { leerCodigoDelHash } from '../lib/codigo';
 import { montoExacto } from '../lib/formato';
 import { diaClinica, etiquetaDiaLarga, horaClinica, hoyClinica, sumarDias } from '../lib/tiempo';
 import type { Alternativa, ErrorGestion, GestionTurno as Gestion, Slot } from '../lib/tipos';
@@ -7,17 +8,6 @@ import { Cargando } from './Cargando';
 import { PasoHorario } from './PasoHorario';
 
 const DIAS_DE_BUSQUEDA = 14;
-
-/** El código llega en el fragmento (`/gestionar#<código>`): el fragmento no viaja al servidor ni queda en sus logs. */
-function leerCodigoDelHash(): string | null {
-  const crudo = window.location.hash.replace(/^#/, '');
-  if (crudo === '') return null;
-  try {
-    return decodeURIComponent(crudo).trim() || null;
-  } catch {
-    return crudo.trim() || null;
-  }
-}
 
 function momento(iso: string): string {
   return `${etiquetaDiaLarga(diaClinica(iso))} a las ${horaClinica(iso)}`;
@@ -36,6 +26,8 @@ function mensajeDeError(error: ErrorGestion): string {
       return 'Este turno ya no se puede modificar.';
     case 'sena_pendiente':
       return 'Tu turno todavía no está confirmado. Cancelalo y reservá otro horario.';
+    case 'turno_iniciado':
+      return 'Este turno ya empezó.';
     case 'no_encontrado':
       return 'No encontramos un turno con ese código. Revisá que esté bien escrito.';
     case 'horario_invalido':

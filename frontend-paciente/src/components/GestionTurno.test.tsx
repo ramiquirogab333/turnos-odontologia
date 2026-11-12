@@ -24,6 +24,8 @@ const RESERVADO = {
   puede_reprogramar: true,
   motivo_no_cancelable: null,
   motivo_no_reprogramable: null,
+  puede_confirmar: true,
+  motivo_no_confirmable: null,
   texto_politica_reembolso: 'Texto sintético.',
 };
 const FUERA_DE_PLAZO = {

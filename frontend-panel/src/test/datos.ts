@@ -14,6 +14,7 @@ import type {
   PacienteListado,
   Pendiente,
   Rechazo,
+  Recordatorio,
   Acreditacion,
   TurnoAgenda,
   TurnoCreado,
@@ -210,6 +211,23 @@ export const AUSENTISMO: Ausentismo = {
 };
 
 /** Un `Api` con todos los métodos espías; cada prueba sobreescribe los que le importan. */
+export function recordatorio(sobre: Partial<Recordatorio> = {}): Recordatorio {
+  return {
+    id: 7,
+    turno_id: 11,
+    estado: 'pendiente',
+    motivo: null,
+    turno_inicio: '2031-11-18T09:00:00-03:00',
+    profesional: 'Dra. Ana Ficticia',
+    tratamiento: 'Limpieza dental',
+    contacto_nombre: 'Carlos Sintético',
+    enviado_en: null,
+    intentos_fallidos: 0,
+    link: 'https://wa.me/5491144445555?text=Hola%20Carlos',
+    ...sobre,
+  };
+}
+
 export function apiFalsa(sobre: Partial<Api> = {}) {
   const api = {
     me: vi.fn<Api['me']>(),
@@ -235,6 +253,13 @@ export function apiFalsa(sobre: Partial<Api> = {}) {
     ocupacion: vi.fn<Api['ocupacion']>().mockResolvedValue(OCUPACION),
     ausentismo: vi.fn<Api['ausentismo']>().mockResolvedValue(AUSENTISMO),
     listarPacientes: vi.fn<Api['listarPacientes']>().mockResolvedValue(listado([])),
+    recordatorios: vi.fn<Api['recordatorios']>().mockResolvedValue([]),
+    marcarRecordatorioEnviado: vi
+      .fn<Api['marcarRecordatorioEnviado']>()
+      .mockResolvedValue({ ok: true, valor: recordatorio({ estado: 'enviado' }) }),
+    marcarRecordatorioFallido: vi
+      .fn<Api['marcarRecordatorioFallido']>()
+      .mockResolvedValue({ ok: true, valor: recordatorio({ estado: 'fallido', motivo: 'otro' }) }),
     ...sobre,
   };
   return api;
