@@ -103,6 +103,7 @@ async def clean_db(
     from app.clinica.models import OdontogramaRegistro, PagoPresupuesto, Presupuesto, PresupuestoLinea
     from app.models.core import ObraSocial, Paciente
     from app.pacientes.models import Ficha
+    from app.notificaciones.models import Recordatorio
     from app.pagos.models import AprobacionPago, ConfiguracionSena, PagoSena
     from app.turnos.models import Turno
 
@@ -119,6 +120,7 @@ async def clean_db(
             PagoSena,
             TokenBlacklist,
             RegistroAuditoria,
+            Recordatorio,
             UsuarioRol,
             Usuario,
             Rol,
