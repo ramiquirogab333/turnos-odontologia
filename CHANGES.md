@@ -302,7 +302,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-09] `whatsapp-recordatorios-confirmacion`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado 2026-11-11 (`openspec/changes/archive/2026-11-11-c-09-whatsapp-recordatorios-confirmacion/`, specs nuevas en `openspec/specs/notificaciones/recordatorios-whatsapp/spec.md` y `openspec/specs/plataforma/trabajos-programados/spec.md`, y `openspec/specs/turnos/gestion-paciente/spec.md` (modificada, requisitos agregados); CI remota en verde, run 43135759189)
 - **Scope**: Recordatorios y confirmación por WhatsApp MANUAL v1 con scheduler (US-004) (stack congelado: Redis workers vía Docker Compose)
   - MOVIDO desde el viejo C-01: base de jobs/scheduler — Redis vía Docker Compose con healthcheck + workers para jobs pesados (R16, R18); el job de expiración de `en_espera` de C-06 se consolida aquí si se definió local allí
   - Resoluciones 2026-09-30 nº2 — WhatsApp MANUAL en v1: SIN API paga de envío automático; la v1 genera links `wa.me/` con mensajes preformateados (recordatorio con botones confirmar/cancelar como links con código de gestión); se mantiene la abstracción de proveedor (interfaz) para migrar a API después sin reescribir el dominio (cierra RN-WA-03 como manual)
@@ -311,6 +311,12 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - Modelo `Recordatorio` (`turno_id`, canal WhatsApp, estado pendiente/enviado/confirmado/fallido, fecha_envío)
   - Reglas verificables: RN-WA-01 (todo turno bloqueante genera recordatorio), RN-WA-02 (confirmación por botón actualiza estado), RN-WA-03 = manual v1 (links `wa.me`, sin costo por mensaje), R8 (`en_espera` sin recordatorio), R16 (envío pesado en workers Redis)
   - Done-criteria (test): solo turnos bloqueantes reciben recordatorio, link `wa.me` con mensaje preformateado correcto, confirmación cambia estado, fallo → reintento + registro
+  - Entregado: worker arq + Redis en Compose con healthcheck; recordatorios WhatsApp manuales (links `wa.me`, sección Recordatorios del panel para recepción/admin); confirmación pública `/confirmar` + `POST /api/public/gestion/confirmar`; `REMINDER_LEAD_TIME` 48 h (O5); barrido de pre-reservas de C-06 movido al worker (`SENA_BARRIDO_EN_API`); migración `010_recordatorios`; sin webhook en v1 (O4)
+  - Seguimientos registrados (fuera de C-09):
+    - Rate limiting de endpoints públicos con Redis → C-15 (O13)
+    - Barrido de `en_revision` vencidos sigue fuera (O12, falta regla de negocio)
+    - No se probó el worker con Redis caído (con `depends_on: service_healthy` Compose levanta Redis antes)
+    - Migrar a la API paga de WhatsApp usa el puerto `ProveedorWhatsApp`
 - **Dependencias**: C-07
 - **Governance**: ALTO
 - **Leer antes**:
