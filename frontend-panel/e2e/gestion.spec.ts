@@ -153,6 +153,9 @@ test('atendido el mismo día antes de la hora: se acepta, la seña no cambia y e
 }) => {
   const inicio = proximaMediaHora(enMs(2 * MINUTO));
   test.skip(diaDe(inicio) !== diaDe(new Date()), 'Muy cerca de la medianoche de la clínica: el turno cae en el día siguiente.');
+  // La aserción final necesita otros horarios libres ese día: a partir de ~3 h antes de la medianoche de la clínica no
+  // queda lugar para otro turno después de este y la disponibilidad del día vuelve vacía (falló así en la CI de C-09).
+  test.skip(diaDe(new Date(inicio.getTime() + 3 * HORA)) !== diaDe(inicio), 'Sin lugar para otro turno ese día: muy cerca de la medianoche de la clínica.');
   const id = await sembrarTurno(semilla, { inicio, sena: 'acreditado' });
   await ingresar(page);
 
