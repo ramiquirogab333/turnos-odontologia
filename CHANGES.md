@@ -442,11 +442,13 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-13] `auditoria-exportacion`
-- **Estado**: `[ ]` pendiente
-- **Scope**: Auditoría básica transversal + exportación masiva (US-011, US-012)
-  - `RegistroAuditoria` (usuario, acción, entidad_afectada, fecha_hora) vía middleware/interceptor en todos los endpoints de panel (RN-GL-01) — incluye transiciones de seña y marcado de ausente
-  - `GET /api/panel/auditoria` (lectura/generación recepción/admin) con filtros por entidad/usuario/fecha
-  - `GET /api/panel/export?entidad=turnos|pacientes&formato=csv` — exportación tabular descargable (RN-GL-02), streaming para datasets grandes
+- **Estado**: `[x]` archivado 2026-11-13 (`openspec/changes/archive/2026-11-13-c-13-auditoria-exportacion/`, specs nuevas en `openspec/specs/plataforma/auditoria/spec.md` y `openspec/specs/plataforma/exportacion-datos/spec.md`, y `openspec/specs/dominio/modelos-core/spec.md`, `openspec/specs/integraciones/google-calendar/spec.md`, `openspec/specs/pacientes/registro-paciente/spec.md`, `openspec/specs/turnos/creacion-sin-solape/spec.md` (ampliadas, ADDED); decisiones O1–O17 aprobadas 2026-11-13)
+- **Scope (final, decisiones O1–O16 aprobadas 2026-11-13)**: Auditoría básica transversal + exportación masiva (US-011, US-012)
+  - `RegistroAuditoria` explícito en la transacción del caso de uso (no middleware: no comparte transacción y rompe el streaming) con helper único `app/plataforma/auditoria.py`, **política de auditoría por ruta verificada por un test de contrato**, IP real vía `ContextVar` en todo pedido autenticado y tabla **de solo agregado** (migración `013_auditoria_exportacion`: trigger, FK `RESTRICT`, CHECK de IP, índice por entidad) — incluye transiciones de seña y marcado de ausente, lecturas de pacientes, alta interna e inicio de Google
+  - `GET /api/panel/auditoria` (**solo admin**, enmienda O6) con filtros por entidad/usuario/tipo/fecha, cursor keyset y tipos legibles; `GET /api/panel/usuarios` (directorio mínimo para el filtro)
+  - `GET /api/panel/export?entidad=turnos|pacientes|cierres_caja&formato=csv` — turnos y cierres: recepción y admin; pacientes: **solo admin** (enmienda O7); streaming con foto `REPEATABLE READ`, auditoría previa, límite por usuario (`EXPORT_MAX_POR_HORA`, `EXPORT_TIMEOUT_SEGUNDOS`) y neutralización de fórmulas
+  - Sección «Datos» del panel (Exportar / Auditoría) a 360 px con E2E
+  - Seguimientos: retención/purga de la auditoría (O16, plazo legal a confirmar con la clínica; exige una excepción al trigger) y separar el rol de BD de la aplicación sin `UPDATE`/`DELETE`/`TRUNCATE` (O4 b, mejora de despliegue)
   - Reglas verificables: RN-GL-01 (toda acción de panel deja rastro), RN-GL-02 (exportación masiva tabular)
   - Done-criteria (test): toda acción de panel deja rastro, exportación con datos grandes vía streaming, permisos de lectura
   - Acciones de auditoría nuevas de C-12 que la lectura y la exportación deben incluir: cierre y anulación de caja, devolución de seña y de excedente, rechazo de una revisión, `deshacer_atendido` y la lectura del listado de pacientes; la exportación de cierres de caja también es de C-13
