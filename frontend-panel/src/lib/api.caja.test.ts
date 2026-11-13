@@ -149,6 +149,7 @@ const TURNO = {
   sena: null,
   vence_en: null,
   acciones: ['deshacer_atendido'],
+  calendario: { estado: 'sin_evento', conflicto_abierto: false },
 };
 const CONSULTA: Consulta = { vista: 'dia', fecha: '2031-11-18', profesionalId: null, sillonId: null };
 
@@ -297,7 +298,7 @@ describe('crearApi: deshacer un atendido', () => {
   });
 
   it('la agenda acepta la acción deshacer_atendido que informa el servidor', async () => {
-    const agenda = { vista: 'dia', desde: '2031-11-18', hasta: '2031-11-18', turnos: [TURNO] };
+    const agenda = { vista: 'dia', desde: '2031-11-18', hasta: '2031-11-18', turnos: [TURNO], ocupados_google: [] };
     const r = await api(servidor(() => json(agenda))).agenda(CONSULTA);
     expect(r.turnos[0]?.acciones).toEqual(['deshacer_atendido']);
   });

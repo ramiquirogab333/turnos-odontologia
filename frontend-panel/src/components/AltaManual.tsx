@@ -151,6 +151,9 @@ export function AltaManual({ api, opciones, fechaInicial, onCreado, onCerrar }: 
           </p>
           <p className="nota">Código de gestión para compartir con la persona:</p>
           <p className="codigo">{creado.codigo_gestion}</p>
+          {creado.aviso_google_calendar && (
+            <p className="aviso aviso-info">Ese horario figura ocupado en el Google Calendar de la profesional</p>
+          )}
           <p className="aviso aviso-info">
             Este código se muestra una sola vez. Copialo y compartilo ahora: no se vuelve a ver en el panel.
           </p>

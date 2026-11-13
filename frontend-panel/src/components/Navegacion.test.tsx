@@ -15,11 +15,17 @@ function montar(actual: Seccion) {
 }
 
 describe('Navegacion', () => {
-  it('muestra las cinco secciones en un nav con nombre', () => {
+  it('muestra las seis secciones en un nav con nombre', () => {
     montar('agenda');
     const nav = screen.getByRole('navigation', { name: 'Secciones del panel' });
     expect(nav).toBeInTheDocument();
-    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios']);
+    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios', 'Google Calendar']);
+  });
+
+  it('con una lista acotada (la odontóloga) solo muestra esas secciones', () => {
+    render(<Navegacion actual="agenda" secciones={['agenda', 'google-calendar']} />);
+    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Google Calendar']);
+    expect(screen.getByRole('link', { name: 'Google Calendar' })).toHaveAttribute('href', '#/google-calendar');
   });
 
   it('marca la sección activa con aria-current y solo a ella', () => {

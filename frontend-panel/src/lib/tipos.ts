@@ -44,6 +44,22 @@ export interface TurnoAgenda {
   readonly sena: SenaAgenda | null;
   readonly vence_en: string | null;
   readonly acciones: readonly Accion[];
+  /** Estado del evento en Google Calendar y si hay un conflicto abierto (C-10). */
+  readonly calendario: CalendarioTurno;
+}
+
+export type EstadoEvento = 'sin_evento' | 'pendiente' | 'sincronizado' | 'desvinculado';
+
+export interface CalendarioTurno {
+  readonly estado: EstadoEvento;
+  readonly conflicto_abierto: boolean;
+}
+
+/** Franja ocupada en el Google Calendar de la profesional: solo horario, sin título (C-10, O19). */
+export interface OcupadoGoogle {
+  readonly profesional_id: number;
+  readonly inicio: string;
+  readonly fin: string;
 }
 
 export interface Agenda {
@@ -51,6 +67,7 @@ export interface Agenda {
   readonly desde: string;
   readonly hasta: string;
   readonly turnos: readonly TurnoAgenda[];
+  readonly ocupados_google: readonly OcupadoGoogle[];
 }
 
 export interface Opciones {
@@ -98,6 +115,8 @@ export interface TurnoCreado {
   readonly sillon_id: number;
   readonly tratamiento_id: number;
   readonly codigo_gestion: string;
+  /** El horario figura ocupado en el Google Calendar de la profesional (C-10, O10): el turno se creó igual. */
+  readonly aviso_google_calendar: boolean;
 }
 
 export interface CambioEstado {
@@ -341,4 +360,52 @@ export type ErrorRecordatorio =
   | { readonly tipo: 'no_vigente' }
   | { readonly tipo: 'no_encontrado' }
   | { readonly tipo: 'sin_permiso' }
+  | { readonly tipo: 'desconocido' };
+
+// --- Google Calendar (C-10) -------------------------------------------------------------------------------------
+
+export type EstadoConexion = 'sin_conectar' | 'pendiente' | 'activa' | 'revocada' | 'desconectada';
+
+export interface ConexionGoogle {
+  readonly profesional_id: number;
+  readonly profesional_nombre: string;
+  readonly estado: EstadoConexion;
+  readonly cuenta_email: string | null;
+  readonly ultima_sync_ok_en: string | null;
+  readonly conflictos_abiertos: number;
+  /** Qué hacer ("Volvé a conectar Google Calendar") cuando la conexión necesita atención. */
+  readonly indicacion: string | null;
+}
+
+export type TipoConflicto = 'movido_en_google' | 'borrado_en_google' | 'solapa_evento_externo';
+export type AccionConflicto = 'restaurar_en_google' | 'desvincular' | 'revisado';
+
+export interface ConflictoGoogle {
+  readonly id: number;
+  readonly tipo: TipoConflicto;
+  readonly estado: 'abierto' | 'resuelto';
+  /** Criterio visible (RN-GC-02): qué pasó y qué se puede hacer. */
+  readonly criterio: string;
+  readonly turno_id: number;
+  readonly profesional_id: number;
+  readonly profesional_nombre: string;
+  readonly tratamiento: string;
+  readonly sistema_inicio: string;
+  readonly sistema_fin: string;
+  readonly google_inicio: string | null;
+  readonly google_fin: string | null;
+  /** Vacío para la odontóloga: ve el conflicto sin acciones. */
+  readonly acciones: readonly AccionConflicto[];
+  readonly resolucion: string | null;
+  readonly detectado_en: string;
+  readonly resuelto_en: string | null;
+}
+
+export type ErrorGoogle =
+  | { readonly tipo: 'sin_permiso' }
+  | { readonly tipo: 'no_encontrado' }
+  | { readonly tipo: 'conexion_activa' }
+  | { readonly tipo: 'no_configurado' }
+  | { readonly tipo: 'conflicto_cerrado' }
+  | { readonly tipo: 'accion_no_valida' }
   | { readonly tipo: 'desconocido' };

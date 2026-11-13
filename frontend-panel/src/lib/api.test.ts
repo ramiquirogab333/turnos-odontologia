@@ -46,8 +46,9 @@ const TURNO = {
   sena: { estado: 'acreditado', monto: '3000.00' },
   vence_en: null,
   acciones: ['atendido'],
+  calendario: { estado: 'sin_evento', conflicto_abierto: false },
 };
-const AGENDA = { vista: 'dia', desde: '2031-11-18', hasta: '2031-11-18', turnos: [TURNO] };
+const AGENDA = { vista: 'dia', desde: '2031-11-18', hasta: '2031-11-18', turnos: [TURNO], ocupados_google: [] };
 const CONSULTA: Consulta = { vista: 'dia', fecha: '2031-11-18', profesionalId: null, sillonId: null };
 
 function api(fetchFn: typeof fetch, token: string | null = 'ACCESS-1') {
@@ -187,6 +188,7 @@ describe('crearApi: alta manual', () => {
     const creado = {
       id: 5, inicio: ALTA.inicio, fin: '2031-11-18T11:45:00-03:00', estado: 'reservado', origen: 'manual',
       profesional_id: 1, sillon_id: 2, tratamiento_id: 3, codigo_gestion: 'CODIGO-SINTETICO-1',
+      aviso_google_calendar: false,
     };
     const fetchFn = servidor(() => json(creado, 201));
     const r = await api(fetchFn).api.crearTurno(ALTA);

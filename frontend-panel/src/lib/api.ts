@@ -9,7 +9,13 @@ import type {
   CajaDia,
   CierreCaja,
   CierreDetalle,
+  AccionConflicto,
+  CalendarioTurno,
+  ConexionGoogle,
+  ConflictoGoogle,
   ConsultaPacientes,
+  ErrorGoogle,
+  OcupadoGoogle,
   Devolucion,
   DiferenciaCierre,
   ErrorCaja,
@@ -109,8 +115,24 @@ function esTurno(v: unknown): v is TurnoAgenda {
     (v['sena'] === null || esSena(v['sena'])) &&
     textoONulo(v['vence_en']) &&
     Array.isArray(v['acciones']) &&
-    (v['acciones'] as unknown[]).every(esAccion)
+    (v['acciones'] as unknown[]).every(esAccion) &&
+    esCalendario(v['calendario'])
   );
+}
+
+const ESTADOS_EVENTO: readonly string[] = ['sin_evento', 'pendiente', 'sincronizado', 'desvinculado'];
+
+function esCalendario(v: unknown): v is CalendarioTurno {
+  return (
+    esRegistro(v) &&
+    esTexto(v['estado']) &&
+    ESTADOS_EVENTO.includes(v['estado']) &&
+    typeof v['conflicto_abierto'] === 'boolean'
+  );
+}
+
+function esOcupadoGoogle(v: unknown): v is OcupadoGoogle {
+  return esRegistro(v) && esNumero(v['profesional_id']) && esTexto(v['inicio']) && esTexto(v['fin']);
 }
 
 function aAgenda(v: unknown): Agenda {
@@ -120,11 +142,19 @@ function aAgenda(v: unknown): Agenda {
     !esTexto(v['desde']) ||
     !esTexto(v['hasta']) ||
     !Array.isArray(v['turnos']) ||
-    !(v['turnos'] as unknown[]).every(esTurno)
+    !(v['turnos'] as unknown[]).every(esTurno) ||
+    !Array.isArray(v['ocupados_google']) ||
+    !(v['ocupados_google'] as unknown[]).every(esOcupadoGoogle)
   ) {
     throw new ErrorDeRespuesta();
   }
-  return { vista: v['vista'], desde: v['desde'], hasta: v['hasta'], turnos: v['turnos'] as TurnoAgenda[] };
+  return {
+    vista: v['vista'],
+    desde: v['desde'],
+    hasta: v['hasta'],
+    turnos: v['turnos'] as TurnoAgenda[],
+    ocupados_google: v['ocupados_google'] as OcupadoGoogle[],
+  };
 }
 
 function lista<T>(v: unknown, guarda: (x: unknown) => x is T): readonly T[] {
@@ -174,7 +204,8 @@ function esTurnoCreado(v: unknown): v is TurnoCreado {
     esNumero(v['profesional_id']) &&
     esNumero(v['sillon_id']) &&
     esNumero(v['tratamiento_id']) &&
-    esTexto(v['codigo_gestion'])
+    esTexto(v['codigo_gestion']) &&
+    typeof v['aviso_google_calendar'] === 'boolean'
   );
 }
 
@@ -290,6 +321,69 @@ function errorRecordatorio(status: number, cuerpo: Registro): ErrorRecordatorio 
   if (status === 403) return { tipo: 'sin_permiso' };
   if (status === 404) return { tipo: 'no_encontrado' };
   if (status === 409 && cuerpo['motivo'] === 'recordatorio_no_vigente') return { tipo: 'no_vigente' };
+  return { tipo: 'desconocido' };
+}
+
+// --- guardas de C-10 (Google Calendar) ---------------------------------------------------------------------------
+
+const ESTADOS_CONEXION: readonly string[] = ['sin_conectar', 'pendiente', 'activa', 'revocada', 'desconectada'];
+const TIPOS_CONFLICTO: readonly string[] = ['movido_en_google', 'borrado_en_google', 'solapa_evento_externo'];
+const ACCIONES_CONFLICTO: readonly string[] = ['restaurar_en_google', 'desvincular', 'revisado'];
+
+function esConexionGoogle(v: unknown): v is ConexionGoogle {
+  return (
+    esRegistro(v) &&
+    esNumero(v['profesional_id']) &&
+    esTexto(v['profesional_nombre']) &&
+    esTexto(v['estado']) &&
+    ESTADOS_CONEXION.includes(v['estado']) &&
+    textoONulo(v['cuenta_email']) &&
+    textoONulo(v['ultima_sync_ok_en']) &&
+    esNumero(v['conflictos_abiertos']) &&
+    textoONulo(v['indicacion'])
+  );
+}
+
+function esAccionConflicto(v: unknown): v is AccionConflicto {
+  return esTexto(v) && ACCIONES_CONFLICTO.includes(v);
+}
+
+function esConflictoGoogle(v: unknown): v is ConflictoGoogle {
+  return (
+    esRegistro(v) &&
+    esNumero(v['id']) &&
+    esTexto(v['tipo']) &&
+    TIPOS_CONFLICTO.includes(v['tipo']) &&
+    (v['estado'] === 'abierto' || v['estado'] === 'resuelto') &&
+    esTexto(v['criterio']) &&
+    esNumero(v['turno_id']) &&
+    esNumero(v['profesional_id']) &&
+    esTexto(v['profesional_nombre']) &&
+    esTexto(v['tratamiento']) &&
+    esTexto(v['sistema_inicio']) &&
+    esTexto(v['sistema_fin']) &&
+    textoONulo(v['google_inicio']) &&
+    textoONulo(v['google_fin']) &&
+    Array.isArray(v['acciones']) &&
+    (v['acciones'] as unknown[]).every(esAccionConflicto) &&
+    textoONulo(v['resolucion']) &&
+    esTexto(v['detectado_en']) &&
+    textoONulo(v['resuelto_en'])
+  );
+}
+
+function esIniciar(v: unknown): v is { readonly url_autorizacion: string } {
+  return esRegistro(v) && esTexto(v['url_autorizacion']) && v['url_autorizacion'].startsWith('http');
+}
+
+function errorGoogle(status: number, cuerpo: Registro): ErrorGoogle {
+  const motivo = cuerpo['motivo'];
+  if (status === 403) return { tipo: 'sin_permiso' };
+  if (status === 404) return { tipo: 'no_encontrado' };
+  if (status === 409 && motivo === 'conexion_activa') return { tipo: 'conexion_activa' };
+  if (status === 409 && motivo === 'conflicto_cerrado') return { tipo: 'conflicto_cerrado' };
+  if (status === 422 && motivo === 'accion_no_valida') return { tipo: 'accion_no_valida' };
+  if (status === 503 && motivo === 'gcal_no_configurado') return { tipo: 'no_configurado' };
   return { tipo: 'desconocido' };
 }
 
@@ -573,6 +667,12 @@ export interface Api {
   recordatorios(): Promise<readonly Recordatorio[]>;
   marcarRecordatorioEnviado(id: number): Promise<Resultado<Recordatorio, ErrorRecordatorio>>;
   marcarRecordatorioFallido(id: number, motivo: MotivoFallo): Promise<Resultado<Recordatorio, ErrorRecordatorio>>;
+  // Google Calendar (C-10)
+  conexionesGoogle(): Promise<readonly ConexionGoogle[]>;
+  conflictosGoogle(): Promise<readonly ConflictoGoogle[]>;
+  iniciarGoogle(): Promise<Resultado<{ readonly url_autorizacion: string }, ErrorGoogle>>;
+  desconectarGoogle(profesionalId: number): Promise<Resultado<null, ErrorGoogle>>;
+  resolverConflicto(id: number, accion: AccionConflicto): Promise<Resultado<ConflictoGoogle, ErrorGoogle>>;
 }
 
 export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fetch(...args)): Api {
@@ -629,6 +729,23 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
       const valor: unknown = await r.json().catch(() => null);
       return esValido(valor) ? { ok: true, valor } : { ok: false, error: desconocido };
     }
+    return { ok: false, error: interpretar(r.status, await cuerpoDe(r)) };
+  }
+
+  /** DELETE sin cuerpo de respuesta (204). */
+  async function borrar<E>(
+    ruta: string,
+    interpretar: (status: number, c: Registro) => E,
+    desconocido: E,
+  ): Promise<Resultado<null, E>> {
+    let r: Response;
+    try {
+      r = await pedir(ruta, { method: 'DELETE' });
+    } catch (e) {
+      if (e instanceof ErrorSesion) throw e;
+      return { ok: false, error: desconocido };
+    }
+    if (r.ok) return { ok: true, valor: null };
     return { ok: false, error: interpretar(r.status, await cuerpoDe(r)) };
   }
 
@@ -746,6 +863,31 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
       return escribir(`/api/panel/recordatorios/${String(id)}/enviado`, undefined, esRecordatorio, errorRecordatorio, {
         tipo: 'desconocido',
       });
+    },
+    async conexionesGoogle() {
+      return lista(await leer('/api/panel/google-calendar/conexiones'), esConexionGoogle);
+    },
+    async conflictosGoogle() {
+      return lista(await leer('/api/panel/google-calendar/conflictos?estado=abierto'), esConflictoGoogle);
+    },
+    iniciarGoogle() {
+      return escribir('/api/panel/google-calendar/conexion/iniciar', undefined, esIniciar, errorGoogle, {
+        tipo: 'desconocido',
+      });
+    },
+    desconectarGoogle(profesionalId) {
+      return borrar(`/api/panel/google-calendar/conexiones/${String(profesionalId)}`, errorGoogle, {
+        tipo: 'desconocido',
+      });
+    },
+    resolverConflicto(id, accion) {
+      return escribir(
+        `/api/panel/google-calendar/conflictos/${String(id)}/resolver`,
+        { accion },
+        esConflictoGoogle,
+        errorGoogle,
+        { tipo: 'desconocido' },
+      );
     },
     marcarRecordatorioFallido(id, motivo) {
       return escribir(`/api/panel/recordatorios/${String(id)}/fallido`, { motivo }, esRecordatorio, errorRecordatorio, {

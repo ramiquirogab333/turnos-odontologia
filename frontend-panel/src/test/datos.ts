@@ -16,6 +16,8 @@ import type {
   Rechazo,
   Recordatorio,
   Acreditacion,
+  ConexionGoogle,
+  ConflictoGoogle,
   TurnoAgenda,
   TurnoCreado,
 } from '../lib/tipos';
@@ -36,14 +38,20 @@ export function turno(sobre: Partial<TurnoAgenda> = {}): TurnoAgenda {
     sena: { estado: 'acreditado', monto: '3000.00' },
     vence_en: null,
     acciones: [],
+    calendario: { estado: 'sin_evento', conflicto_abierto: false },
     ...sobre,
   };
 }
 
-export function agenda(turnos: readonly TurnoAgenda[], vista: 'dia' | 'semana' = 'dia', fecha = '2031-11-18'): Agenda {
+export function agenda(
+  turnos: readonly TurnoAgenda[],
+  vista: 'dia' | 'semana' = 'dia',
+  fecha = '2031-11-18',
+  ocupados_google: Agenda['ocupados_google'] = [],
+): Agenda {
   return vista === 'dia'
-    ? { vista, desde: fecha, hasta: fecha, turnos }
-    : { vista, desde: '2031-11-17', hasta: '2031-11-23', turnos };
+    ? { vista, desde: fecha, hasta: fecha, turnos, ocupados_google }
+    : { vista, desde: '2031-11-17', hasta: '2031-11-23', turnos, ocupados_google };
 }
 
 export const OPCIONES: Opciones = {
@@ -78,6 +86,7 @@ export const CREADO: TurnoCreado = {
   sillon_id: 2,
   tratamiento_id: 3,
   codigo_gestion: 'CODIGO-SINTETICO-0001',
+  aviso_google_calendar: false,
 };
 
 export const CAMBIO: CambioEstado = { turno_id: 11, estado: 'ausente', estado_sena: 'no_reembolsado' };
@@ -228,6 +237,49 @@ export function recordatorio(sobre: Partial<Recordatorio> = {}): Recordatorio {
   };
 }
 
+// --- C-10 --------------------------------------------------------------------------------------------------------
+
+export function conexionGoogle(sobre: Partial<ConexionGoogle> = {}): ConexionGoogle {
+  return {
+    profesional_id: 1,
+    profesional_nombre: 'Dra. Ana Ficticia',
+    estado: 'sin_conectar',
+    cuenta_email: null,
+    ultima_sync_ok_en: null,
+    conflictos_abiertos: 0,
+    indicacion: null,
+    ...sobre,
+  };
+}
+
+export const CONEXION_ACTIVA: ConexionGoogle = conexionGoogle({
+  estado: 'activa',
+  cuenta_email: 'ana.prueba@example.com',
+  ultima_sync_ok_en: '2031-11-18T08:30:00-03:00',
+});
+
+export function conflictoGoogle(sobre: Partial<ConflictoGoogle> = {}): ConflictoGoogle {
+  return {
+    id: 21,
+    tipo: 'movido_en_google',
+    estado: 'abierto',
+    criterio: 'El evento se movió en Google Calendar. El turno sigue en el horario del sistema.',
+    turno_id: 11,
+    profesional_id: 1,
+    profesional_nombre: 'Dra. Ana Ficticia',
+    tratamiento: 'Limpieza dental',
+    sistema_inicio: '2031-11-18T10:00:00-03:00',
+    sistema_fin: '2031-11-18T10:30:00-03:00',
+    google_inicio: '2031-11-18T12:00:00-03:00',
+    google_fin: '2031-11-18T12:30:00-03:00',
+    acciones: ['restaurar_en_google', 'desvincular'],
+    resolucion: null,
+    detectado_en: '2031-11-18T09:00:00-03:00',
+    resuelto_en: null,
+    ...sobre,
+  };
+}
+
 export function apiFalsa(sobre: Partial<Api> = {}) {
   const api = {
     me: vi.fn<Api['me']>(),
@@ -260,6 +312,15 @@ export function apiFalsa(sobre: Partial<Api> = {}) {
     marcarRecordatorioFallido: vi
       .fn<Api['marcarRecordatorioFallido']>()
       .mockResolvedValue({ ok: true, valor: recordatorio({ estado: 'fallido', motivo: 'otro' }) }),
+    conexionesGoogle: vi.fn<Api['conexionesGoogle']>().mockResolvedValue([conexionGoogle()]),
+    conflictosGoogle: vi.fn<Api['conflictosGoogle']>().mockResolvedValue([]),
+    iniciarGoogle: vi
+      .fn<Api['iniciarGoogle']>()
+      .mockResolvedValue({ ok: true, valor: { url_autorizacion: 'https://accounts.google.com/o/oauth2/v2/auth?state=x' } }),
+    desconectarGoogle: vi.fn<Api['desconectarGoogle']>().mockResolvedValue({ ok: true, valor: null }),
+    resolverConflicto: vi
+      .fn<Api['resolverConflicto']>()
+      .mockResolvedValue({ ok: true, valor: conflictoGoogle({ estado: 'resuelto', acciones: [] }) }),
     ...sobre,
   };
   return api;

@@ -773,3 +773,85 @@ a.boton {
   gap: 8px;
   min-height: var(--objetivo-tactil);
 }
+
+/* C-10: Google Calendar. Tarjetas apiladas y texto que corta a 360px (R3); el estado va siempre como texto. */
+.google-calendar h2 {
+  margin: 20px 0 4px;
+  font-size: 1.125rem;
+}
+
+.google-calendar .pendiente,
+.google-calendar .nota,
+.google-calendar p {
+  overflow-wrap: anywhere;
+}
+
+.google-calendar .acciones-turno > .boton {
+  flex: 1 1 100%;
+}
+
+.conflicto {
+  border-left: 6px solid var(--color-aviso);
+}
+
+.conflicto p {
+  margin: 4px 0 0;
+}
+
+.conflicto-horarios {
+  font-weight: 700;
+}
+
+.insignia-conexion-activa {
+  border-color: var(--color-exito);
+  background: var(--color-exito-fondo);
+  color: #0d5c4d;
+}
+
+.insignia-conexion-revocada {
+  border-color: var(--color-error);
+  background: var(--color-error-fondo);
+  color: var(--color-error);
+}
+
+.insignia-conexion-sin_conectar,
+.insignia-conexion-desconectada,
+.insignia-conexion-pendiente {
+  border-style: dashed;
+  color: var(--color-texto-suave);
+}
+
+/* Agenda: aviso de conflicto en la tarjeta y franjas ocupadas en Google (solo horario, sin título). */
+.turno-conflicto {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border: 1px solid var(--color-aviso);
+  border-radius: var(--radio);
+  background: var(--color-info-fondo);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.turno-conflicto a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--objetivo-tactil);
+  color: var(--color-primario);
+}
+
+.lista-ocupados {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.ocupado-google {
+  padding: 8px 12px;
+  border: 1px dashed var(--color-borde-fuerte);
+  border-radius: var(--radio);
+  background: var(--color-deshabilitado-fondo);
+  color: var(--color-texto-suave);
+  overflow-wrap: anywhere;
+}

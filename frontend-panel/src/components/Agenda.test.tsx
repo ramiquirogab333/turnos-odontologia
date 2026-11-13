@@ -243,3 +243,57 @@ describe('Agenda: alta manual y cambios', () => {
     expect(vi.mocked(api.agenda).mock.calls.length).toBeGreaterThan(antes);
   });
 });
+
+describe('Agenda: Google Calendar (C-10)', () => {
+  const FRANJA = { profesional_id: 1, inicio: '2031-11-18T15:00:00-03:00', fin: '2031-11-18T16:00:00-03:00' };
+
+  it('muestra cada franja ocupada en Google como "Ocupado en Google" con su horario y sin más datos', async () => {
+    const api = apiFalsa({ agenda: vi.fn().mockResolvedValue(agenda([turno()], 'dia', '2031-11-18', [FRANJA])) });
+    await montar(api);
+    const lista = await screen.findByRole('list', { name: 'Ocupado en Google' });
+    const items = within(lista).getAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveTextContent('Ocupado en Google');
+    expect(items[0]).toHaveTextContent('15:00 a 16:00');
+  });
+
+  it('muestra las franjas aunque no haya turnos ese día', async () => {
+    await montar(apiFalsa({ agenda: vi.fn().mockResolvedValue(agenda([], 'dia', '2031-11-18', [FRANJA])) }));
+    expect(await screen.findByRole('list', { name: 'Ocupado en Google' })).toBeInTheDocument();
+    expect(screen.getByText(/No hay turnos para este día/)).toBeInTheDocument();
+  });
+
+  it('sin franjas no dibuja la lista', async () => {
+    await montar(apiFalsa({ agenda: vi.fn().mockResolvedValue(agenda([turno()])) }));
+    await screen.findByText('Carlos Sintético');
+    expect(screen.queryByRole('list', { name: 'Ocupado en Google' })).toBeNull();
+  });
+
+  it('con varias profesionales rotula la franja con su nombre', async () => {
+    await montar(apiFalsa({ agenda: vi.fn().mockResolvedValue(agenda([turno()], 'dia', '2031-11-18', [FRANJA])) }));
+    const item = within(await screen.findByRole('list', { name: 'Ocupado en Google' })).getByRole('listitem');
+    expect(item).toHaveTextContent('Dra. Ana Ficticia');
+  });
+
+  it('el turno con un conflicto abierto muestra el aviso con un enlace a la sección', async () => {
+    const conflicto = turno({ calendario: { estado: 'sincronizado', conflicto_abierto: true } });
+    await montar(apiFalsa({ agenda: vi.fn().mockResolvedValue(agenda([conflicto])) }));
+    expect(await screen.findByText('Conflicto con Google Calendar')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ver conflicto' })).toHaveAttribute('href', '#/google-calendar');
+  });
+
+  it('una pre-reserva sin conflicto y un turno sin conexión no muestran aviso', async () => {
+    const api = apiFalsa({
+      agenda: vi.fn().mockResolvedValue(
+        agenda([
+          turno({ id: 1 }),
+          turno({ id: 2, estado: 'en_espera', bloquea_agenda: false, acciones: ['cancelar'], sena: { estado: 'pendiente', monto: '3000.00' } }),
+        ]),
+      ),
+    });
+    await montar(api);
+    await screen.findByText('Pre-reservas sin pagar');
+    expect(screen.queryByText('Conflicto con Google Calendar')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Ver conflicto' })).toBeNull();
+  });
+});

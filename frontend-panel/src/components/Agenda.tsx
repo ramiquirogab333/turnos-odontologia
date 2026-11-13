@@ -1,8 +1,8 @@
 import { Suspense, startTransition, use, useEffect, useState } from 'react';
 import { ErrorApiPanel, type Api } from '../lib/api';
 import { iniciar } from '../lib/iniciar';
-import { diaClinica, etiquetaDiaCorta, etiquetaDiaLarga, etiquetaSemana, inicioSemana, sumarDias } from '../lib/tiempo';
-import type { Agenda as DatosAgenda, Consulta, Opciones, TurnoAgenda, Vista } from '../lib/tipos';
+import { diaClinica, etiquetaDiaCorta, etiquetaDiaLarga, etiquetaSemana, horaClinica, inicioSemana, sumarDias } from '../lib/tiempo';
+import type { Agenda as DatosAgenda, Consulta, OcupadoGoogle, Opciones, Ref, TurnoAgenda, Vista } from '../lib/tipos';
 import { AltaManual } from './AltaManual';
 import { Cargando } from './Cargando';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -231,6 +231,8 @@ function Contenido({ api, consulta, opcionesPendientes, agendaPendiente, onFiltr
         <ListaSemana turnos={principales} api={api} onCambio={onCambio} conProfesional={variasProfesionales} />
       )}
 
+      <OcupadosGoogle ocupados={datos.ocupados_google} profesionales={opciones.profesionales} conDia={consulta.vista === 'semana'} />
+
       {preReservas.length > 0 && (
         <section className="banda" aria-labelledby="titulo-banda">
           <h2 id="titulo-banda">Pre-reservas sin pagar</h2>
@@ -255,6 +257,39 @@ function Contenido({ api, consulta, opcionesPendientes, agendaPendiente, onFiltr
         />
       )}
     </>
+  );
+}
+
+interface PropsOcupados {
+  readonly ocupados: readonly OcupadoGoogle[];
+  readonly profesionales: readonly Ref[];
+  /** En la vista semanal cada franja lleva su día. */
+  readonly conDia: boolean;
+}
+
+/** Franjas ocupadas en el Google Calendar de la profesional (C-10): solo horario, sin título ni más datos (O19). */
+function OcupadosGoogle({ ocupados, profesionales, conDia }: PropsOcupados) {
+  if (ocupados.length === 0) return null;
+  const nombre = (id: number): string | undefined => profesionales.find((p) => p.id === id)?.nombre;
+  return (
+    <section className="banda banda-google" aria-labelledby="titulo-ocupados-google">
+      <h2 id="titulo-ocupados-google">Ocupado en Google Calendar</h2>
+      <ul className="lista-ocupados" aria-label="Ocupado en Google">
+        {ocupados.map((o) => {
+          const quien = profesionales.length > 1 ? nombre(o.profesional_id) : undefined;
+          return (
+            <li key={`${String(o.profesional_id)}-${o.inicio}-${o.fin}`} className="ocupado-google">
+              <span className="insignia">Ocupado en Google</span>{' '}
+              <span>
+                {conDia ? `${etiquetaDiaCorta(diaClinica(o.inicio))} · ` : ''}
+                {horaClinica(o.inicio)} a {horaClinica(o.fin)}
+                {quien !== undefined ? ` · ${quien}` : ''}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

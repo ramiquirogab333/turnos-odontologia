@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { irA, leerSeccion, SECCIONES } from './ruta';
+import { irA, leerSeccion, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA } from './ruta';
 
 afterEach(() => {
   window.location.hash = '';
@@ -12,6 +12,12 @@ describe('leerSeccion', () => {
     expect(leerSeccion('#/indicadores')).toBe('indicadores');
     expect(leerSeccion('#/agenda')).toBe('agenda');
     expect(leerSeccion('#/recordatorios')).toBe('recordatorios');
+    expect(leerSeccion('#/google-calendar')).toBe('google-calendar');
+  });
+
+  it('ignora la query del hash (la vuelta de Google trae ?resultado=)', () => {
+    expect(leerSeccion('#/google-calendar?resultado=conectado')).toBe('google-calendar');
+    expect(leerSeccion('#/caja?x=1')).toBe('caja');
   });
 
   it('un hash vacío o desconocido cae en la agenda', () => {
@@ -22,7 +28,8 @@ describe('leerSeccion', () => {
   });
 
   it('todas las secciones tienen su ruta', () => {
-    expect(SECCIONES).toEqual(['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios']);
+    expect(SECCIONES).toEqual(['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios', 'google-calendar']);
+    expect(SECCIONES_ODONTOLOGA).toEqual(['agenda', 'google-calendar']);
   });
 });
 
@@ -33,4 +40,17 @@ describe('irA', () => {
     irA('caja');
     expect(window.location.hash).toBe('#/caja');
   });
+});
+
+describe('resultadoDeGoogle', () => {
+  it.each(['conectado', 'error_autorizacion', 'permiso_denegado'])('lee el resultado "%s"', (resultado) => {
+    expect(resultadoDeGoogle(`#/google-calendar?resultado=${resultado}`)).toBe(resultado);
+  });
+
+  it.each(['#/google-calendar', '#/google-calendar?resultado=raro', '#/caja?resultado=conectado', '', '#/google-calendar?otro=1'])(
+    'sin resultado válido en "%s" devuelve null',
+    (hash) => {
+      expect(resultadoDeGoogle(hash)).toBeNull();
+    },
+  );
 });

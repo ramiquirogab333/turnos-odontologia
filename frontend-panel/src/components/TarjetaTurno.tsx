@@ -34,6 +34,11 @@ export function TarjetaTurno({ turno, api, onCambio, conProfesional, compacto = 
       </p>
       {sena !== null && <p className="turno-detalle">{sena}</p>}
       {pendiente && <p className="turno-detalle">No ocupa el horario.</p>}
+      {turno.calendario.conflicto_abierto && (
+        <p className="turno-conflicto">
+          <span>Conflicto con Google Calendar</span> <a href="#/google-calendar">Ver conflicto</a>
+        </p>
+      )}
       <AccionesTurno turno={turno} api={api} onCambio={onCambio} />
     </li>
   );

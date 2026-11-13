@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Agenda } from './components/Agenda';
 import { Caja } from './components/Caja';
+import { GoogleCalendar } from './components/GoogleCalendar';
 import { Cargando } from './components/Cargando';
 import { ErrorCarga } from './components/ErrorCarga';
 import { Indicadores } from './components/Indicadores';
@@ -9,7 +10,7 @@ import { Navegacion } from './components/Navegacion';
 import { Pacientes } from './components/Pacientes';
 import { Recordatorios } from './components/Recordatorios';
 import type { Api } from './lib/api';
-import { leerSeccion, TITULO_SECCION, type Seccion } from './lib/ruta';
+import { leerSeccion, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA, TITULO_SECCION, type Seccion } from './lib/ruta';
 import { ErrorSesion, type MotivoCierre, type Sesion } from './lib/sesion';
 import type { Usuario } from './lib/tipos';
 
@@ -57,18 +58,29 @@ interface PropsPanel {
 function Secciones({ usuario, api, hoy }: PropsPanel) {
   const ve = puedeVerSecciones(usuario);
   const hash = useSyncExternalStore(suscribirHash, hashActual);
-  const seccion: Seccion = ve ? leerSeccion(hash) : 'agenda';
+  const permitidas: readonly Seccion[] = ve ? SECCIONES : SECCIONES_ODONTOLOGA;
+  const leida = leerSeccion(hash);
+  const seccion: Seccion = permitidas.includes(leida) ? leida : 'agenda';
 
   return (
     <>
       <h1 className="titulo-seccion">{TITULO_SECCION[seccion]}</h1>
-      {ve && <Navegacion actual={seccion} />}
+      <Navegacion actual={seccion} secciones={permitidas} />
       <main>
         {seccion === 'agenda' && <Agenda api={api} hoy={hoy} />}
         {seccion === 'pacientes' && <Pacientes api={api} />}
         {seccion === 'indicadores' && <Indicadores api={api} hoy={hoy} />}
         {seccion === 'recordatorios' && <Recordatorios api={api} />}
         {seccion === 'caja' && <Caja api={api} hoy={hoy} esAdmin={usuario.roles.includes('admin')} />}
+        {seccion === 'google-calendar' && (
+          <GoogleCalendar
+            api={api}
+            puedeResolver={ve}
+            esAdmin={usuario.roles.includes('admin')}
+            esOdontologa={usuario.roles.includes('odontologo')}
+            resultado={resultadoDeGoogle(hash)}
+          />
+        )}
       </main>
     </>
   );

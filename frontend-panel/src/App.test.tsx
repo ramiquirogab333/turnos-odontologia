@@ -16,7 +16,7 @@ function json(cuerpo: unknown, status = 200): Response {
 }
 
 const ME = { id: 1, email: 'recepcion@turnos.test', nombre_completo: 'Rita Recepción', roles: ['recepcion'] };
-const AGENDA = { vista: 'dia', desde: '2031-11-18', hasta: '2031-11-18', turnos: [] };
+const AGENDA = { vista: 'dia', desde: '2031-11-18', hasta: '2031-11-18', turnos: [], ocupados_google: [] };
 const OPCIONES = {
   profesionales: [{ id: 1, nombre: 'Dra. Ana Ficticia' }],
   sillones: [{ id: 2, nombre: 'Sillón 1' }],
@@ -289,10 +289,10 @@ describe('App: secciones del panel (C-12)', () => {
     window.location.hash = '';
   });
 
-  it('recepción ve las cinco secciones y empieza en la agenda', async () => {
+  it('recepción ve las seis secciones y empieza en la agenda', async () => {
     await abrir(servidor(refresco, ...panel, ...secciones));
     const nav = await screen.findByRole('navigation', { name: 'Secciones del panel' });
-    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios']);
+    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios', 'Google Calendar']);
     expect(screen.getByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Agenda' })).toHaveAttribute('aria-current', 'page');
   });
@@ -328,11 +328,12 @@ describe('App: secciones del panel (C-12)', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Pacientes' })).toBeInTheDocument();
   });
 
-  it('la odontóloga no ve la navegación', async () => {
+  it('la odontóloga ve una navegación acotada a la agenda y Google Calendar', async () => {
     const odontologa = ruta('GET /api/auth/me', { ...ME, roles: ['odontologo'] });
     await abrir(servidor(refresco, odontologa, ...panel, ...secciones));
     expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'Secciones del panel' })).toBeNull();
+    const nav = screen.getByRole('navigation', { name: 'Secciones del panel' });
+    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Google Calendar']);
   });
 
   it('un hash #/recordatorios deja a la odontóloga en la agenda y no pide recordatorios (C-09)', async () => {

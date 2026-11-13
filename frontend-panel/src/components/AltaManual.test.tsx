@@ -186,3 +186,26 @@ describe('AltaManual: rechazos', () => {
     expect(api.crearTurno).not.toHaveBeenCalled();
   });
 });
+
+describe('AltaManual: aviso de Google Calendar (C-10)', () => {
+  it('si el horario figura ocupado en Google lo avisa tras crear el turno', async () => {
+    const api = apiFalsa({ crearTurno: vi.fn().mockResolvedValue({ ok: true, valor: { ...CREADO, aviso_google_calendar: true } }) });
+    montar(api);
+    await elegirTratamientoYProfesional();
+    await usuario.click(await screen.findByRole('button', { name: '11:00' }));
+    await completarDatos();
+    await usuario.click(screen.getByRole('button', { name: 'Crear turno' }));
+    expect(await screen.findByRole('heading', { name: 'Turno creado' })).toBeInTheDocument();
+    expect(screen.getByText('Ese horario figura ocupado en el Google Calendar de la profesional')).toBeInTheDocument();
+  });
+
+  it('sin superposición no muestra el aviso', async () => {
+    montar();
+    await elegirTratamientoYProfesional();
+    await usuario.click(await screen.findByRole('button', { name: '11:00' }));
+    await completarDatos();
+    await usuario.click(screen.getByRole('button', { name: 'Crear turno' }));
+    await screen.findByRole('heading', { name: 'Turno creado' });
+    expect(screen.queryByText(/Google Calendar de la profesional/)).toBeNull();
+  });
+});
