@@ -5,7 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from app.panel.acciones import Accion
 
@@ -48,6 +48,13 @@ class SenaAgenda(_Base):
         return f"{v:.2f}"
 
 
+class CalendarioTurno(_Base):
+    """Estado del evento de Google Calendar del turno y si tiene un conflicto abierto (C-10)."""
+
+    estado: Literal["sin_evento", "pendiente", "sincronizado", "desvinculado"] = "sin_evento"
+    conflicto_abierto: bool = False
+
+
 class TurnoAgenda(_Base):
     id: int
     inicio: datetime
@@ -63,6 +70,15 @@ class TurnoAgenda(_Base):
     sena: SenaAgenda | None
     vence_en: datetime | None
     acciones: list[Accion]
+    calendario: CalendarioTurno = Field(default_factory=CalendarioTurno)
+
+
+class OcupadoGoogle(_Base):
+    """Franja ocupada en el Google Calendar de la profesional (C-10, O19): sin título ni otro dato del evento."""
+
+    profesional_id: int
+    inicio: datetime
+    fin: datetime
 
 
 class AgendaResponse(_Base):
@@ -70,6 +86,7 @@ class AgendaResponse(_Base):
     desde: date
     hasta: date
     turnos: list[TurnoAgenda]
+    ocupados_google: list[OcupadoGoogle] = Field(default_factory=list)
 
 
 class OpcionesResponse(_Base):
@@ -124,6 +141,8 @@ class TurnoManualCreado(_Base):
     sillon_id: int
     tratamiento_id: int
     codigo_gestion: str
+    # C-10 (O10): el horario figura ocupado en el Google Calendar de la profesional; el turno se creó igual.
+    aviso_google_calendar: bool = False
 
 
 MotivoDeshacer = Literal["turno_equivocado", "paciente_no_asistio", "otro"]

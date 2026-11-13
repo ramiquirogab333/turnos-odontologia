@@ -4,11 +4,15 @@ import re
 from datetime import timedelta
 from typing import Literal
 
+from cryptography.fernet import Fernet
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 JWT_SECRET_MIN_LENGTH = 32
 ENTORNOS_CON_PASARELA_FALSA = ("test", "e2e")
+GCAL_OAUTH_BASE_URL_GOOGLE = "https://accounts.google.com"
+GCAL_API_BASE_URL_GOOGLE = "https://www.googleapis.com"
+GCAL_TOKEN_BASE_URL_GOOGLE = "https://oauth2.googleapis.com"
 
 
 class Settings(BaseSettings):
@@ -63,6 +67,21 @@ class Settings(BaseSettings):
     clinica_nombre: str = Field("la clínica", min_length=1, max_length=80)
     sena_barrido_en_api: bool = False  # O11: el barrido corre en el worker; la API solo si se habilita
 
+    # C-10 (D10): Google Calendar. Credenciales y clave de cifrado solo por entorno (R17).
+    gcal_client_id: str | None = None
+    gcal_client_secret: SecretStr | None = None
+    gcal_redirect_uri: str = "http://localhost:8000/api/panel/google-calendar/oauth/callback"
+    gcal_token_clave: SecretStr | None = None
+    gcal_sync_habilitado: bool = True
+    gcal_sync_intervalo_segundos: int = Field(60, gt=0)
+    gcal_horizonte_dias: int = Field(60, ge=1, le=365)
+    public_panel_url: str = "http://localhost:5174"
+    gcal_oauth_base_url: str = GCAL_OAUTH_BASE_URL_GOOGLE
+    gcal_api_base_url: str = GCAL_API_BASE_URL_GOOGLE
+    # Canje y revocación de tokens (otro host que el del consentimiento): en E2E el consentimiento lo abre el
+    # navegador del host y el canje lo hace el contenedor, así que tienen URLs distintas.
+    gcal_token_base_url: str = GCAL_TOKEN_BASE_URL_GOOGLE
+
     @field_validator("reminder_lead_time", mode="before")
     @classmethod
     def _parsear_anticipacion(cls, value: object) -> object:
@@ -80,6 +99,31 @@ class Settings(BaseSettings):
     def anticipacion_recordatorio(self) -> timedelta:
         """Anticipación con la que se generan los recordatorios."""
         return timedelta(hours=self.reminder_lead_time)
+
+    @property
+    def gcal_configurado(self) -> bool:
+        """Hay credenciales de Google suficientes para conectar y sincronizar (sin ellas la API arranca igual)."""
+        return bool(self.gcal_client_id and self.gcal_client_secret and self.gcal_client_secret.get_secret_value()
+                    and self.gcal_token_clave and self.gcal_token_clave.get_secret_value())
+
+    @model_validator(mode="after")
+    def _validar_gcal(self) -> "Settings":
+        """La clave Fernet es obligatoria y válida con ``GCAL_CLIENT_ID``; las URLs de Google solo se cambian en pruebas."""
+        if self.gcal_client_id:
+            clave = self.gcal_token_clave.get_secret_value() if self.gcal_token_clave else ""
+            if not clave:
+                raise ValueError("GCAL_TOKEN_CLAVE es obligatoria cuando hay GCAL_CLIENT_ID")
+            try:
+                Fernet(clave.encode())
+            except (ValueError, TypeError):
+                raise ValueError("GCAL_TOKEN_CLAVE no es una clave Fernet válida (32 bytes en base64)") from None
+        distintas = (self.gcal_oauth_base_url != GCAL_OAUTH_BASE_URL_GOOGLE
+                     or self.gcal_api_base_url != GCAL_API_BASE_URL_GOOGLE
+                     or self.gcal_token_base_url != GCAL_TOKEN_BASE_URL_GOOGLE)
+        if distintas and self.app_env not in ENTORNOS_CON_PASARELA_FALSA:
+            raise ValueError("GCAL_OAUTH_BASE_URL, GCAL_TOKEN_BASE_URL y GCAL_API_BASE_URL distintas de Google "
+                             "solo con APP_ENV=test o e2e")
+        return self
 
     @model_validator(mode="after")
     def _validar_proveedor_whatsapp(self) -> "Settings":

@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 
 from app.gestion.eventos import NotificadorTurnos
+from app.integraciones.gcal.notificador import NotificadorCalendario
 from app.notificaciones.notificador import NotificadorCompuesto, NotificadorRecordatorios
 from app.shared.db import get_session_factory
 
@@ -13,5 +14,6 @@ def get_reloj() -> datetime:
 
 
 def get_notificador() -> NotificadorTurnos:
-    """Puerto de eventos: hoy solo recordatorios (C-09); C-10 suma el suyo al compuesto."""
-    return NotificadorCompuesto([NotificadorRecordatorios(get_session_factory())])
+    """Puerto de eventos: recordatorios (C-09) y Google Calendar (C-10, solo marca pendiente; no llama a Google)."""
+    factory = get_session_factory()
+    return NotificadorCompuesto([NotificadorRecordatorios(factory), NotificadorCalendario(factory)])

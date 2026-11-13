@@ -17,3 +17,5 @@ PyJWT==2.15.1
 # C-09: worker de trabajos programados (O1: arq; arq 0.28 exige redis<6) y su cliente Redis
 arq==0.28.0
 redis==5.3.1
+# C-10: cifrado de los tokens de Google Calendar en reposo (O1: Fernet)
+cryptography==46.0.7

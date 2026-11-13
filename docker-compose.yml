@@ -51,6 +51,18 @@ services:
       REMINDER_LEAD_TIME: ${REMINDER_LEAD_TIME:-48}
       WHATSAPP_PROVEEDOR: ${WHATSAPP_PROVEEDOR:-manual}
       CLINICA_NOMBRE: ${CLINICA_NOMBRE:-la clínica}
+      # C-10: Google Calendar. Sin credenciales el worker arranca igual y no registra gcal_sync (R17: nada en el repo).
+      GCAL_CLIENT_ID: ${GCAL_CLIENT_ID:-}
+      GCAL_CLIENT_SECRET: ${GCAL_CLIENT_SECRET:-}
+      GCAL_TOKEN_CLAVE: ${GCAL_TOKEN_CLAVE:-}
+      GCAL_REDIRECT_URI: ${GCAL_REDIRECT_URI:-http://localhost:8000/api/panel/google-calendar/oauth/callback}
+      GCAL_SYNC_HABILITADO: ${GCAL_SYNC_HABILITADO:-true}
+      GCAL_SYNC_INTERVALO_SEGUNDOS: ${GCAL_SYNC_INTERVALO_SEGUNDOS:-60}
+      GCAL_HORIZONTE_DIAS: ${GCAL_HORIZONTE_DIAS:-60}
+      PUBLIC_PANEL_URL: ${PUBLIC_PANEL_URL:-http://localhost:5174}
+      GCAL_OAUTH_BASE_URL: ${GCAL_OAUTH_BASE_URL:-https://accounts.google.com}
+      GCAL_TOKEN_BASE_URL: ${GCAL_TOKEN_BASE_URL:-https://oauth2.googleapis.com}
+      GCAL_API_BASE_URL: ${GCAL_API_BASE_URL:-https://www.googleapis.com}
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,11 +106,45 @@ services:
       CLINICA_NOMBRE: ${CLINICA_NOMBRE:-la clínica}
       # C-08 (O14): minutos tras el inicio desde los que recepción puede marcar un turno como ausente.
       AUSENTE_TOLERANCIA_MINUTOS: ${AUSENTE_TOLERANCIA_MINUTOS:-10}
+      # C-10: Google Calendar. Sin credenciales el worker arranca igual y no registra gcal_sync (R17: nada en el repo).
+      GCAL_CLIENT_ID: ${GCAL_CLIENT_ID:-}
+      GCAL_CLIENT_SECRET: ${GCAL_CLIENT_SECRET:-}
+      GCAL_TOKEN_CLAVE: ${GCAL_TOKEN_CLAVE:-}
+      GCAL_REDIRECT_URI: ${GCAL_REDIRECT_URI:-http://localhost:8000/api/panel/google-calendar/oauth/callback}
+      GCAL_SYNC_HABILITADO: ${GCAL_SYNC_HABILITADO:-true}
+      GCAL_SYNC_INTERVALO_SEGUNDOS: ${GCAL_SYNC_INTERVALO_SEGUNDOS:-60}
+      GCAL_HORIZONTE_DIAS: ${GCAL_HORIZONTE_DIAS:-60}
+      PUBLIC_PANEL_URL: ${PUBLIC_PANEL_URL:-http://localhost:5174}
+      GCAL_OAUTH_BASE_URL: ${GCAL_OAUTH_BASE_URL:-https://accounts.google.com}
+      GCAL_TOKEN_BASE_URL: ${GCAL_TOKEN_BASE_URL:-https://oauth2.googleapis.com}
+      GCAL_API_BASE_URL: ${GCAL_API_BASE_URL:-https://www.googleapis.com}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+
+  # C-10 (D11, O15): servidor falso de Google (OAuth + Calendar) SOLO para los E2E: perfil `e2e`, nunca arranca con
+  # `docker compose up` a secas ni con APP_ENV distinto de e2e. El consentimiento lo abre el navegador del host
+  # (localhost:8090); el backend y el worker lo consultan por la red de Compose (gcal-falso:8090).
+  gcal-falso:
+    profiles: ["e2e"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["uvicorn", "app.integraciones.gcal.servidor_falso:crear_app", "--factory", "--host", "0.0.0.0", "--port", "8090"]
+    environment:
+      APP_ENV: e2e
+      MP_GATEWAY: fake
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+    ports:
+      - "8090:8090"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
 volumes:
   pgdata:

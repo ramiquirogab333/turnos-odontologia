@@ -11,6 +11,10 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.integraciones.gcal.proveedor import ProveedorCalendario
+from app.integraciones.gcal.proveedor_http import ProveedorHttp
+from app.integraciones.gcal.sincronizacion import sincronizar_calendarios
+
 from app.notificaciones.proveedor import obtener_proveedor
 from app.notificaciones.service import generar_recordatorios
 from app.pagos.barrido import expirar_pre_reservas
@@ -31,8 +35,12 @@ class TrabajoProgramado:
     funcion: FuncionTrabajo
 
 
-def trabajos_programados(ajustes: Settings) -> list[TrabajoProgramado]:
-    """Los trabajos habilitados por la configuración (cada uno se puede apagar por variable de entorno)."""
+def trabajos_programados(ajustes: Settings, proveedor_gcal: ProveedorCalendario | None = None) -> list[TrabajoProgramado]:
+    """Los trabajos habilitados por la configuración (cada uno se puede apagar por variable de entorno).
+
+    ``gcal_sync`` (C-10) solo se registra con ``GCAL_SYNC_HABILITADO`` y credenciales de Google; sin ellas el worker
+    arranca igual, avisa sin mostrar ningún secreto y los demás trabajos corren normal.
+    """
     trabajos: list[TrabajoProgramado] = []
     if ajustes.recordatorios_habilitado:
         anticipacion = ajustes.anticipacion_recordatorio
@@ -50,6 +58,19 @@ def trabajos_programados(ajustes: Settings) -> list[TrabajoProgramado]:
             return cancelados
 
         trabajos.append(TrabajoProgramado("barrido_sena", ajustes.sena_barrido_segundos, barrido_sena))
+    if ajustes.gcal_sync_habilitado:
+        if ajustes.gcal_configurado:
+            proveedor = proveedor_gcal or ProveedorHttp.desde_ajustes(ajustes)
+
+            async def gcal_sync(session: AsyncSession, ahora: datetime) -> int:
+                # Cada conexión usa su propia sesión y transacción (lock por conexión): se abren sobre el mismo motor.
+                factory = async_sessionmaker(session.bind, expire_on_commit=False)
+                return await sincronizar_calendarios(factory, proveedor, ahora, ajustes)
+
+            trabajos.append(TrabajoProgramado("gcal_sync", ajustes.gcal_sync_intervalo_segundos, gcal_sync))
+        else:
+            logger.warning("trabajo gcal_sync no registrado: faltan credenciales de Google Calendar "
+                           "(GCAL_CLIENT_ID, GCAL_CLIENT_SECRET, GCAL_TOKEN_CLAVE)")
     return trabajos
 
 

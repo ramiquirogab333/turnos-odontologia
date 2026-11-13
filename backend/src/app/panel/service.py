@@ -23,9 +23,12 @@ from app.pagos.estados import (
 from app.pagos.models import PagoSena
 from app.pagos.service import ResultadoCambioEstado, cambiar_estado_turno
 from app.panel.acciones import Permiso, acciones_permitidas
+from app.integraciones.gcal.disponibilidad import calendario_de_turnos, franjas_ocupadas
 from app.panel.schemas import (
     AgendaQuery,
     AgendaResponse,
+    CalendarioTurno,
+    OcupadoGoogle,
     OpcionesResponse,
     Ref,
     SenaAgenda,
@@ -168,7 +171,15 @@ async def consultar_agenda(session: AsyncSession, alcance: Alcance, query: Agend
             vence_en=turno.en_espera_vence_en.astimezone(zona) if turno.en_espera_vence_en else None,
             acciones=acciones_permitidas(turno.estado, turno.inicio, ahora, permiso, zona, tolerancia),
         ))
-    return AgendaResponse(vista=query.vista, desde=primero, hasta=ultimo, turnos=turnos)
+    # C-10: estado del evento de Google por turno y franjas ocupadas del alcance (sin título, O19).
+    calendario = await calendario_de_turnos(session, [t.id for t in turnos])
+    for item in turnos:
+        estado_evento, conflicto = calendario.get(item.id, ("sin_evento", False))
+        item.calendario = CalendarioTurno(estado=estado_evento, conflicto_abierto=conflicto)  # type: ignore[arg-type]
+    ocupados = [OcupadoGoogle(profesional_id=f.profesional_id, inicio=f.inicio.astimezone(zona),
+                              fin=f.fin.astimezone(zona))
+                for f in await franjas_ocupadas(session, desde, hasta, profesional_id=profesional_filtro)]
+    return AgendaResponse(vista=query.vista, desde=primero, hasta=ultimo, turnos=turnos, ocupados_google=ocupados)
 
 
 async def consultar_opciones(session: AsyncSession, alcance: Alcance) -> OpcionesResponse:
@@ -239,7 +250,7 @@ async def crear_turno_manual(session: AsyncSession, data: TurnoManualCreate, usu
 
     # Mismo orden de locks que la reserva pública: serializa altas, reservas y acreditaciones.
     await session.execute(select(func.pg_advisory_xact_lock(LOCK_RESERVAS)))
-    bloqueos = await _cargar_bloqueos(session, inicio, fin)
+    bloqueos = await _cargar_bloqueos(session, inicio, fin, incluir_google=False)  # C-10 O10: Google solo avisa
     if _profesional_ocupado(bloqueos, data.profesional_id, inicio, fin):
         raise await _conflicto(session, "profesional", data.profesional_id, inicio, minutos)
     if elegido is not None:
@@ -279,10 +290,12 @@ async def crear_turno_manual(session: AsyncSession, data: TurnoManualCreate, usu
         raise
 
     zona = zona_clinica()
+    aviso_google = bool(await franjas_ocupadas(session, turno.inicio, turno.fin, profesional_id=turno.profesional_id))
     return TurnoManualCreado(
         id=int(turno.id), inicio=turno.inicio.astimezone(zona), fin=turno.fin.astimezone(zona), estado="reservado",
         origen="manual", profesional_id=turno.profesional_id, sillon_id=turno.sillon_id,
         tratamiento_id=turno.tratamiento_id, codigo_gestion=turno.codigo_gestion or "",
+        aviso_google_calendar=aviso_google,
     )
 
 

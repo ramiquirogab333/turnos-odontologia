@@ -28,6 +28,7 @@ from app.catalogo.router import (
 )
 from app.caja.http import registrar_handlers as registrar_handlers_caja
 from app.caja.router import router as caja_router
+from app.integraciones.gcal.router import router as gcal_router
 from app.notificaciones.router import router as recordatorios_router
 from app.pagos.barrido import ciclo_barrido
 from app.gestion.router import router as gestion_router
@@ -84,6 +85,7 @@ app.include_router(clinica_router)
 app.include_router(caja_router)
 app.include_router(indicadores_router)
 app.include_router(recordatorios_router)
+app.include_router(gcal_router)
 registrar_handlers_clinicos(app)
 registrar_handlers_caja(app)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]

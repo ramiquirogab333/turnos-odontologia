@@ -25,6 +25,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.integraciones.gcal.disponibilidad import franjas_ocupadas
 from app.models.core import Disponibilidad, RegistroAuditoria
 from app.pagos.calculo import monto_sena, vencimiento
 from app.pagos.config import medios_disponibles, obtener_configuracion
@@ -74,11 +75,15 @@ def _solapa(a_ini: datetime, a_fin: datetime, b_ini: datetime, b_fin: datetime) 
     return a_ini < b_fin and a_fin > b_ini
 
 
+SIN_SILLON = 0  # las franjas de Google ocupan a la profesional, no a un sillón (C-10, O10)
+
+
 async def _cargar_bloqueos(session: AsyncSession, desde: datetime, hasta: datetime,
-                           excluir_turno_id: int | None = None) -> list[_Bloqueo]:
-    """Turnos que bloquean agenda y rozan [desde, hasta): una sola consulta por operación.
+                           excluir_turno_id: int | None = None, incluir_google: bool = True) -> list[_Bloqueo]:
+    """Turnos que bloquean agenda (y franjas ocupadas de Google) que rozan [desde, hasta): consultas fijas por operación.
 
     ``excluir_turno_id`` saca de la ocupación al turno que se está moviendo (C-07): una fila no choca consigo misma.
+    ``incluir_google=False`` es el alta manual (C-10, O10): avisa de la superposición pero no la bloquea.
     """
     consulta = select(Turno.profesional_id, Turno.sillon_id, Turno.inicio, Turno.fin).where(
         Turno.estado.in_(ESTADOS_BLOQUEANTES), Turno.inicio < hasta, Turno.fin > desde
@@ -86,7 +91,11 @@ async def _cargar_bloqueos(session: AsyncSession, desde: datetime, hasta: dateti
     if excluir_turno_id is not None:
         consulta = consulta.where(Turno.id != excluir_turno_id)
     filas = await session.execute(consulta)
-    return [_Bloqueo(int(p), int(s), i, f) for p, s, i, f in filas.all()]
+    bloqueos = [_Bloqueo(int(p), int(s), i, f) for p, s, i, f in filas.all()]
+    if incluir_google:
+        bloqueos += [_Bloqueo(f.profesional_id, SIN_SILLON, f.inicio, f.fin)
+                     for f in await franjas_ocupadas(session, desde, hasta)]
+    return bloqueos
 
 
 async def _sillones_activos(session: AsyncSession) -> list[Sillon]:

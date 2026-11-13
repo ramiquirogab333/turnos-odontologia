@@ -98,6 +98,17 @@ jobs:
       SENA_BARRIDO_SEGUNDOS: '3'
       # C-09: el barrido y los recordatorios corren en el worker (cada 3 s para los E2E).
       RECORDATORIOS_INTERVALO_SEGUNDOS: '3'
+      # C-10: Google FALSO (servicio gcal-falso del perfil e2e de Compose): el consentimiento lo abre el navegador del
+      # host (localhost:8090) y el backend/worker consultan gcal-falso:8090. Credenciales SINTÉTICAS; la clave de cifrado
+      # se genera en el job (R17). El worker sincroniza cada 3 s.
+      GCAL_CLIENT_ID: cliente-sintetico.apps.googleusercontent.com
+      GCAL_CLIENT_SECRET: ci-secreto-gcal-sintetico
+      GCAL_REDIRECT_URI: http://localhost:8000/api/panel/google-calendar/oauth/callback
+      GCAL_OAUTH_BASE_URL: http://localhost:8090
+      GCAL_TOKEN_BASE_URL: http://gcal-falso:8090
+      GCAL_API_BASE_URL: http://gcal-falso:8090
+      GCAL_SYNC_INTERVALO_SEGUNDOS: '3'
+      E2E_GCAL_URL: http://localhost:8090
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -112,8 +123,10 @@ jobs:
           cache-dependency-path: frontend-paciente/package-lock.json
       - name: Secreto JWT efímero (R17)
         run: echo "JWT_SECRET_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-      - name: PostgreSQL y Redis por Docker Compose (healthcheck)
-        run: docker compose up -d --wait postgres redis
+      - name: Clave de cifrado de tokens efímera (R17, C-10)
+        run: echo "GCAL_TOKEN_CLAVE=$(python -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> "$GITHUB_ENV"
+      - name: PostgreSQL, Redis y Google falso por Docker Compose (healthcheck)
+        run: docker compose --profile e2e up -d --build --wait postgres redis gcal-falso
       - name: Migrar la base
         working-directory: backend
         run: |
@@ -126,7 +139,7 @@ jobs:
             curl -fsS http://localhost:8000/api/health && exit 0
             sleep 2
           done
-          docker compose logs backend worker
+          docker compose --profile e2e logs backend worker gcal-falso
           exit 1
       - name: Dependencias del frontend y Chromium
         working-directory: frontend-paciente
@@ -149,7 +162,7 @@ jobs:
           retention-days: 7
       - name: Logs del backend y del worker
         if: failure()
-        run: docker compose logs backend worker
+        run: docker compose --profile e2e logs backend worker gcal-falso
 
   # C-08 (D8): el panel interno tiene sus propios jobs, copia de los del frontend público.
   frontend-panel:
@@ -186,6 +199,17 @@ jobs:
       SENA_BARRIDO_SEGUNDOS: '3'
       # C-09: el barrido y los recordatorios corren en el worker (cada 3 s para los E2E).
       RECORDATORIOS_INTERVALO_SEGUNDOS: '3'
+      # C-10: Google FALSO (servicio gcal-falso del perfil e2e de Compose): el consentimiento lo abre el navegador del
+      # host (localhost:8090) y el backend/worker consultan gcal-falso:8090. Credenciales SINTÉTICAS; la clave de cifrado
+      # se genera en el job (R17). El worker sincroniza cada 3 s.
+      GCAL_CLIENT_ID: cliente-sintetico.apps.googleusercontent.com
+      GCAL_CLIENT_SECRET: ci-secreto-gcal-sintetico
+      GCAL_REDIRECT_URI: http://localhost:8000/api/panel/google-calendar/oauth/callback
+      GCAL_OAUTH_BASE_URL: http://localhost:8090
+      GCAL_TOKEN_BASE_URL: http://gcal-falso:8090
+      GCAL_API_BASE_URL: http://gcal-falso:8090
+      GCAL_SYNC_INTERVALO_SEGUNDOS: '3'
+      E2E_GCAL_URL: http://localhost:8090
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -200,8 +224,10 @@ jobs:
           cache-dependency-path: frontend-panel/package-lock.json
       - name: Secreto JWT efímero (R17)
         run: echo "JWT_SECRET_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
-      - name: PostgreSQL y Redis por Docker Compose (healthcheck)
-        run: docker compose up -d --wait postgres redis
+      - name: Clave de cifrado de tokens efímera (R17, C-10)
+        run: echo "GCAL_TOKEN_CLAVE=$(python -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" >> "$GITHUB_ENV"
+      - name: PostgreSQL, Redis y Google falso por Docker Compose (healthcheck)
+        run: docker compose --profile e2e up -d --build --wait postgres redis gcal-falso
       - name: Migrar la base
         working-directory: backend
         run: |
@@ -214,7 +240,7 @@ jobs:
             curl -fsS http://localhost:8000/api/health && exit 0
             sleep 2
           done
-          docker compose logs backend worker
+          docker compose --profile e2e logs backend worker gcal-falso
           exit 1
       - name: Dependencias del panel y Chromium
         working-directory: frontend-panel
@@ -237,4 +263,4 @@ jobs:
           retention-days: 7
       - name: Logs del backend y del worker
         if: failure()
-        run: docker compose logs backend worker
+        run: docker compose --profile e2e logs backend worker gcal-falso
