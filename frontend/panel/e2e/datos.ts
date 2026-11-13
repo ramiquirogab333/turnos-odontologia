@@ -88,7 +88,7 @@ export async function sembrar(): Promise<Semilla> {
     }
     await truncarConReintento(
       c,
-      'TRUNCATE token_blacklist, cierre_caja_linea, cierre_caja, pago_presupuesto, presupuesto_linea, presupuesto, ficha, odontograma_registro, paciente, pago_sena_aprobacion, pago_sena, turno, disponibilidad, profesional, sillon, tratamiento, usuario_rol, usuario, rol, registro_auditoria RESTART IDENTITY CASCADE',
+      'TRUNCATE sesion_panel, cierre_caja_linea, cierre_caja, pago_presupuesto, presupuesto_linea, presupuesto, ficha, odontograma_registro, paciente, pago_sena_aprobacion, pago_sena, turno, disponibilidad, profesional, sillon, tratamiento, usuario_rol, usuario, rol, registro_auditoria RESTART IDENTITY CASCADE',
     );
     const ana = await insertar(
       c,

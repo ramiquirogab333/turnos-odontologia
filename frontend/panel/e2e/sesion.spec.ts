@@ -121,3 +121,42 @@ test('credenciales inválidas: mismo mensaje, sin cookie y sin agenda', async ({
   expect((await context.cookies()).filter((c) => c.name === 'refresh_token')).toHaveLength(0);
   await expect(agenda(page)).toHaveCount(0);
 });
+
+test('(f) salir en una pestaña y, en la otra sin recargar ni aviso entre pestañas, el siguiente pedido lleva al ingreso (el access ya no sirve)', async ({ page, context }) => {
+  await ingresar(page);
+  const otra = await context.newPage();
+  // Sin BroadcastChannel: la otra pestaña no se entera por aviso, solo puede enterarse porque el servidor la rechaza (C-15).
+  await otra.addInitScript(() => {
+    Object.defineProperty(window, 'BroadcastChannel', { value: undefined, configurable: true });
+  });
+  await otra.goto('/');
+  await expect(agenda(otra)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Salir' }).click();
+  await expect(ingreso(page)).toBeVisible();
+  await expect(agenda(otra)).toBeVisible(); // todavía no pidió nada: no se enteró
+
+  await otra.getByRole('button', { name: 'Día siguiente' }).click(); // el siguiente pedido autenticado
+  await expect(ingreso(otra)).toBeVisible();
+  await expect(agenda(otra)).toHaveCount(0);
+});
+
+test('(g) la sexta contraseña incorrecta de un email propio muestra el bloqueo con minutos, a 360 px y sin scroll horizontal', async ({ page }) => {
+  const email = `bloqueo.${String(Date.now())}@turnos.test`; // un email por corrida: el contador sobrevive entre proyectos
+  await page.goto('/');
+  for (let i = 0; i < 5; i += 1) {
+    await page.getByLabel('Correo electrónico').fill(email);
+    await page.getByLabel('Contraseña').fill('clave-incorrecta-123');
+    await page.getByRole('button', { name: 'Ingresar al panel' }).click();
+    await expect(page.getByRole('alert')).toContainText('El correo o la contraseña no son correctos.');
+  }
+  await page.getByLabel('Contraseña').fill('clave-incorrecta-123');
+  await page.getByRole('button', { name: 'Ingresar al panel' }).click();
+  await expect(page.getByRole('alert')).toContainText('Demasiados intentos. Probá de nuevo en 15 minutos');
+  await expect(agenda(page)).toHaveCount(0);
+  const medidas = await page.evaluate(() => ({
+    scroll: document.documentElement.scrollWidth,
+    ancho: document.documentElement.clientWidth,
+  }));
+  expect(medidas.scroll).toBeLessThanOrEqual(medidas.ancho);
+});
