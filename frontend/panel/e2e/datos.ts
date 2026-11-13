@@ -22,6 +22,7 @@ function exigirBaseLocal(): void {
 
 export const EMAIL_RECEPCION = 'recepcion.e2e@turnos.test';
 export const EMAIL_ODONTOLOGA = 'dra.ficticia.e2e@turnos.test';
+export const EMAIL_ADMIN = 'admin.e2e@turnos.test';
 export const CLAVE = 'password-e2e-sintetica';
 /** bcrypt de CLAVE (dato sintético; solo existe en la base local de pruebas). */
 const HASH_CLAVE = '$2b$10$ZBiMWnRW1aHUdN52SR5N5ubI2xDReJneSI4OZemXmYq5jYjOBFb4G';
@@ -129,6 +130,14 @@ export async function sembrar(): Promise<Semilla> {
       [EMAIL_ODONTOLOGA, 'Ana Ficticia', HASH_CLAVE, ana],
     );
     await c.query('INSERT INTO usuario_rol (usuario_id, rol_id) VALUES ($1, $2)', [odontologa, rolOdontologo]);
+    // C-13: el admin consulta la auditoría y exporta pacientes.
+    const rolAdmin = await insertar(c, "INSERT INTO rol (nombre) VALUES ('admin') RETURNING id", []);
+    const admin = await insertar(
+      c,
+      'INSERT INTO usuario (email, nombre_completo, hashed_password) VALUES ($1, $2, $3) RETURNING id',
+      [EMAIL_ADMIN, 'Alma Administración', HASH_CLAVE],
+    );
+    await c.query('INSERT INTO usuario_rol (usuario_id, rol_id) VALUES ($1, $2)', [admin, rolAdmin]);
     return { profesionalId: ana, profesional2Id: bruno, sillon1Id: s1, sillon2Id: s2, limpiezaId: limpieza };
   });
 }
