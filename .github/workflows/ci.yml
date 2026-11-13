@@ -165,7 +165,7 @@ jobs:
         run: docker compose --profile e2e logs backend worker gcal-falso
 
   # C-08 (D8): el panel interno tiene sus propios jobs, copia de los del frontend público.
-  frontend/panel:
+  frontend-panel:
     name: frontend-panel (tsc + lint + unit + build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
