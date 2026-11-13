@@ -41,6 +41,7 @@ from app.models.core import RegistroAuditoria, Usuario, UsuarioRol, Rol
 from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 
 if TYPE_CHECKING:
+    from app.integraciones.gcal.proveedor_falso import ProveedorFalso
     from tests.sena_helpers import PasarelaEspia
 
 POLITICA_REEMBOLSO_DEFECTO = (
@@ -103,6 +104,7 @@ async def clean_db(
     from app.clinica.models import OdontogramaRegistro, PagoPresupuesto, Presupuesto, PresupuestoLinea
     from app.models.core import ObraSocial, Paciente
     from app.pacientes.models import Ficha
+    from app.integraciones.gcal.models import EventoCalendar, GcalConexion, GcalConflicto
     from app.notificaciones.models import Recordatorio
     from app.pagos.models import AprobacionPago, ConfiguracionSena, PagoSena
     from app.turnos.models import Turno
@@ -121,6 +123,9 @@ async def clean_db(
             TokenBlacklist,
             RegistroAuditoria,
             Recordatorio,
+            GcalConflicto,
+            EventoCalendar,
+            GcalConexion,
             UsuarioRol,
             Usuario,
             Rol,
@@ -324,3 +329,24 @@ async def client_recepcion(client: AsyncClient, token_recepcion: str) -> AsyncCl
     """Cliente HTTP ya autenticado como recepción (para los tests de la primitiva ``POST /api/turnos``)."""
     client.headers.update(bearer(token_recepcion))
     return client
+
+
+# ---------------------------------------------------------------------------
+# C-10: Google Calendar (proveedor falso en memoria; nunca hay red)
+# ---------------------------------------------------------------------------
+
+@pytest_asyncio.fixture
+async def proveedor_gcal(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator["ProveedorFalso"]:
+    """Credenciales GCAL_* sintéticas en el entorno y ``get_proveedor`` sobreescrito con el proveedor falso."""
+    from app.integraciones.gcal.deps import get_proveedor
+    from app.integraciones.gcal.proveedor_falso import ProveedorFalso
+    from app.main import app
+    from tests.gcal_helpers import configurar_entorno
+
+    configurar_entorno(monkeypatch)
+    falso = ProveedorFalso()
+    app.dependency_overrides[get_proveedor] = lambda: falso
+    try:
+        yield falso
+    finally:
+        app.dependency_overrides.pop(get_proveedor, None)
