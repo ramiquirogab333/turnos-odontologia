@@ -300,7 +300,8 @@ async def test_crear_tratamiento_audita_registro_auditoria(session_factory, clea
         registros = result.scalars().all()
     assert len(registros) >= 1
     assert registros[0].datos_despues is not None
-    assert registros[0].datos_despues["nombre"] == "Auditado"
+    # C-13 (D2): la auditoría no guarda el nombre (identidad del personal): el campo queda en ``campos``.
+    assert "nombre" not in registros[0].datos_despues and "nombre" in registros[0].datos_despues["campos"]
     assert registros[0].datos_despues["duracion_minutos"] == 30
 
 

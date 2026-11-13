@@ -6,7 +6,7 @@ Strict TDD: RED primero (test falla), luego GREEN tras aplicar migración + seed
 from decimal import Decimal
 from datetime import datetime, time, timedelta, timezone
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -356,8 +356,9 @@ async def _clean_all_core(session_factory):
     """Limpia todas las tablas core después de cada test."""
     yield
     async with session_factory() as session:
+        # C-13 (D6): la auditoría es de solo agregado (trigger); se vacía con TRUNCATE antes que usuario (FK RESTRICT).
+        await session.execute(text("TRUNCATE registro_auditoria RESTART IDENTITY CASCADE"))
         for model in (
-            RegistroAuditoria,
             Nomenclador,
             Disponibilidad,
             UsuarioRol,

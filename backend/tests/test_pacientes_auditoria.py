@@ -39,8 +39,9 @@ async def test_una_clave_prohibida_hace_fallar_la_llamada(session_factory, clave
 
 
 def test_la_lista_cubre_los_datos_clinicos_y_personales() -> None:
+    # C-13 (D2) amplía la lista con secretos y datos del contacto público: la base de C-11 sigue incluida.
     assert {"alergias", "medicacion", "antecedentes_medicos", "observaciones", "nota", "estado_odontograma", "nombre",
-            "apellido", "dni", "numero_afiliado", "telefono", "email"} == set(CLAVES_PROHIBIDAS)
+            "apellido", "dni", "numero_afiliado", "telefono", "email"} <= set(CLAVES_PROHIBIDAS)
 
 
 async def test_los_nombres_de_campos_como_valores_estan_permitidos(session_factory) -> None:  # type: ignore[no-untyped-def]

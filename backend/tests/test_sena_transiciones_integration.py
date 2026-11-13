@@ -168,8 +168,8 @@ async def _origenes(factory, turno_id: int) -> list[str]:
     async with factory() as s:
         filas = (await s.execute(select(RegistroAuditoria).where(
             RegistroAuditoria.entidad == "turno", RegistroAuditoria.entidad_id == str(turno_id),
-            RegistroAuditoria.accion == "UPDATE"))).scalars().all()
-    return [f.datos_despues["origen"] for f in filas]
+            RegistroAuditoria.accion == "UPDATE").order_by(RegistroAuditoria.id))).scalars().all()
+    return [f.datos_despues["origen"] for f in filas]  # (C-13: sin ORDER BY, el índice por entidad devolvía lo más nuevo primero)
 
 
 async def test_la_auditoria_guarda_el_origen_recibido_y_cambio_estado_por_defecto(

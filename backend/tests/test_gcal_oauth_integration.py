@@ -33,6 +33,48 @@ def _state(url: str) -> str:
     return parse_qs(urlparse(url).query)["state"][0]
 
 
+# --- C-13 (5.4, O10): iniciar la conexión queda auditado -----------------------------------------------------------
+
+async def _inicios(factory: Factory) -> list[RegistroAuditoria]:
+    async with factory() as s:
+        return list((await s.execute(select(RegistroAuditoria).where(RegistroAuditoria.accion == "inicio_conexion_gcal")
+                                     .order_by(RegistroAuditoria.id))).scalars())
+
+
+async def test_iniciar_deja_registro_con_usuario_y_profesional_sin_url_ni_state(
+        client: AsyncClient, session_factory: Factory, proveedor_gcal: ProveedorFalso, reloj) -> None:
+    reloj(AHORA)
+    mundo = await sembrar_mundo(session_factory)
+    usuario, token = await _odontologa(session_factory, mundo)
+    r = await client.post(f"{BASE}/conexion/iniciar", headers=bearer(token))
+    assert r.status_code == 200
+    [registro] = await _inicios(session_factory)
+    conexion_id = (await _conexion_de(session_factory, mundo["ana"])).id
+    assert (registro.usuario_id, registro.entidad, registro.entidad_id) == (usuario, "gcal_conexion", str(conexion_id))
+    assert registro.datos_despues == {"profesional_id": mundo["ana"]}
+    url = r.json()["url_autorizacion"]
+    assert url not in str(registro.__dict__) and _state(url) not in str(registro.__dict__)
+
+
+async def test_iniciar_con_conexion_activa_da_409_y_no_deja_registro(
+        client: AsyncClient, session_factory: Factory, proveedor_gcal: ProveedorFalso) -> None:
+    mundo = await sembrar_mundo(session_factory)
+    _, token = await _odontologa(session_factory, mundo)
+    await sembrar_conexion(session_factory, mundo["ana"])
+    assert (await client.post(f"{BASE}/conexion/iniciar", headers=bearer(token))).status_code == 409
+    assert await _inicios(session_factory) == []
+
+
+async def test_iniciar_sin_credenciales_responde_503_y_no_deja_registro(
+        client: AsyncClient, session_factory: Factory, proveedor_gcal: ProveedorFalso, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GCAL_CLIENT_ID")
+    monkeypatch.delenv("GCAL_CLIENT_SECRET")
+    mundo = await sembrar_mundo(session_factory)
+    _, token = await _odontologa(session_factory, mundo)
+    assert (await client.post(f"{BASE}/conexion/iniciar", headers=bearer(token))).status_code == 503
+    assert await _inicios(session_factory) == []
+
+
 # --- 5.1 Iniciar -------------------------------------------------------------------------------------------------
 
 async def test_iniciar_devuelve_la_url_de_google_y_deja_la_conexion_pendiente(
@@ -140,7 +182,8 @@ async def test_autorizacion_concedida_guarda_los_tokens_cifrados_y_vuelve_al_pan
     assert fila.oauth_nonce_hash is None and fila.oauth_verifier_cifrado is None and fila.sync_token is None
     async with session_factory() as s:
         auditoria = (await s.execute(select(RegistroAuditoria).where(
-            RegistroAuditoria.entidad == "gcal_conexion"))).scalars().all()
+            RegistroAuditoria.entidad == "gcal_conexion", RegistroAuditoria.accion == "UPDATE"))).scalars().all()
+    # (C-13: el inicio de la conexión deja además su propio ``inicio_conexion_gcal``, aparte de este UPDATE del callback)
     assert len(auditoria) == 1 and "token" not in json.dumps(auditoria[0].datos_despues)
     assert "token-sintetico-canje" not in caplog.text
 

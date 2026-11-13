@@ -33,11 +33,11 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from decimal import Decimal
 
-from sqlalchemy import delete, update
+from sqlalchemy import delete, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.models.auth import SesionPanel
-from app.models.core import RegistroAuditoria, Usuario, UsuarioRol, Rol
+from app.models.core import Usuario, UsuarioRol, Rol
 from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 
 if TYPE_CHECKING:
@@ -125,6 +125,8 @@ async def clean_db(
     from app.turnos.models import Turno
 
     async with session_factory() as session:
+        # C-13 (D6): la auditoría es de solo agregado (trigger); se vacía con TRUNCATE, antes que usuario (FK RESTRICT).
+        await session.execute(text("TRUNCATE registro_auditoria RESTART IDENTITY CASCADE"))
         for model in (
             CierreCajaLinea,
             CierreCaja,
@@ -136,7 +138,6 @@ async def clean_db(
             AprobacionPago,
             PagoSena,
             SesionPanel,
-            RegistroAuditoria,
             Recordatorio,
             GcalConflicto,
             EventoCalendar,

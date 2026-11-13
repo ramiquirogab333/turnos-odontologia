@@ -173,4 +173,4 @@ async def test_downgrade_borra_la_tabla_y_sus_indices_y_el_upgrade_vuelve_a_pasa
     async with session_factory() as s:
         assert (await s.execute(text("SELECT to_regclass('public.recordatorio')"))).scalar_one() == "recordatorio"
         assert (await s.execute(text("SELECT version_num FROM alembic_version"))).scalar_one() \
-            == "012_sesion_panel"
+            == "013_auditoria_exportacion"

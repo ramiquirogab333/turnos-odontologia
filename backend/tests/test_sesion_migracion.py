@@ -156,7 +156,7 @@ async def test_borrar_el_usuario_borra_sus_sesiones(session_factory: Factory) ->
 # --- 2.3 Reversibilidad --------------------------------------------------------------------------------------
 
 async def test_downgrade_recrea_token_blacklist_identica_a_la_003_y_upgrade_vuelve() -> None:
-    abajo = alembic("downgrade", "-1")
+    abajo = alembic("downgrade", "011_google_calendar")
     try:
         assert abajo.returncode == 0, abajo.stderr
         assert "012_sesion_panel" not in alembic("current").stdout
