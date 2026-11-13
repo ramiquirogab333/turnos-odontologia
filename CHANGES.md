@@ -329,7 +329,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-10] `google-calendar-sync`
-- **Estado**: `[~]` implementado en la rama `feat/c-10-google-calendar-sync` (pendiente de archivar); decisiones O1–O20 aprobadas el 2026-11-12. Migración `011_google_calendar`; el servidor falso `gcal-falso` (perfil `e2e` de Compose) permite los E2E sin cuenta de Google
+- **Estado**: `[x]` archivado 2026-11-12 (`openspec/changes/archive/2026-11-12-c-10-google-calendar-sync/`, specs nueva en `openspec/specs/integraciones/google-calendar/spec.md` y `openspec/specs/turnos/agenda-panel/spec.md`, `openspec/specs/turnos/gestion-paciente/spec.md`, `openspec/specs/turnos/gestion-panel/spec.md`, `openspec/specs/turnos/reserva-publica/spec.md`, `openspec/specs/plataforma/trabajos-programados/spec.md` (modificadas, requisitos agregados)); decisiones O1–O20 aprobadas el 2026-11-12. Migración `011_google_calendar`; el servidor falso `gcal-falso` (perfil `e2e` de Compose) permite los E2E sin cuenta de Google
 - **Scope**: Sincronía bidireccional con Google Calendar (US-006); reutiliza la base Redis/workers de C-09 (si C-09 no está archivado, el job se define local con el mismo patrón y C-09 lo consolida)
   - Solo turnos que BLOQUEAN agenda (`reservado/confirmado`) generan/actualizan `EventoCalendar`; `en_espera` no sincroniza; al cancelar/reprogramar actualiza o borra el evento
   - OAuth por profesional (`GCAL_CLIENT_ID/SECRET`), pull+push con `syncToken`, mapeo `Turno ↔ EventoCalendar`, tabla de eventos (*───* Turno)
