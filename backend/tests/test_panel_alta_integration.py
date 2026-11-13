@@ -8,12 +8,11 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import func, select
 
-from app.auth.service import create_refresh_token
 from app.models.core import RegistroAuditoria
 from app.pagos.models import PagoSena
 from app.pagos.service import acreditar_pago
 from app.turnos.models import Sillon, Turno
-from tests.conftest import bearer, crear_usuario_panel
+from tests.conftest import bearer, crear_sesion_sintetica, crear_usuario_panel
 from tests.panel_helpers import (
     LUNES, TELEFONO, cuerpo_alta, insertar_pago, insertar_turno, local, pagos, sembrar_mundo, turno,
 )
@@ -235,8 +234,7 @@ async def test_odontologo_es_403_sin_token_es_401_y_refresh_como_bearer_es_401(
     cuerpo = cuerpo_alta(mundo, local(MARTES, "11:00"))
     assert (await client.post(URL, json=cuerpo, headers=bearer(token))).status_code == 403
     assert (await client.post(URL, json=cuerpo)).status_code == 401
-    refresh = create_refresh_token({"sub": str(uid), "roles": ["recepcion"], "email": "dra@turnos.test",
-                                    "jti": "jti-refresh-panel"})
+    _, _, refresh = await crear_sesion_sintetica(session_factory, uid, "dra@turnos.test", ["recepcion"])
     assert (await client.post(URL, json=cuerpo, headers=bearer(refresh))).status_code == 401
     assert await _cantidad(session_factory) == 0
 

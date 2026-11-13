@@ -330,7 +330,7 @@ async def test_upgrade_rellena_acreditado_en_y_downgrade_devuelve_los_reembolsad
     async with session_factory() as s:
         assert (await s.execute(text("SELECT count(*) FROM cierre_caja"))).scalar_one() == 0
         assert (await s.execute(text("SELECT version_num FROM alembic_version"))).scalar_one() \
-            == "011_google_calendar"
+            == "012_sesion_panel"
 
 
 # --- 1.6 Modelos -------------------------------------------------------------------------------------------------

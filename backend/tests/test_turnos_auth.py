@@ -3,9 +3,8 @@
 import pytest
 from sqlalchemy import func, select
 
-from app.auth.service import create_refresh_token
 from app.turnos.models import Turno
-from tests.conftest import bearer, crear_usuario_panel, future_iso
+from tests.conftest import bearer, crear_sesion_sintetica, crear_usuario_panel, future_iso
 
 
 def _cuerpo(ids: dict[str, int]) -> dict[str, object]:
@@ -33,8 +32,7 @@ async def test_odontologo_es_403_y_no_crea_el_turno(client, seed_ids, session_fa
 
 async def test_un_token_de_refresh_como_bearer_es_401(client, seed_ids, session_factory) -> None:
     uid, _ = await crear_usuario_panel(session_factory, "rec@turnos.test", ["recepcion"])
-    refresh = create_refresh_token({"sub": str(uid), "roles": ["recepcion"], "email": "rec@turnos.test",
-                                    "jti": "jti-refresh-sintetico"})
+    _, _, refresh = await crear_sesion_sintetica(session_factory, uid, "rec@turnos.test", ["recepcion"])
     r = await client.post("/api/turnos", json=_cuerpo(seed_ids), headers=bearer(refresh))
     assert r.status_code == 401
     assert await _turnos(session_factory) == 0

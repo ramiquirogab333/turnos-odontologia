@@ -11,7 +11,7 @@ from app.pagos.errores import MarcadoNoHabilitadoError, OperacionReintentableErr
 from app.pagos.estados import TransicionInvalidaError, ausente_habilitado_desde
 from app.pagos.service import cambiar_estado_turno
 from app.turnos.models import Turno
-from tests.conftest import bearer, crear_usuario_panel
+from tests.conftest import bearer, crear_sesion_sintetica, crear_usuario_panel
 from tests.panel_helpers import LUNES, insertar_pago, insertar_turno, local, pagos, sembrar_mundo, turno
 
 INICIO = datetime(2031, 7, 7, 13, 0, tzinfo=timezone.utc)
@@ -252,11 +252,10 @@ async def dra(session_factory, mundo):
 
 
 async def test_sin_token_o_con_refresh_es_401_y_no_cambia_nada(client, mundo, session_factory, reloj) -> None:
-    from app.auth.service import create_refresh_token
-
     tid = await insertar_turno(session_factory, mundo, INICIO_PANEL)
     reloj(INICIO_PANEL + timedelta(hours=1))
-    refresh = create_refresh_token({"sub": "1", "roles": ["odontologo"], "email": "x@turnos.test", "jti": "jti-refresh"})
+    uid, _ = await crear_usuario_panel(session_factory, "x@turnos.test", ["odontologo"], profesional_id=mundo["ana"])
+    _, _, refresh = await crear_sesion_sintetica(session_factory, uid, "x@turnos.test", ["odontologo"])
     for accion in ("ausente", "atendido", "cancelar"):
         assert (await client.post(f"/api/panel/turnos/{tid}/{accion}")).status_code == 401
         assert (await client.post(f"/api/panel/turnos/{tid}/{accion}", headers=bearer(refresh))).status_code == 401

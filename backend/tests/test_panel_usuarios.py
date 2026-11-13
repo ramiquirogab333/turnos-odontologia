@@ -101,3 +101,105 @@ async def test_un_segundo_rol_se_suma_sin_quitar_el_primero(mundo, session_facto
     assert await ejecutar(_args("recepcion@turnos.test", "admin"), {"PANEL_USUARIO_PASSWORD": CLAVE}) == 0
     assert sorted(await _roles_de(session_factory, "recepcion@turnos.test")) == ["admin", "recepcion"]
     assert len(await _usuarios(session_factory)) == 1
+
+
+# --- C-15 (8.1, D9, O13): desactivar y reactivar ---------------------------------------------------------------
+
+DRA = "dra.ficticia@turnos.test"
+
+
+async def _alta_dra(mundo) -> None:
+    assert await ejecutar(["--email", DRA, "--nombre", "Ana Ficticia", "--rol", "odontologo", "--profesional-id",
+                           str(mundo["ana"])], {"PANEL_USUARIO_PASSWORD": CLAVE}) == 0
+
+
+async def _dos_sesiones(client, mundo) -> tuple[list[str], list[str]]:
+    accesos, cookies = [], []
+    for _ in range(2):
+        r = await client.post("/api/auth/login", json={"email": DRA, "password": CLAVE})
+        assert r.status_code == 200, r.text
+        accesos.append(r.json()["access_token"])
+        cookies.append(next(h for h in r.headers.get_list("set-cookie") if h.startswith("refresh_token=")
+                            ).split(";", 1)[0].split("=", 1)[1])
+    return accesos, cookies
+
+
+async def test_desactivar_deja_inactivo_revoca_las_dos_sesiones_y_audita_la_cantidad(
+        client, mundo, session_factory) -> None:
+    from app.models.auth import SesionPanel
+    from app.models.core import RegistroAuditoria
+
+    await _alta_dra(mundo)
+    accesos, _ = await _dos_sesiones(client, mundo)
+    assert await ejecutar(["--email", DRA, "--desactivar"], {}) == 0  # sin pedir contraseña
+    (u,) = await _usuarios(session_factory)
+    assert u.is_active is False
+    async with session_factory() as s:
+        sesiones = list((await s.execute(select(SesionPanel))).scalars())
+        auditoria = list((await s.execute(select(RegistroAuditoria).where(
+            RegistroAuditoria.accion == "SESIONES_REVOCADAS"))).scalars())
+    assert len(sesiones) == 2 and all(x.motivo_revocacion == "usuario_desactivado" and x.revocada_en for x in sesiones)
+    assert [a.datos_despues for a in auditoria] == [{"cantidad": 2}]
+    for token in accesos:
+        assert (await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})).status_code == 401
+
+
+async def test_desactivar_un_email_inexistente_falla_explica_y_no_cambia_nada(mundo, session_factory, capsys) -> None:
+    await _alta_dra(mundo)
+    assert await ejecutar(["--email", "nadie@turnos.test", "--desactivar"], {}) == 1
+    assert "nadie@turnos.test" in capsys.readouterr().err
+    (u,) = await _usuarios(session_factory)
+    assert u.is_active is True
+
+
+async def test_reactivar_no_revive_sesiones_pero_permite_ingresar_de_nuevo(client, mundo, session_factory) -> None:
+    await _alta_dra(mundo)
+    _, cookies = await _dos_sesiones(client, mundo)
+    assert await ejecutar(["--email", DRA, "--desactivar"], {}) == 0
+    assert await ejecutar(["--email", DRA, "--reactivar"], {}) == 0
+    (u,) = await _usuarios(session_factory)
+    assert u.is_active is True
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as https:
+        https.cookies.set("refresh_token", cookies[0], domain="test", path="/api/auth")
+        viejo = await https.post("/api/auth/refresh", headers={"X-Panel-Csrf": "1"})
+        assert viejo.status_code == 401
+        assert (await https.post("/api/auth/login", json={"email": DRA, "password": CLAVE})).status_code == 200
+
+
+async def test_el_alta_sobre_un_usuario_desactivado_actualiza_la_contrasena_sigue_inactivo_y_avisa(
+        client, mundo, session_factory, capsys) -> None:
+    await _alta_dra(mundo)
+    assert await ejecutar(["--email", DRA, "--desactivar"], {}) == 0
+    capsys.readouterr()
+    nueva = "otra-clave-sintetica-2031"
+    assert await ejecutar(["--email", DRA, "--nombre", "Ana Ficticia", "--rol", "odontologo", "--profesional-id",
+                           str(mundo["ana"])], {"PANEL_USUARIO_PASSWORD": nueva}) == 0
+    (u,) = await _usuarios(session_factory)
+    assert u.is_active is False
+    assert "desactivado" in capsys.readouterr().err
+    assert (await client.post("/api/auth/login", json={"email": DRA, "password": nueva})).status_code == 401
+
+
+@pytest.mark.parametrize("extra", [["--rol", "recepcion"], ["--nombre", "Otra Persona"], ["--reactivar"]])
+async def test_desactivar_junto_con_otras_opciones_es_error_de_uso(mundo, session_factory, extra, capsys) -> None:
+    await _alta_dra(mundo)
+    assert await ejecutar(["--email", DRA, "--desactivar", *extra], {}) != 0
+    (u,) = await _usuarios(session_factory)
+    assert u.is_active is True
+
+
+async def test_desactivar_es_idempotente_y_cuenta_cero_la_segunda_vez(client, mundo, session_factory) -> None:
+    from app.models.core import RegistroAuditoria
+
+    await _alta_dra(mundo)
+    await _dos_sesiones(client, mundo)
+    assert await ejecutar(["--email", DRA, "--desactivar"], {}) == 0
+    assert await ejecutar(["--email", DRA, "--desactivar"], {}) == 0
+    async with session_factory() as s:
+        cantidades = sorted(a.datos_despues["cantidad"] for a in (await s.execute(select(RegistroAuditoria).where(
+            RegistroAuditoria.accion == "SESIONES_REVOCADAS"))).scalars())
+    assert cantidades == [0, 2]

@@ -12,7 +12,7 @@ from app.shared.settings import Settings
 
 BASE = {"JWT_SECRET_KEY": "x" * 40, "APP_ENV": "test", "MP_GATEWAY": "fake"}
 VARIABLES = ("RECORDATORIOS_HABILITADO", "RECORDATORIOS_INTERVALO_SEGUNDOS", "SENA_BARRIDO_HABILITADO",
-             "SENA_BARRIDO_SEGUNDOS")
+             "SENA_BARRIDO_SEGUNDOS", "PURGA_SESIONES_HABILITADO", "PURGA_SESIONES_INTERVALO_SEGUNDOS")
 
 
 def _settings(monkeypatch: pytest.MonkeyPatch, **env: str) -> Settings:
@@ -25,13 +25,20 @@ def _settings(monkeypatch: pytest.MonkeyPatch, **env: str) -> Settings:
 
 def test_el_registro_expone_recordatorios_y_barrido_con_sus_intervalos(monkeypatch: pytest.MonkeyPatch) -> None:
     trabajos = {t.nombre: t.intervalo_segundos for t in trabajos_programados(_settings(monkeypatch))}
-    assert trabajos == {"recordatorios": 300, "barrido_sena": 60}
+    assert trabajos == {"recordatorios": 300, "barrido_sena": 60, "purga_sesiones": 3600}
 
 
 def test_los_intervalos_salen_de_la_configuracion(monkeypatch: pytest.MonkeyPatch) -> None:
     ajustes = _settings(monkeypatch, RECORDATORIOS_INTERVALO_SEGUNDOS="3", SENA_BARRIDO_SEGUNDOS="3")
     assert {t.nombre: t.intervalo_segundos for t in trabajos_programados(ajustes)} == {
-        "recordatorios": 3, "barrido_sena": 3}
+        "recordatorios": 3, "barrido_sena": 3, "purga_sesiones": 3600}
+
+
+def test_la_purga_de_sesiones_se_registra_con_su_intervalo_y_se_puede_apagar(monkeypatch: pytest.MonkeyPatch) -> None:
+    ajustes = _settings(monkeypatch, PURGA_SESIONES_INTERVALO_SEGUNDOS="120")
+    assert {t.nombre: t.intervalo_segundos for t in trabajos_programados(ajustes)}["purga_sesiones"] == 120
+    apagada = _settings(monkeypatch, PURGA_SESIONES_HABILITADO="false")
+    assert "purga_sesiones" not in {t.nombre for t in trabajos_programados(apagada)}
 
 
 @pytest.mark.parametrize("variable,omitido", [("RECORDATORIOS_HABILITADO", "recordatorios"),
@@ -39,11 +46,12 @@ def test_los_intervalos_salen_de_la_configuracion(monkeypatch: pytest.MonkeyPatc
 def test_un_trabajo_con_su_bandera_apagada_se_omite(monkeypatch: pytest.MonkeyPatch, variable: str,
                                                     omitido: str) -> None:
     nombres = {t.nombre for t in trabajos_programados(_settings(monkeypatch, **{variable: "false"}))}
-    assert omitido not in nombres and len(nombres) == 1
+    assert omitido not in nombres and nombres == {"recordatorios", "barrido_sena", "purga_sesiones"} - {omitido}
 
 
 def test_con_ambas_banderas_apagadas_no_hay_trabajos(monkeypatch: pytest.MonkeyPatch) -> None:
-    ajustes = _settings(monkeypatch, RECORDATORIOS_HABILITADO="false", SENA_BARRIDO_HABILITADO="false")
+    ajustes = _settings(monkeypatch, RECORDATORIOS_HABILITADO="false", SENA_BARRIDO_HABILITADO="false",
+                        PURGA_SESIONES_HABILITADO="false")
     assert trabajos_programados(ajustes) == []
 
 
@@ -61,7 +69,7 @@ def test_el_intervalo_se_traduce_a_una_expresion_cron(intervalo: int, esperado: 
 
 def test_se_arma_un_cron_por_trabajo_con_su_nombre(monkeypatch: pytest.MonkeyPatch) -> None:
     crones = construir_cron(trabajos_programados(_settings(monkeypatch)))
-    assert sorted(c.name for c in crones) == ["barrido_sena", "recordatorios"]
+    assert sorted(c.name for c in crones) == ["barrido_sena", "purga_sesiones", "recordatorios"]
 
 
 async def test_el_adaptador_abre_la_sesion_y_pasa_ahora_con_zona(

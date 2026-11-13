@@ -164,7 +164,8 @@ async def test_la_consulta_hace_dos_sentencias_para_20_pacientes_con_turnos(sess
         event.remove(motor, "before_cursor_execute", contar)
     assert r.status_code == 200 and len(r.json()["pacientes"]) == 20 and r.json()["total"] == 20
     assert all(p["atendidos"] == 1 and p["ausentes"] == 1 for p in r.json()["pacientes"])
-    consultas = [s for s in sentencias if s.lstrip().upper().startswith("SELECT")]
+    # La verificación de sesión del pedido (C-15, una sola consulta a sesion_panel) no cuenta: son la página y el total.
+    consultas = [s for s in sentencias if s.lstrip().upper().startswith("SELECT") and "sesion_panel" not in s]
     assert len(consultas) == 2, consultas  # la página y el total
 
 

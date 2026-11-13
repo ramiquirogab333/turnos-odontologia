@@ -33,7 +33,7 @@ def _intervalos(ajustes: Settings) -> dict[str, int]:
 
 
 def test_el_trabajo_gcal_sync_se_registra_con_su_intervalo_junto_a_los_otros(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert _intervalos(_settings(monkeypatch)) == {"recordatorios": 300, "barrido_sena": 60, "gcal_sync": 60}
+    assert _intervalos(_settings(monkeypatch)) == {"recordatorios": 300, "barrido_sena": 60, "gcal_sync": 60, "purga_sesiones": 3600}
 
 
 def test_el_intervalo_corto_para_e2e_llega_al_cron(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -47,7 +47,7 @@ def test_sin_el_secreto_no_se_registra_avisa_sin_mostrarlo_y_los_otros_corren(
         monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.WARNING)
     ajustes = _settings(monkeypatch, quitar=("GCAL_CLIENT_SECRET",))
-    assert _intervalos(ajustes) == {"recordatorios": 300, "barrido_sena": 60}
+    assert _intervalos(ajustes) == {"recordatorios": 300, "barrido_sena": 60, "purga_sesiones": 3600}
     assert "gcal_sync" in caplog.text and "secreto-sintetico" not in caplog.text and CLAVE_FERNET not in caplog.text
 
 

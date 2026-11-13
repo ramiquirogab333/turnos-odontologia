@@ -94,6 +94,7 @@ async def test_login_correcto_claims_access_token(
     assert "odontologo" in payload["roles"]
     assert payload["type"] == "access"
     assert "jti" in payload
+    assert "sid" in payload  # C-15: el token lleva su sesión
     assert "iat" in payload
     assert "exp" in payload
 
@@ -217,6 +218,7 @@ async def test_token_expirado_rechazado_401(
             "roles": ["recepcion"],
             "email": "expired@turnos.test",
             "jti": "jti-expirado-sintetico",
+            "sid": "00000000-0000-4000-8000-000000000001",
             "type": "access",
             "iat": datetime.now(timezone.utc) - timedelta(hours=2),
             "exp": datetime.now(timezone.utc) - timedelta(hours=1),

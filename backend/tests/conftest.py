@@ -36,7 +36,7 @@ from decimal import Decimal
 from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.models.auth import TokenBlacklist
+from app.models.auth import SesionPanel
 from app.models.core import RegistroAuditoria, Usuario, UsuarioRol, Rol
 from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 
@@ -84,6 +84,21 @@ async def _reset_app_engine() -> AsyncIterator[None]:
                 pass
 
 
+@pytest.fixture(autouse=True)
+def limitador():
+    """Límite de solicitudes en memoria, uno nuevo por test (C-15, O17): ningún test depende de Redis ni se contagia."""
+    from app.main import app
+    from app.shared.limites import LimitadorEnMemoria, LimitadorTolerante, get_limitador_base
+
+    memoria = LimitadorEnMemoria()
+    LimitadorTolerante._ultimo_aviso = float("-inf")
+    app.dependency_overrides[get_limitador_base] = lambda: memoria
+    try:
+        yield memoria
+    finally:
+        app.dependency_overrides.pop(get_limitador_base, None)
+
+
 @pytest_asyncio.fixture
 async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     """Engine + factory bound to the test database."""
@@ -120,7 +135,7 @@ async def clean_db(
             Ficha,
             AprobacionPago,
             PagoSena,
-            TokenBlacklist,
+            SesionPanel,
             RegistroAuditoria,
             Recordatorio,
             GcalConflicto,
@@ -282,14 +297,38 @@ def hash_panel() -> str:
     return _HASH_PANEL[0]
 
 
+async def crear_sesion_sintetica(
+    factory: async_sessionmaker[AsyncSession], usuario_id: int, email: str, roles: list[str], *,
+    creada_en: datetime | None = None, expira_en: datetime | None = None,
+) -> tuple[str, str, str]:
+    """Abre una sesión real en la base y firma su par de tokens (C-15 3.3). Devuelve ``(sid, access, refresh)``.
+
+    Por defecto la sesión vence en 10 años: los tests que fijan un reloj lejano no la vencen por accidente.
+    """
+    from uuid import uuid4
+
+    from app.auth.sesiones import emitir_tokens
+
+    ahora = creada_en or datetime.now(timezone.utc)
+    vence = expira_en or ahora + timedelta(days=3650)
+    refresh_jti = uuid4()
+    async with factory() as session:
+        sesion = SesionPanel(sid=uuid4(), usuario_id=usuario_id, refresh_jti=refresh_jti, creada_en=ahora,
+                             expira_en=vence)
+        session.add(sesion)
+        await session.commit()
+        sid = sesion.sid
+    tokens = emitir_tokens(sid=sid, usuario_id=usuario_id, email=email, roles=roles, ahora=ahora, expira_en=vence,
+                           access_minutos=15, refresh_minutos=10080, refresh_jti=refresh_jti)
+    return str(sid), tokens.access_token, tokens.refresh_token
+
+
 async def crear_usuario_panel(
     factory: async_sessionmaker[AsyncSession], email: str, roles: list[str], *,
     profesional_id: int | None = None,
 ) -> tuple[int, str]:
-    """Crea (o reutiliza) un usuario con roles. Devuelve (usuario_id, access_token válido)."""
+    """Crea un usuario con roles y una sesión real. Devuelve (usuario_id, access_token válido)."""
     from sqlalchemy import select
-
-    from app.auth.service import create_access_token
 
     async with factory() as session:
         usuario = Usuario(email=email, nombre_completo="Usuario Sintético", hashed_password=hash_panel(),
@@ -305,9 +344,8 @@ async def crear_usuario_panel(
             session.add(UsuarioRol(usuario_id=usuario.id, rol_id=rol.id))
         await session.commit()
         usuario_id = int(usuario.id)
-    token = create_access_token({"sub": str(usuario_id), "roles": roles, "email": email,
-                                 "jti": f"jti-{usuario_id}-{os.urandom(4).hex()}"})
-    return usuario_id, token
+    _, access, _ = await crear_sesion_sintetica(factory, usuario_id, email, roles)
+    return usuario_id, access
 
 
 @pytest_asyncio.fixture
