@@ -55,7 +55,12 @@ proyecto/
 | `GCAL_OAUTH_BASE_URL` / `GCAL_TOKEN_BASE_URL` / `GCAL_API_BASE_URL` | URLs de Google; **solo con `APP_ENV=test` o `e2e`** pueden apuntar al servidor falso (`gcal-falso`) | `https://accounts.google.com` / `https://oauth2.googleapis.com` / `https://www.googleapis.com` | N |
 | `MP_ACCESS_TOKEN` | Token Mercado Pago | `APP-…` | Y |
 | `REMINDER_LEAD_TIME` | Anticipación del recordatorio (horas; acepta `48` o `48h`). **C-09 O5 (2026-11-11): default 48 h** en lugar del ejemplo original de 24 h, porque con 24 h el enlace de cancelar casi siempre cae fuera de la ventana de 24 h de C-07 | `48h` | N |
-| `REDIS_URL` | Redis del worker (la API no lo usa) | `redis://redis:6379/0` | N |
+| `REDIS_URL` | Redis del worker (arq) y, desde C-15, de la API para los contadores de los límites de solicitudes (fail-open si no responde) | `redis://redis:6379/0` | N |
+| `SESION_MAXIMA_HORAS` | Duración máxima absoluta de la sesión del panel (C-15 O3; 1–168). Supuesto de negocio: una jornada | `12` | N |
+| `RATE_LIMIT_<GRUPO>_MAX` / `RATE_LIMIT_<GRUPO>_VENTANA_SEG` | Límites de solicitudes (C-15): `LOGIN_IP_EMAIL` 5 fallos/900 s, `LOGIN_IP` 30/900, `LOGIN_EMAIL` 20 fallos/3600, `REFRESH_IP` 60/900, `PUBLICO_ESCRITURA` 10/600, `PUBLICO_LECTURA` 120/60; todos > 0. Sin interruptor de apagado (O17) | ver descripción | N |
+| `RATE_LIMIT_TIMEOUT_MS` | Timeout del almacén de contadores; ante error o timeout se deja pasar y se avisa por log sin PII (O5) | `200` | N |
+| `TRUSTED_PROXIES` | IPs o CIDR (separados por comas) de los proxies de confianza para leer `X-Forwarded-For`; vacío = IP del socket; se rechazan `0.0.0.0/0` y `::/0` (O10) | `10.0.0.5` | N |
+| `PURGA_SESIONES_HABILITADO` / `PURGA_SESIONES_INTERVALO_SEGUNDOS` / `PURGA_SESIONES_MARGEN_MINUTOS` | Trabajo `purga_sesiones` del worker: borra en lotes de 500 las sesiones vencidas hace más que el margen (O11) | `true` / `3600` / `60` | N |
 | `RECORDATORIOS_HABILITADO` / `RECORDATORIOS_INTERVALO_SEGUNDOS` | Trabajo de recordatorios y cada cuánto corre (> 0) | `true` / `300` | N |
 | `SENA_BARRIDO_HABILITADO` / `SENA_BARRIDO_SEGUNDOS` / `SENA_BARRIDO_EN_API` | Barrido de pre-reservas vencidas: lo corre el worker; la API solo con `SENA_BARRIDO_EN_API=true` (desarrollo sin Redis) | `true` / `60` / `false` | N |
 | `WHATSAPP_PROVEEDOR` | Proveedor de WhatsApp (`manual` en v1; `falso` solo con `APP_ENV=test`) | `manual` | N |

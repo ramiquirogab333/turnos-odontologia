@@ -26,6 +26,7 @@ Profesional 1───* Disponibilidad (franjas configurables)
 Usuario *───1 Rol (paciente-público / odontólogo / recepción-admin)
 Turno 1───* EventoCalendar (sincronía bidireccional GCal, desde C-10: un turno puede tener varios eventos a lo largo del tiempo, pero uno solo vigente por conexión)
 Profesional 1───0..1 GcalConexion 1───* EventoCalendar / GcalConflicto (desde C-10)
+Usuario 1───* SesionPanel (sesión del panel en el servidor, desde C-15; reemplaza a token_blacklist)
 *───* RegistroAuditoria (quién, qué, cuándo)
 ObraSocial 1───* Nomenclador (precargado AR)
 ```
@@ -132,6 +133,10 @@ Turno 1───* PagoSena (seña: pendiente → acreditado/bloquea → vencido/
 ### Usuario / Rol
 - Atributos: id, nombre, credenciales, rol (odontólogo / recepción-admin).
 - Nota: el paciente no tiene usuario (reserva pública con nombre + teléfono).
+
+### SesionPanel (C-15, migración 012)
+- Atributos: id, `sid` (UUID único, viaja en el JWT), usuario_id (FK con índice, ON DELETE CASCADE), `refresh_jti` (único refresh vigente), creada_en, expira_en (vencimiento absoluto, exclusivo; > creada_en), renovada_en, revocada_en, motivo_revocacion (`logout` | `usuario_desactivado`, siempre junto con revocada_en), ip_inicio (<= 45 caracteres).
+- Todos los instantes con zona horaria; índice sobre `expira_en` para la purga. Reemplaza a `token_blacklist` (eliminada en la 012).
 
 ### RegistroAuditoria
 - Atributos: id, usuario, acción, entidad_afectada, fecha_hora.

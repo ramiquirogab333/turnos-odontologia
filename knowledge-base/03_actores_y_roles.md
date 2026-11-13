@@ -1,5 +1,7 @@
 # Actores y Roles
 
+> **C-15 (sesión del panel):** los permisos se evalúan en cada pedido con los **roles que el usuario tiene en la base en ese momento** (no con los del token): quitar un rol rige en el siguiente pedido. Desactivar a un usuario (`python -m app.panel.usuarios --desactivar`) revoca todas sus sesiones y lo deja fuera en el siguiente pedido.
+
 ## Actores del sistema
 
 | Actor | Descripción | Cómo interactúa |

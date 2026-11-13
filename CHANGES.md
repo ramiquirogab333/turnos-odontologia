@@ -412,13 +412,10 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-15] `auth-hardening-panel`
-- **Estado**: `[ ]` pendiente (propuesto en C-08, decisión O17 del 2026-11-09; **obligatorio antes de producción**)
-- **Scope**: Cerrar los huecos de la auth del panel que C-08 no tocó (C-08 solo corrigió la cookie de refresh y la revocación del logout)
-  - Rate limiting de login y refresh
-  - Consultar la blacklist en `get_current_user` (hoy el access sigue válido hasta 15 min después del logout)
-  - Verificar `is_active` y roles frescos de la base en cada refresh (hoy el refresh copia los roles del token)
-  - IP real en la auditoría (hoy `testclient`) y límite absoluto de duración de sesión
-  - Purga de `token_blacklist` vencida, sin volver ineficaz el logout
+- **Estado**: `[ ]` implementado, a la espera de archivar (decisiones O1–O17 aprobadas el 2026-11-13; **obligatorio antes de producción**)
+- **Scope final**: sesión del panel en el servidor (migración `012_sesion_panel`, reemplaza `token_blacklist`); cada pedido verifica sesión, usuario activo y roles de la base; duración máxima absoluta (`SESION_MAXIMA_HORAS`, 12 h); login endurecido (email normalizado, hash ficticio, bcrypt en un hilo, inactivos); límites de solicitudes con Redis (login por IP+email / IP / email, refresh, endpoints públicos; fail-open); IP real con `TRUSTED_PROXIES` y auditoría con IP real (`LOGIN_BLOQUEADO` una vez por ventana, `SESIONES_REVOCADAS`); `--desactivar`/`--reactivar` en `app.panel.usuarios`; purga de sesiones en el worker; mensajes de 429 en los dos frontends.
+  - Seguimientos (fuera de alcance): UI para listar y cerrar sesiones, MFA, recuperación de contraseña, agrupar IPv6 por /64, revisar la defensa CSRF si el API se publica con CORS.
+  - Nota C-09 (O13, rate limiting de endpoints públicos con Redis): resuelto acá (O8).
 - **Dependencias**: C-03, C-08
 - **Governance**: CRÍTICO (análisis y propuesta; sin escribir código sin aprobación humana)
 - **Leer antes**:
