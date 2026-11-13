@@ -195,3 +195,41 @@ describe('confirmarTurno', () => {
     expect((await confirmarTurno('x')).ok).toBe(false);
   });
 });
+
+describe('429 en la gestión (C-15)', () => {
+  const limite = (segundos: string): Response =>
+    new Response(JSON.stringify({ detail: 'x', motivo: 'demasiados_intentos' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': segundos },
+    });
+  const esperado = (mensaje: string) => ({ ok: false, error: { tipo: 'limite', mensaje } });
+
+  it('consultar con 429 es límite', async () => {
+    servidor(limite('300'));
+    expect(await consultarGestion('CODIGO-SINTETICO-1')).toEqual(esperado('Hiciste muchos pedidos seguidos. Probá de nuevo en 5 minutos.'));
+  });
+
+  it('cancelar con 429 es límite y no una cancelación', async () => {
+    servidor(limite('120'));
+    expect(await cancelarTurno('CODIGO-SINTETICO-1')).toEqual(esperado('Hiciste muchos pedidos seguidos. Probá de nuevo en 2 minutos.'));
+  });
+
+  it('reprogramar con 429 es límite', async () => {
+    servidor(limite('20'));
+    expect(await reprogramarTurno('CODIGO-SINTETICO-1', '2026-11-18T11:00:00-03:00')).toEqual(
+      esperado('Hiciste muchos pedidos seguidos. Probá de nuevo en 1 minuto.'),
+    );
+  });
+
+  it('confirmar con 429 es límite', async () => {
+    servidor(limite('900'));
+    expect(await confirmarTurno('CODIGO-SINTETICO-1')).toEqual(esperado('Hiciste muchos pedidos seguidos. Probá de nuevo en 15 minutos.'));
+  });
+
+  it('el 409 de fuera de plazo y el 404 siguen con sus tipos', async () => {
+    servidor(json({ motivo: 'fuera_de_plazo', limite_cambios: '2026-11-15T10:00:00-03:00' }, 409));
+    expect(await cancelarTurno('CODIGO-SINTETICO-1')).toMatchObject({ ok: false, error: { tipo: 'fuera_de_plazo' } });
+    servidor(json({ detail: 'x' }, 404));
+    expect(await consultarGestion('CODIGO-SINTETICO-1')).toEqual({ ok: false, error: { tipo: 'no_encontrado' } });
+  });
+});

@@ -370,3 +370,43 @@ describe('consultarSena', () => {
     expect(rRed.ok === false && rRed.error.tipo).toBe('desconocido');
   });
 });
+
+describe('429 en lo público (C-15)', () => {
+  const limite = (segundos: string): Response =>
+    new Response(JSON.stringify({ detail: 'x', motivo: 'demasiados_intentos' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': segundos },
+    });
+
+  it('la reserva con 429 da error de límite con los minutos de Retry-After', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(limite('300'))));
+    const r = await reservarTurno({ nombre: 'Paciente Ficticio', telefono: '+5491100000001', tratamiento_id: 1, profesional_id: 7, inicio: '2026-11-16T10:00:00-03:00' });
+    expect(r).toEqual({ ok: false, error: { tipo: 'limite', mensaje: 'Hiciste muchos pedidos seguidos. Probá de nuevo en 5 minutos.' } });
+  });
+
+  it('iniciar la seña con 429 da error de límite y no una seña', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(limite('61'))));
+    const r = await iniciarSena(5, 'CODIGO-SINTETICO-1', 'transferencia');
+    expect(r).toEqual({ ok: false, error: { tipo: 'limite', mensaje: 'Hiciste muchos pedidos seguidos. Probá de nuevo en 2 minutos.' } });
+  });
+
+  it('consultar la seña con 429 también es límite', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(limite('120'))));
+    const r = await consultarSena(5, 'CODIGO-SINTETICO-1');
+    expect(r).toMatchObject({ ok: false, error: { tipo: 'limite' } });
+  });
+
+  it('la consulta de horarios con 429 rechaza con el mensaje de límite', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(limite('600'))));
+    await expect(
+      obtenerDisponibilidad({ profesionalId: 7, tratamientoId: 1, desde: '2026-11-16', hasta: '2026-11-23' }),
+    ).rejects.toThrow('Hiciste muchos pedidos seguidos. Probá de nuevo en 10 minutos.');
+  });
+
+  it('otros errores de la consulta de horarios conservan su mensaje genérico', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json({ detail: 'x' }, 500))));
+    await expect(
+      obtenerDisponibilidad({ profesionalId: 7, tratamientoId: 1, desde: '2026-11-16', hasta: '2026-11-23' }),
+    ).rejects.toThrow('No pudimos cargar los horarios. Intentá de nuevo.');
+  });
+});

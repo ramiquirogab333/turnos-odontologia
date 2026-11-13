@@ -53,6 +53,18 @@ describe('Ingreso', () => {
     expect(screen.getByLabelText('Correo electrónico')).toHaveValue('a@turnos.test');
   });
 
+  it.each([
+    [10, 'Demasiados intentos. Probá de nuevo en 10 minutos.'],
+    [1, 'Demasiados intentos. Probá de nuevo en 1 minuto.'],
+  ] as const)('ante un límite de %i minuto(s) lo anuncia con role alert y conserva el correo', async (minutos, texto) => {
+    const onIngresar = vi.fn<(e: string, c: string) => Promise<ResultadoIngreso>>().mockResolvedValue({ ok: false, motivo: 'limite', minutos });
+    render(<Ingreso aviso={null} onIngresar={onIngresar} />);
+    await completar('a@turnos.test', 'clave-sintetica-123');
+    await usuario.click(screen.getByRole('button', { name: 'Ingresar al panel' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(texto);
+    expect(screen.getByLabelText('Correo electrónico')).toHaveValue('a@turnos.test');
+  });
+
   it('un correo inexistente y una contraseña errónea dan el mismo mensaje', async () => {
     const mensajes: string[] = [];
     for (const email of ['existe@turnos.test', 'noexiste@turnos.test']) {

@@ -75,6 +75,22 @@ describe('Sesion', () => {
       expect(sesion.token()).toBeNull();
     });
 
+    it.each([
+      ['600', 10],
+      ['20', 1],
+      ['61', 2],
+    ] as const)('un 429 con Retry-After %s es "limite" de %i minuto(s) y no deja sesión', async (retryAfter, minutos) => {
+      const fetchFn = servidor(() => new Response(JSON.stringify({ detail: 'x', motivo: 'demasiados_intentos' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': retryAfter } }));
+      const sesion = new Sesion({ fetchFn, candados: null, canal: null });
+      expect(await sesion.ingresar('a@turnos.test', 'clave-sintetica-123')).toEqual({ ok: false, motivo: 'limite', minutos });
+      expect(sesion.token()).toBeNull();
+    });
+
+    it('un 429 sin Retry-After cae en 1 minuto', async () => {
+      const sesion = new Sesion({ fetchFn: servidor(() => json({ detail: 'x' }, 429)), candados: null, canal: null });
+      expect(await sesion.ingresar('a@turnos.test', 'clave-sintetica-123')).toEqual({ ok: false, motivo: 'limite', minutos: 1 });
+    });
+
     it('una falla de red es "red"', async () => {
       const fetchFn = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch'));
       const sesion = new Sesion({ fetchFn, candados: null, canal: null });
@@ -107,6 +123,16 @@ describe('Sesion', () => {
       sesion.fijarToken('VIEJO');
       expect(await sesion.renovar()).toBeNull();
       expect(sesion.token()).toBeNull();
+    });
+
+    it('un 429 al renovar lanza ErrorDeRed y NO cierra la sesión ni limpia el access', async () => {
+      const sesion = new Sesion({ fetchFn: servidor(() => json({ detail: 'x', motivo: 'demasiados_intentos' }, 429)), candados: null, canal: null });
+      const cierres: Array<string | null> = [];
+      sesion.fijarToken('VIGENTE');
+      sesion.alCambiar((t) => cierres.push(t));
+      await expect(sesion.renovar()).rejects.toBeInstanceOf(ErrorDeRed);
+      expect(sesion.token()).toBe('VIGENTE');
+      expect(cierres).toEqual([]);
     });
 
     it.each([500, 503])('un %i o una falla de red no es "sin sesión": lanza ErrorDeRed y conserva el access', async (status) => {

@@ -106,6 +106,7 @@ export type ErrorSena =
   | { readonly tipo: 'no_encontrada' }
   | { readonly tipo: 'medio'; readonly mensaje: string }
   | { readonly tipo: 'pasarela'; readonly mensaje: string }
+  | { readonly tipo: 'limite'; readonly mensaje: string }
   | { readonly tipo: 'desconocido'; readonly mensaje: string };
 
 export interface ReservaRequest {
@@ -175,4 +176,5 @@ export type ErrorGestion =
   | { readonly tipo: 'turno_iniciado' }
   | { readonly tipo: 'conflicto'; readonly motivo: 'profesional' | 'sillon'; readonly alternativas: readonly Alternativa[] }
   | { readonly tipo: 'horario_invalido'; readonly mensaje: string }
+  | { readonly tipo: 'limite'; readonly mensaje: string }
   | { readonly tipo: 'desconocido'; readonly mensaje: string };

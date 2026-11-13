@@ -191,3 +191,19 @@ describe('ConfirmarTurno: gestionar el turno', () => {
     expect(enlace).toHaveAttribute('href', `/gestionar#${CODIGO}`);
   });
 });
+
+describe('ConfirmarTurno: límite de pedidos (C-15)', () => {
+  it('un 429 al confirmar muestra los minutos, no da por confirmado y deja reintentar', async () => {
+    const limite = new Response(JSON.stringify({ detail: 'x', motivo: 'demasiados_intentos' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '300' },
+    });
+    const mock = servidor(json(RESERVADO), limite);
+    await montar();
+
+    await usuario.click(await screen.findByRole('button', { name: 'Confirmar asistencia' }));
+    expect(await screen.findByText('Hiciste muchos pedidos seguidos. Probá de nuevo en 5 minutos.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar asistencia' })).toBeEnabled();
+    expect(posts(mock)).toHaveLength(1);
+  });
+});

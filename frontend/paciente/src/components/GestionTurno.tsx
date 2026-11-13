@@ -31,6 +31,7 @@ function mensajeDeError(error: ErrorGestion): string {
     case 'no_encontrado':
       return 'No encontramos un turno con ese código. Revisá que esté bien escrito.';
     case 'horario_invalido':
+    case 'limite':
     case 'desconocido':
       return error.mensaje;
     case 'conflicto':

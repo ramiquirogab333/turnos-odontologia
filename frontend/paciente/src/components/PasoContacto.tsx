@@ -82,6 +82,7 @@ function AvisoDeError({
           ))}
         </div>
       ) : null;
+    case 'limite':
     case 'desconocido':
       return (
         <div className="aviso aviso-error" role="alert">

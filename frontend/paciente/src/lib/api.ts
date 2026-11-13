@@ -1,5 +1,6 @@
 import { interpretarRespuestaError, type ErrorApi } from './errores';
 import { esNumero, esRegistro, esTexto, type Registro } from './guardas';
+import { mensajeLimite } from './limite';
 import type {
   Alternativa,
   ErrorGestion,
@@ -189,6 +190,7 @@ export async function obtenerDisponibilidad(consulta: ConsultaDisponibilidad): P
   const respuesta = await fetch(`${BASE}/disponibilidad?${params.toString()}`).catch(() => {
     throw falla;
   });
+  if (respuesta.status === 429) throw new ErrorDeCarga(mensajeLimite(respuesta.headers.get('Retry-After')));
   if (!respuesta.ok) throw falla;
   const cuerpo = await leerJson(respuesta);
   const slots = esRegistro(cuerpo) ? listaDe(cuerpo['slots'], esSlot) : null;
@@ -223,7 +225,7 @@ export async function reservarTurno(datos: ReservaRequest): Promise<ResultadoRes
   }
   const json = await leerJson(respuesta);
   if (respuesta.status === 201 && esReserva(json)) return { ok: true, reserva: json };
-  return { ok: false, error: interpretarRespuestaError(respuesta.status, json) };
+  return { ok: false, error: interpretarRespuestaError(respuesta.status, json, respuesta.headers.get('Retry-After')) };
 }
 
 // --- Seña (C-06) -------------------------------------------------------------------------------
@@ -237,7 +239,8 @@ function mensajeDe(cuerpo: unknown, porDefecto: string): string {
   return esRegistro(cuerpo) && esTexto(cuerpo['detail']) ? cuerpo['detail'] : porDefecto;
 }
 
-function interpretarErrorSena(status: number, cuerpo: unknown): ErrorSena {
+function interpretarErrorSena(status: number, cuerpo: unknown, retryAfter: string | null = null): ErrorSena {
+  if (status === 429) return { tipo: 'limite', mensaje: mensajeLimite(retryAfter) };
   if (status === 404) return { tipo: 'no_encontrada' };
   if (status === 409 && esRegistro(cuerpo)) {
     if (cuerpo['motivo'] === 'estado_invalido') return { tipo: 'vencida' };
@@ -272,7 +275,7 @@ export async function iniciarSena(turnoId: number, codigoGestion: string, medio:
   if ((respuesta.status === 201 || respuesta.status === 200) && esInicioSena(json)) {
     return { ok: true, sena: json, creada: respuesta.status === 201 };
   }
-  return { ok: false, error: interpretarErrorSena(respuesta.status, json) };
+  return { ok: false, error: interpretarErrorSena(respuesta.status, json, respuesta.headers.get('Retry-After')) };
 }
 
 export type ResultadoConsultaSena =
@@ -289,7 +292,7 @@ export async function consultarSena(turnoId: number, codigoGestion: string): Pro
   }
   const json = await leerJson(respuesta);
   if (respuesta.status === 200 && esEstadoSena(json)) return { ok: true, estado: json };
-  return { ok: false, error: interpretarErrorSena(respuesta.status, json) };
+  return { ok: false, error: interpretarErrorSena(respuesta.status, json, respuesta.headers.get('Retry-After')) };
 }
 
 // --- Gestión del turno (C-07) ------------------------------------------------------------------
@@ -356,7 +359,8 @@ function esTurnoReprogramado(v: unknown): v is TurnoReprogramado {
   );
 }
 
-function interpretarErrorGestion(status: number, cuerpo: unknown): ErrorGestion {
+function interpretarErrorGestion(status: number, cuerpo: unknown, retryAfter: string | null = null): ErrorGestion {
+  if (status === 429) return { tipo: 'limite', mensaje: mensajeLimite(retryAfter) };
   if (status === 404) return { tipo: 'no_encontrado' };
   if (status === 409 && esRegistro(cuerpo)) {
     const motivo = cuerpo['motivo'];
@@ -380,6 +384,7 @@ function interpretarErrorGestion(status: number, cuerpo: unknown): ErrorGestion 
 interface RespuestaCruda {
   readonly status: number;
   readonly json: unknown;
+  readonly retryAfter: string | null;
 }
 
 async function pedirGestion(
@@ -396,7 +401,7 @@ async function pedirGestion(
       headers,
       ...(cuerpo !== undefined ? { body: JSON.stringify(cuerpo) } : {}),
     });
-    return { status: respuesta.status, json: await leerJson(respuesta) };
+    return { status: respuesta.status, json: await leerJson(respuesta), retryAfter: respuesta.headers.get('Retry-After') };
   } catch {
     return null;
   }
@@ -411,7 +416,7 @@ export async function consultarGestion(codigoGestion: string): Promise<Resultado
   const r = await pedirGestion('GET', '', codigoGestion);
   if (r === null) return { ok: false, error: ERROR_GESTION_DESCONOCIDO };
   if (r.status === 200 && esGestionTurno(r.json)) return { ok: true, gestion: r.json };
-  return { ok: false, error: interpretarErrorGestion(r.status, r.json) };
+  return { ok: false, error: interpretarErrorGestion(r.status, r.json, r.retryAfter) };
 }
 
 export type ResultadoCancelacion =
@@ -422,7 +427,7 @@ export async function cancelarTurno(codigoGestion: string): Promise<ResultadoCan
   const r = await pedirGestion('POST', '/cancelar', codigoGestion);
   if (r === null) return { ok: false, error: ERROR_GESTION_DESCONOCIDO };
   if (r.status === 200 && esTurnoCancelado(r.json)) return { ok: true, cancelacion: r.json };
-  return { ok: false, error: interpretarErrorGestion(r.status, r.json) };
+  return { ok: false, error: interpretarErrorGestion(r.status, r.json, r.retryAfter) };
 }
 
 function esTurnoConfirmado(v: unknown): v is TurnoConfirmado {
@@ -438,7 +443,7 @@ export async function confirmarTurno(codigoGestion: string): Promise<ResultadoCo
   const r = await pedirGestion('POST', '/confirmar', codigoGestion);
   if (r === null) return { ok: false, error: ERROR_GESTION_DESCONOCIDO };
   if (r.status === 200 && esTurnoConfirmado(r.json)) return { ok: true, confirmacion: r.json };
-  return { ok: false, error: interpretarErrorGestion(r.status, r.json) };
+  return { ok: false, error: interpretarErrorGestion(r.status, r.json, r.retryAfter) };
 }
 
 export type ResultadoReprogramacion =
@@ -449,5 +454,5 @@ export async function reprogramarTurno(codigoGestion: string, inicio: string): P
   const r = await pedirGestion('POST', '/reprogramar', codigoGestion, { inicio });
   if (r === null) return { ok: false, error: ERROR_GESTION_DESCONOCIDO };
   if (r.status === 200 && esTurnoReprogramado(r.json)) return { ok: true, reprogramacion: r.json };
-  return { ok: false, error: interpretarErrorGestion(r.status, r.json) };
+  return { ok: false, error: interpretarErrorGestion(r.status, r.json, r.retryAfter) };
 }

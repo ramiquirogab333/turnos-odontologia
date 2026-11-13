@@ -97,3 +97,21 @@ describe('interpretarRespuestaError', () => {
     }
   });
 });
+
+describe('interpretarRespuestaError: 429 (C-15)', () => {
+  it.each([
+    ['300', 'Hiciste muchos pedidos seguidos. Probá de nuevo en 5 minutos.'],
+    [null, 'Hiciste muchos pedidos seguidos. Probá de nuevo en 1 minuto.'],
+  ])('Retry-After %s es un error de límite con su mensaje', (retryAfter, mensaje) => {
+    expect(interpretarRespuestaError(429, { detail: 'x', motivo: 'demasiados_intentos' }, retryAfter)).toEqual({ tipo: 'limite', mensaje });
+  });
+
+  it('un 429 con cuerpo ilegible sigue siendo límite (el estado manda)', () => {
+    expect(interpretarRespuestaError(429, null, '120').tipo).toBe('limite');
+  });
+
+  it('un 409 y un 422 no se confunden con el límite', () => {
+    expect(interpretarRespuestaError(409, { motivo: 'profesional', alternativas: [] }, '300').tipo).toBe('conflicto');
+    expect(interpretarRespuestaError(422, { detail: 'x' }, '300').tipo).toBe('fuera_de_horario');
+  });
+});

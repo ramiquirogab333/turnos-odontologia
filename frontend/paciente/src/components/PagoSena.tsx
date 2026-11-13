@@ -123,7 +123,7 @@ function AvisoError({ error, onNueva }: { readonly error: ErrorSena; readonly on
     );
   }
   const mensaje =
-    error.tipo === 'pasarela' || error.tipo === 'medio' || error.tipo === 'desconocido'
+    error.tipo === 'pasarela' || error.tipo === 'medio' || error.tipo === 'limite' || error.tipo === 'desconocido'
       ? error.mensaje
       : 'No encontramos tu reserva.';
   return (

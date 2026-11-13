@@ -19,6 +19,10 @@ const ERRORES: Readonly<Record<'credenciales' | 'red' | 'servidor', string>> = {
   servidor: 'El servidor no pudo procesar el ingreso. Intentá de nuevo en unos minutos.',
 };
 
+function mensajeLimite(minutos: number): string {
+  return `Demasiados intentos. Probá de nuevo en ${String(minutos)} ${minutos === 1 ? 'minuto' : 'minutos'}.`;
+}
+
 export function Ingreso({ aviso, onIngresar }: Props) {
   const idEmail = useId();
   const idClave = useId();
@@ -38,7 +42,7 @@ export function Ingreso({ aviso, onIngresar }: Props) {
     setEnviando(true);
     const resultado = await onIngresar(email.trim(), clave);
     setEnviando(false);
-    if (!resultado.ok) setError(ERRORES[resultado.motivo]);
+    if (!resultado.ok) setError(resultado.motivo === 'limite' ? mensajeLimite(resultado.minutos) : ERRORES[resultado.motivo]);
   }
 
   return (

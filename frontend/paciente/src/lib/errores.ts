@@ -1,5 +1,6 @@
 import { esNumero, esRegistro, esTexto } from './guardas';
 import type { Alternativa } from './tipos';
+import { mensajeLimite } from './limite';
 import { EJEMPLO_TELEFONO } from './validacion';
 
 export interface CamposConError {
@@ -11,6 +12,7 @@ export type ErrorApi =
   | { readonly tipo: 'validacion'; readonly campos: CamposConError; readonly generales: readonly string[] }
   | { readonly tipo: 'fuera_de_horario'; readonly mensaje: string }
   | { readonly tipo: 'conflicto'; readonly motivo: 'profesional' | 'sillon'; readonly alternativas: readonly Alternativa[] }
+  | { readonly tipo: 'limite'; readonly mensaje: string }
   | { readonly tipo: 'desconocido'; readonly mensaje: string };
 
 const MENSAJE_CAMPO: Readonly<Record<keyof CamposConError, string>> = {
@@ -61,7 +63,8 @@ function interpretar409(cuerpo: Record<string, unknown>): ErrorApi {
 }
 
 /** Normaliza cualquier respuesta de error de POST /api/public/turnos a un tipo cerrado. */
-export function interpretarRespuestaError(status: number, cuerpo: unknown): ErrorApi {
+export function interpretarRespuestaError(status: number, cuerpo: unknown, retryAfter: string | null = null): ErrorApi {
+  if (status === 429) return { tipo: 'limite', mensaje: mensajeLimite(retryAfter) };
   if (!esRegistro(cuerpo)) return DESCONOCIDO;
   if (status === 422) return interpretar422(cuerpo['detail']);
   if (status === 409) return interpretar409(cuerpo);

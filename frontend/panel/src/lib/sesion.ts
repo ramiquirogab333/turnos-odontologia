@@ -1,4 +1,5 @@
 import { esRegistro, esTexto } from './guardas';
+import { minutosDesdeRetryAfter } from './limite';
 
 /**
  * Sesión del panel (C-08, D10).
@@ -53,7 +54,9 @@ export interface OpcionesSesion {
 
 export type ResultadoIngreso =
   | { readonly ok: true }
-  | { readonly ok: false; readonly motivo: 'credenciales' | 'red' | 'servidor' };
+  | { readonly ok: false; readonly motivo: 'credenciales' | 'red' | 'servidor' }
+  /** 429 (C-15): demasiados intentos; `minutos` sale de `Retry-After`. */
+  | { readonly ok: false; readonly motivo: 'limite'; readonly minutos: number };
 
 /** Por qué terminó la sesión local: la pantalla de ingreso lo explica distinto en cada caso. */
 export type MotivoCierre = 'vencida' | 'otra_pestana' | 'salida';
@@ -133,6 +136,9 @@ export class Sesion {
       return { ok: false, motivo: 'red' };
     }
     if (respuesta.status === 401) return { ok: false, motivo: 'credenciales' };
+    if (respuesta.status === 429) {
+      return { ok: false, motivo: 'limite', minutos: minutosDesdeRetryAfter(respuesta.headers.get('Retry-After')) };
+    }
     const token = respuesta.ok ? tokenDe(await leerJson(respuesta)) : null;
     if (token === null) return { ok: false, motivo: 'servidor' };
     this.fijarToken(token);

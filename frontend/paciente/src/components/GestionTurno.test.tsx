@@ -201,6 +201,21 @@ describe('GestionTurno: cancelar', () => {
     expect(llamadasA(mock, '/cancelar')).toHaveLength(0);
   });
 
+  it('un 429 con Retry-After 120 muestra "2 minutos" y el turno no se da por cancelado', async () => {
+    const limite = new Response(JSON.stringify({ detail: 'x', motivo: 'demasiados_intentos' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '120' },
+    });
+    servidor(gestion(RESERVADO), (url, init) => (url === '/api/public/gestion/cancelar' && init?.method === 'POST' ? limite : undefined));
+    await montar();
+
+    await usuario.click(await screen.findByRole('button', { name: /cancelar turno/i }));
+    await usuario.click(screen.getByRole('button', { name: /sí, cancelar el turno/i }));
+    expect(await screen.findByText('Hiciste muchos pedidos seguidos. Probá de nuevo en 2 minutos.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Turno cancelado' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancelar turno/i })).toBeEnabled();
+  });
+
   it('si el servidor dice fuera_de_plazo muestra el aviso de 24 h y el turno no se da por cancelado', async () => {
     servidor(
       gestion(RESERVADO),

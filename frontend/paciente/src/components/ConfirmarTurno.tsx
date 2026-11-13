@@ -23,6 +23,7 @@ function mensajeDeError(error: ErrorGestion): string {
     case 'sena_pendiente':
       return 'Tu turno todavía no está confirmado: falta que se acredite la seña.';
     case 'horario_invalido':
+    case 'limite':
     case 'desconocido':
       return error.mensaje;
     case 'fuera_de_plazo':
@@ -33,7 +34,7 @@ function mensajeDeError(error: ErrorGestion): string {
 
 /** Errores definitivos: reintentar no cambia nada, así que el botón desaparece. */
 function esDefinitivo(error: ErrorGestion): boolean {
-  return error.tipo !== 'desconocido';
+  return error.tipo !== 'desconocido' && error.tipo !== 'limite';
 }
 
 function Datos({ gestion }: { readonly gestion: GestionTurno }) {
