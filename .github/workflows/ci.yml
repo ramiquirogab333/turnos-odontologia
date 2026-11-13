@@ -126,6 +126,8 @@ jobs:
       RATE_LIMIT_REFRESH_IP_MAX: '1000'
       RATE_LIMIT_PUBLICO_ESCRITURA_MAX: '1000'
       RATE_LIMIT_PUBLICO_LECTURA_MAX: '1000'
+      # C-13 (O15): los E2E exportan varias veces por hora desde el mismo usuario; se sube el tope por hora.
+      EXPORT_MAX_POR_HORA: '1000'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -233,6 +235,8 @@ jobs:
       RATE_LIMIT_REFRESH_IP_MAX: '1000'
       RATE_LIMIT_PUBLICO_ESCRITURA_MAX: '1000'
       RATE_LIMIT_PUBLICO_LECTURA_MAX: '1000'
+      # C-13 (O15): los E2E exportan varias veces por hora desde el mismo usuario; se sube el tope por hora.
+      EXPORT_MAX_POR_HORA: '1000'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
