@@ -855,3 +855,66 @@ a.boton {
   color: var(--color-texto-suave);
   overflow-wrap: anywhere;
 }
+
+/* Datos: exportación y auditoría (C-13). Todo cabe a 360 px: sin desplazamiento horizontal. */
+.datos .selector-periodo {
+  margin-top: 8px;
+}
+
+.campo-casilla label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--objetivo-tactil);
+  font-weight: 400;
+}
+
+.campo-casilla input {
+  width: auto;
+  min-height: 0;
+}
+
+.lista-auditoria {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.registro-auditoria {
+  padding: 10px 12px;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  overflow-wrap: anywhere;
+}
+
+.registro-titulo {
+  margin: 0;
+  font-weight: 600;
+}
+
+.registro-auditoria .nota {
+  margin: 2px 0 0;
+}
+
+.auditoria-datos {
+  margin-top: 6px;
+}
+
+.auditoria-datos pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  border-radius: var(--radio);
+  background: var(--color-info-fondo);
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 480px) {
+  .filtros-auditoria .filtros {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { irA, leerSeccion, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA } from './ruta';
+import { irA, leerSeccion, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA } from './ruta';
 
 afterEach(() => {
   window.location.hash = '';
@@ -13,6 +13,7 @@ describe('leerSeccion', () => {
     expect(leerSeccion('#/agenda')).toBe('agenda');
     expect(leerSeccion('#/recordatorios')).toBe('recordatorios');
     expect(leerSeccion('#/google-calendar')).toBe('google-calendar');
+    expect(leerSeccion('#/datos')).toBe('datos');
   });
 
   it('ignora la query del hash (la vuelta de Google trae ?resultado=)', () => {
@@ -28,7 +29,7 @@ describe('leerSeccion', () => {
   });
 
   it('todas las secciones tienen su ruta', () => {
-    expect(SECCIONES).toEqual(['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios', 'google-calendar']);
+    expect(SECCIONES).toEqual(['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios', 'google-calendar', 'datos']);
     expect(SECCIONES_ODONTOLOGA).toEqual(['agenda', 'google-calendar']);
   });
 });
@@ -53,4 +54,18 @@ describe('resultadoDeGoogle', () => {
       expect(resultadoDeGoogle(hash)).toBeNull();
     },
   );
+});
+
+describe('pestanaDeDatos', () => {
+  it('abre la auditoría solo con ?pestana=auditoria en #/datos', () => {
+    expect(pestanaDeDatos('#/datos?pestana=auditoria')).toBe('auditoria');
+    expect(pestanaDeDatos('#/datos?pestana=exportar')).toBe('exportar');
+  });
+
+  it('todo lo demás abre la exportación', () => {
+    expect(pestanaDeDatos('#/datos')).toBe('exportar');
+    expect(pestanaDeDatos('#/datos?pestana=otra')).toBe('exportar');
+    expect(pestanaDeDatos('#/caja?pestana=auditoria')).toBe('exportar');
+    expect(pestanaDeDatos('')).toBe('exportar');
+  });
 });

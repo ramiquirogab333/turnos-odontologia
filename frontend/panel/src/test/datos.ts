@@ -20,6 +20,8 @@ import type {
   ConflictoGoogle,
   TurnoAgenda,
   TurnoCreado,
+  PaginaAuditoria,
+  RegistroAuditoria,
 } from '../lib/tipos';
 
 export function turno(sobre: Partial<TurnoAgenda> = {}): TurnoAgenda {
@@ -280,6 +282,27 @@ export function conflictoGoogle(sobre: Partial<ConflictoGoogle> = {}): Conflicto
   };
 }
 
+export function registroAuditoria(sobre: Partial<RegistroAuditoria> = {}): RegistroAuditoria {
+  return {
+    id: 91,
+    fecha_hora: '2026-11-13T09:05:00-03:00',
+    usuario: { id: 3, nombre_completo: 'Recepción Ficticia' },
+    accion: 'cierre_caja',
+    tipo: 'cierre_caja',
+    tipo_etiqueta: 'Cierre de caja',
+    entidad: 'cierre_caja',
+    entidad_id: '42',
+    datos_antes: null,
+    datos_despues: { total_neto: '15000.00' },
+    ip: '203.0.113.20',
+    ...sobre,
+  };
+}
+
+export function paginaAuditoria(items: readonly RegistroAuditoria[], siguiente: string | null = null): PaginaAuditoria {
+  return { items, siguiente };
+}
+
 export function apiFalsa(sobre: Partial<Api> = {}) {
   const api = {
     me: vi.fn<Api['me']>(),
@@ -321,6 +344,14 @@ export function apiFalsa(sobre: Partial<Api> = {}) {
     resolverConflicto: vi
       .fn<Api['resolverConflicto']>()
       .mockResolvedValue({ ok: true, valor: conflictoGoogle({ estado: 'resuelto', acciones: [] }) }),
+    descargarExportacion: vi.fn<Api['descargarExportacion']>().mockResolvedValue({
+      ok: true,
+      valor: { blob: new Blob(['id'], { type: 'text/csv' }), nombre: 'turnos_2026-11-13.csv' },
+    }),
+    consultarAuditoria: vi.fn<Api['consultarAuditoria']>().mockResolvedValue(paginaAuditoria([])),
+    listarUsuarios: vi
+      .fn<Api['listarUsuarios']>()
+      .mockResolvedValue([{ id: 3, nombre_completo: 'Recepción Ficticia', activo: true }]),
     ...sobre,
   };
   return api;

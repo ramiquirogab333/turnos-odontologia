@@ -409,3 +409,67 @@ export type ErrorGoogle =
   | { readonly tipo: 'conflicto_cerrado' }
   | { readonly tipo: 'accion_no_valida' }
   | { readonly tipo: 'desconocido' };
+
+// --- Datos: exportación y auditoría (C-13) ------------------------------------------------------------------------
+
+export type EntidadExportable = 'turnos' | 'pacientes' | 'cierres_caja';
+
+export interface ParametrosExportacion {
+  readonly entidad: EntidadExportable;
+  /** Fechas locales de la clínica `AAAA-MM-DD`; vacías o `null` = sin ese extremo. */
+  readonly desde: string | null;
+  readonly hasta: string | null;
+  readonly incluirInactivos: boolean;
+}
+
+export interface ArchivoExportado {
+  readonly blob: Blob;
+  readonly nombre: string;
+}
+
+export type ErrorExportacion =
+  | { readonly tipo: 'sin_permiso' }
+  | { readonly tipo: 'limite'; readonly minutos: number }
+  | { readonly tipo: 'validacion' }
+  | { readonly tipo: 'servidor' }
+  | { readonly tipo: 'red' };
+
+export interface UsuarioDirectorio {
+  readonly id: number;
+  readonly nombre_completo: string;
+  readonly activo: boolean;
+}
+
+export interface UsuarioAuditoria {
+  readonly id: number;
+  readonly nombre_completo: string;
+}
+
+export interface RegistroAuditoria {
+  readonly id: number;
+  readonly fecha_hora: string;
+  readonly usuario: UsuarioAuditoria | null;
+  readonly accion: string;
+  readonly tipo: string;
+  readonly tipo_etiqueta: string;
+  readonly entidad: string;
+  readonly entidad_id: string | null;
+  readonly datos_antes: unknown;
+  readonly datos_despues: unknown;
+  readonly ip: string | null;
+}
+
+export interface PaginaAuditoria {
+  readonly items: readonly RegistroAuditoria[];
+  readonly siguiente: string | null;
+}
+
+export interface ConsultaAuditoria {
+  readonly desde: string | null;
+  readonly hasta: string | null;
+  readonly usuarioId: number | null;
+  readonly tipo: string | null;
+  readonly entidad: string | null;
+  readonly entidadId: string | null;
+  readonly cursor: string | null;
+}

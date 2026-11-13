@@ -1,4 +1,6 @@
+import { consultaAuditoriaAQuery, nombreArchivo, parametrosExportacion } from './datos';
 import { esNumero, esRegistro, esTexto, type Registro } from './guardas';
+import { minutosDesdeRetryAfter } from './limite';
 import { ErrorSesion, type Sesion } from './sesion';
 import type {
   Accion,
@@ -49,6 +51,13 @@ import type {
   TurnoAgenda,
   TurnoCreado,
   Usuario,
+  ArchivoExportado,
+  ConsultaAuditoria,
+  ErrorExportacion,
+  PaginaAuditoria,
+  ParametrosExportacion,
+  RegistroAuditoria,
+  UsuarioDirectorio,
 } from './tipos';
 
 /** El servidor respondió algo que no cumple el contrato: se descarta en vez de dibujar datos inventados. */
@@ -639,6 +648,41 @@ function errorEstado(status: number, cuerpo: Registro): ErrorEstado {
   return { tipo: 'desconocido' };
 }
 
+// --- guardas de C-13 (auditoría y directorio de usuarios) -----------------------------------------------------------
+
+function esRegistroAuditoria(v: unknown): v is RegistroAuditoria {
+  return (
+    esRegistro(v) &&
+    esNumero(v['id']) &&
+    esTexto(v['fecha_hora']) &&
+    (v['usuario'] === null || (esRegistro(v['usuario']) && esNumero(v['usuario']['id']) && esTexto(v['usuario']['nombre_completo']))) &&
+    esTexto(v['accion']) &&
+    esTexto(v['tipo']) &&
+    esTexto(v['tipo_etiqueta']) &&
+    esTexto(v['entidad']) &&
+    textoONulo(v['entidad_id']) &&
+    textoONulo(v['ip']) &&
+    'datos_antes' in v &&
+    'datos_despues' in v
+  );
+}
+
+function aPaginaAuditoria(v: unknown): PaginaAuditoria {
+  if (!esRegistro(v) || !textoONulo(v['siguiente'])) throw new ErrorDeRespuesta();
+  return { items: lista(v['items'], esRegistroAuditoria), siguiente: v['siguiente'] };
+}
+
+function esUsuarioDirectorio(v: unknown): v is UsuarioDirectorio {
+  return esRegistro(v) && esNumero(v['id']) && esTexto(v['nombre_completo']) && typeof v['activo'] === 'boolean';
+}
+
+function errorExportacion(r: Response): ErrorExportacion {
+  if (r.status === 403) return { tipo: 'sin_permiso' };
+  if (r.status === 422) return { tipo: 'validacion' };
+  if (r.status === 429) return { tipo: 'limite', minutos: minutosDesdeRetryAfter(r.headers.get('Retry-After')) };
+  return { tipo: 'servidor' };
+}
+
 // --- API -----------------------------------------------------------------------------------------------------
 
 export interface Api {
@@ -673,6 +717,11 @@ export interface Api {
   iniciarGoogle(): Promise<Resultado<{ readonly url_autorizacion: string }, ErrorGoogle>>;
   desconectarGoogle(profesionalId: number): Promise<Resultado<null, ErrorGoogle>>;
   resolverConflicto(id: number, accion: AccionConflicto): Promise<Resultado<ConflictoGoogle, ErrorGoogle>>;
+  // Datos: exportación y auditoría (C-13)
+  /** Descarga el CSV con la sesión vigente (el token viaja en la cabecera, no en la URL); `hoy` da el nombre de respaldo. */
+  descargarExportacion(parametros: ParametrosExportacion, hoy: string): Promise<Resultado<ArchivoExportado, ErrorExportacion>>;
+  consultarAuditoria(consulta: ConsultaAuditoria): Promise<PaginaAuditoria>;
+  listarUsuarios(): Promise<readonly UsuarioDirectorio[]>;
 }
 
 export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fetch(...args)): Api {
@@ -853,6 +902,29 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
       q.set('por_pagina', String(c.porPagina));
       if (c.conAusencias) q.set('con_ausencias', 'true');
       return aListado(await leer(`/api/panel/pacientes/listado?${q.toString()}`));
+    },
+    async descargarExportacion(parametros, hoy) {
+      let r: Response;
+      try {
+        r = await pedir(`/api/panel/export?${parametrosExportacion(parametros)}`);
+      } catch (e) {
+        if (e instanceof ErrorSesion) throw e;
+        return { ok: false, error: { tipo: 'red' } };
+      }
+      if (!r.ok) return { ok: false, error: errorExportacion(r) };
+      try {
+        const blob = await r.blob();
+        return { ok: true, valor: { blob, nombre: nombreArchivo(r.headers.get('Content-Disposition'), parametros.entidad, hoy) } };
+      } catch {
+        return { ok: false, error: { tipo: 'red' } };
+      }
+    },
+    async consultarAuditoria(consulta) {
+      const q = consultaAuditoriaAQuery(consulta);
+      return aPaginaAuditoria(await leer(q === '' ? '/api/panel/auditoria' : `/api/panel/auditoria?${q}`));
+    },
+    async listarUsuarios() {
+      return lista(await leer('/api/panel/usuarios'), esUsuarioDirectorio);
     },
     async recordatorios() {
       const cuerpo = await leer('/api/panel/recordatorios?estado=pendiente&estado=fallido&estado=enviado');

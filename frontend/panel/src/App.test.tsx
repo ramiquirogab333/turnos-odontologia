@@ -289,10 +289,10 @@ describe('App: secciones del panel (C-12)', () => {
     window.location.hash = '';
   });
 
-  it('recepción ve las seis secciones y empieza en la agenda', async () => {
+  it('recepción ve las siete secciones y empieza en la agenda', async () => {
     await abrir(servidor(refresco, ...panel, ...secciones));
     const nav = await screen.findByRole('navigation', { name: 'Secciones del panel' });
-    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios', 'Google Calendar']);
+    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios', 'Google Calendar', 'Datos']);
     expect(screen.getByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Agenda' })).toHaveAttribute('aria-current', 'page');
   });
@@ -352,6 +352,48 @@ describe('App: secciones del panel (C-12)', () => {
     await abrir(fetchFn);
     expect(await screen.findByRole('heading', { level: 1, name: 'Recordatorios' })).toBeInTheDocument();
     expect(await screen.findByText('No hay recordatorios por enviar')).toBeInTheDocument();
+  });
+
+  it('recepción entra a #/datos: ve exportar y no la pestaña de auditoría, y no pide auditoría (C-13)', async () => {
+    window.location.hash = '#/datos';
+    const fetchFn = servidor(refresco, ...panel, ...secciones);
+    await abrir(fetchFn);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Datos' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Exportar' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Auditoría' })).toBeNull();
+    expect(pedidos(fetchFn).some((u) => u.startsWith('/api/panel/auditoria') || u.startsWith('/api/panel/usuarios'))).toBe(false);
+  });
+
+  it('recepción que fuerza #/datos?pestana=auditoria recibe el mensaje de permiso y no se pide nada (C-13)', async () => {
+    window.location.hash = '#/datos?pestana=auditoria';
+    const fetchFn = servidor(refresco, ...panel, ...secciones);
+    await abrir(fetchFn);
+    expect(await screen.findByText('No tenés permiso para ver la auditoría.')).toBeInTheDocument();
+    expect(pedidos(fetchFn).some((u) => u.startsWith('/api/panel/auditoria'))).toBe(false);
+  });
+
+  it('el admin abre #/datos?pestana=auditoria y ve la auditoría con sus usuarios (C-13)', async () => {
+    window.location.hash = '#/datos?pestana=auditoria';
+    const admin = ruta('GET /api/auth/me', { ...ME, roles: ['admin'] });
+    const fetchFn = servidor(
+      refresco,
+      admin,
+      ...panel,
+      ...secciones,
+      ruta('GET /api/panel/auditoria', { items: [], siguiente: null }),
+      ruta('GET /api/panel/usuarios', [{ id: 1, nombre_completo: 'Rita Recepción', activo: true }]),
+    );
+    await abrir(fetchFn);
+    expect(await screen.findByText('No hay registros para estos filtros')).toBeInTheDocument();
+    expect(pedidos(fetchFn)).toEqual(expect.arrayContaining(['/api/panel/auditoria', '/api/panel/usuarios']));
+  });
+
+  it('la odontóloga no ve «Datos» y un hash #/datos la deja en la agenda (C-13)', async () => {
+    window.location.hash = '#/datos';
+    const odontologa = ruta('GET /api/auth/me', { ...ME, roles: ['odontologo'] });
+    await abrir(servidor(refresco, odontologa, ...panel, ...secciones));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Datos' })).toBeNull();
   });
 
   it('un hash #/caja deja a la odontóloga en la agenda y no pide nada de caja', async () => {

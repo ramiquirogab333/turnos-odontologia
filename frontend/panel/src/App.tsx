@@ -3,6 +3,7 @@ import { Agenda } from './components/Agenda';
 import { Caja } from './components/Caja';
 import { GoogleCalendar } from './components/GoogleCalendar';
 import { Cargando } from './components/Cargando';
+import { Datos } from './components/Datos';
 import { ErrorCarga } from './components/ErrorCarga';
 import { Indicadores } from './components/Indicadores';
 import { Ingreso } from './components/Ingreso';
@@ -10,7 +11,7 @@ import { Navegacion } from './components/Navegacion';
 import { Pacientes } from './components/Pacientes';
 import { Recordatorios } from './components/Recordatorios';
 import type { Api } from './lib/api';
-import { leerSeccion, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA, TITULO_SECCION, type Seccion } from './lib/ruta';
+import { leerSeccion, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA, TITULO_SECCION, type Seccion } from './lib/ruta';
 import { ErrorSesion, type MotivoCierre, type Sesion } from './lib/sesion';
 import type { Usuario } from './lib/tipos';
 
@@ -72,6 +73,10 @@ function Secciones({ usuario, api, hoy }: PropsPanel) {
         {seccion === 'indicadores' && <Indicadores api={api} hoy={hoy} />}
         {seccion === 'recordatorios' && <Recordatorios api={api} />}
         {seccion === 'caja' && <Caja api={api} hoy={hoy} esAdmin={usuario.roles.includes('admin')} />}
+        {seccion === 'datos' && (
+          // Se remonta si el hash cambia de pestaña (un enlace directo `#/datos?pestana=auditoria` en la misma página).
+          <Datos key={pestanaDeDatos(hash)} api={api} roles={usuario.roles} hoy={hoy} pestanaInicial={pestanaDeDatos(hash)} />
+        )}
         {seccion === 'google-calendar' && (
           <GoogleCalendar
             api={api}
