@@ -42,7 +42,7 @@ C-01 crear-turno-sin-solape
               │           │           └── C-10 google-calendar-sync
               │           └── C-11 ficha-odontograma-presupuestos-os
               │                 ├── C-12 panel-admin-caja-ausentismo
-              │                 └── C-16 panel-ficha-presupuestos-ui   (nuevo, O13; UI sobre frontend-panel/)
+              │                 └── C-16 panel-ficha-presupuestos-ui   (nuevo, O13; UI sobre frontend/panel/)
 ```
 
 ### Paralelismo por fase
@@ -78,7 +78,7 @@ GATE 7: C-07 ✓
   → C-08 agenda-profesional-panel       [Agente A]
 
 GATE 7b: C-08 ✓                         ← C-14 no depende de C-11 ni de C-12
-  → C-14 panel-catalogo-disponibilidad  [Agente C — UI sobre frontend-panel/]
+  → C-14 panel-catalogo-disponibilidad  [Agente C — UI sobre frontend/panel/]
   → C-15 auth-hardening-panel           [Agente A — CRÍTICO, obligatorio antes de producción]
 
 GATE 8: C-08 + C-11 ✓
@@ -88,7 +88,7 @@ GATE 9: C-12 ✓
   → C-13 auditoria-exportacion          [Agente A]
 
 GATE 8b: C-11 ✓                         ← C-16 no depende de C-12
-  → C-16 panel-ficha-presupuestos-ui    [Agente C — UI sobre frontend-panel/]
+  → C-16 panel-ficha-presupuestos-ui    [Agente C — UI sobre frontend/panel/]
 ```
 
 ### Camino crítico (9 changes — mínimo irreducible)
@@ -130,7 +130,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
   - `POST /api/turnos` — crea un turno (profesional + sillón + tratamiento + inicio; `fin = inicio + duración del tratamiento`); solape por profesional o por sillón → `409` con motivo; validación en backend, nunca solo en cliente
   - Reglas verificables: RN-TU-03 (sin superposición por profesional, extendida a sillón/box día 1 por Resolución 2026-09-30 nº1 — cierra SU-03), RN-TU-04 (`fin` derivado de duración), R5 (`EXCLUDE USING gist`), R8 (sin `en_espera` en este change: el turno creado bloquea el slot; `en_espera` no bloqueante llega en C-06)
   - Done-criteria (test): UN E2E Playwright — dos reservas concurrentes sobre el mismo slot → exactamente un `201` y un `409` (R7); más tests de constraint a nivel DB (doble `INSERT` solapado rechazado por el `EXCLUDE`)
-  - EXPLÍCITAMENTE FUERA (movido): scaffolding `frontend-paciente/` → C-05; scaffolding `frontend-panel/` → C-08; CI con jobs paralelos → C-05; base de jobs/scheduler (Redis workers) → C-09
+  - EXPLÍCITAMENTE FUERA (movido): scaffolding `frontend/paciente/` → C-05; scaffolding `frontend/panel/` → C-08; CI con jobs paralelos → C-05; base de jobs/scheduler (Redis workers) → C-09
 - **Dependencias**: ninguna
 - **Governance**: MEDIO — checkpoint: el propose debe mostrar el DDL del `EXCLUDE USING gist` + el test de carrera concurrente antes del apply, porque toca reglas de agenda (RN-TU-03) y constraints DB que todos los changes posteriores heredan
 - **Leer antes**:
@@ -216,7 +216,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ### [C-05] `reserva-publica-horarios`
 - **Estado**: `[x]` archivado 2026-11-03 (`openspec/changes/archive/2026-11-03-c-05-reserva-publica-horarios/`, spec en `openspec/specs/turnos/reserva-publica/spec.md`; E2E a 360px y CI en verde, run 41762187593)
 - **Scope**: Reserva pública mobile-first + cálculo de horarios libres con anti-solape (US-001), sobre el constraint de C-01 (stack congelado: React + TypeScript + Vite estricto, Playwright)
-  - MOVIDO desde el viejo C-01: scaffolding `frontend-paciente/` (Vite + React + TS strict, sin `any`, componentes PascalCase — R1) + CI GitHub Actions con jobs paralelos backend/frontend (primera change con superficie usuario real)
+  - MOVIDO desde el viejo C-01: scaffolding `frontend/paciente/` (Vite + React + TS strict, sin `any`, componentes PascalCase — R1) + CI GitHub Actions con jobs paralelos backend/frontend (primera change con superficie usuario real)
   - `GET /api/public/disponibilidad?profesional_id&tratamiento_id&desde&hasta` — libres = disponibilidad vigente − turnos que BLOQUEAN agenda (nota: `en_espera` NO bloquea desde C-06; hasta entonces bloquean `reservado/confirmado`)
   - `POST /api/public/turnos` — nombre + teléfono (sin cuenta, RN-TU-06/DD-01); `fin = inicio + duración del tratamiento` (RN-TU-04); reutiliza el `EXCLUDE USING gist` de C-01: anti-solape por profesional + sillón (RN-TU-03) y horarios libres vigentes (RN-TU-07); devuelve código/enlace de gestión pública (Flujo 1, pasos 1–4); datos incompletos → 422 sin crear
   - Condición de carrera: dos pacientes sobre el mismo slot → uno gana (`201`), el otro recibe alternativas libres
@@ -283,7 +283,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ### [C-08] `agenda-profesional-panel`
 - **Estado**: `[x]` archivado 2026-11-10 (`openspec/changes/archive/2026-11-10-c-08-agenda-profesional-panel/`, specs en `openspec/specs/auth/panel-acceso-web/spec.md` (nuevo), `openspec/specs/turnos/agenda-panel/spec.md` (nuevo), `openspec/specs/turnos/gestion-panel/spec.md` (nuevo), y `openspec/specs/auth/panel-login/spec.md`, `openspec/specs/turnos/creacion-sin-solape/spec.md`, `openspec/specs/pagos/sena-turno/spec.md`, `openspec/specs/turnos/reserva-publica/spec.md` (modificados); tarea 8.5 cerrada con la primera corrida remota de CI en verde, run 42749000509)
 - **Scope**: Agenda por profesional día/semana para odontólogo y gestión para recepción (US-005) — primera superficie de panel (stack congelado: React + TypeScript + Vite)
-  - `frontend-panel/` (puerto 5174, mismo origen que `/api`): pantalla de ingreso, sesión con refresh en cookie `HttpOnly` y access en memoria, agenda día y semana con filtros, alta manual y acciones sobre cada turno; CI propio (`frontend-panel` y `e2e-panel`)
+  - `frontend/panel/` (puerto 5174, mismo origen que `/api`): pantalla de ingreso, sesión con refresh en cookie `HttpOnly` y access en memoria, agenda día y semana con filtros, alta manual y acciones sobre cada turno; CI propio (`frontend/panel` y `e2e-panel`)
   - Backend `app/panel/`: `GET /api/panel/agenda` y `/opciones` (odontólogo ve solo su agenda y sin teléfono; recepción/admin todo), `POST /api/panel/turnos` (alta manual `reservado` sin seña, excepción O7 a R8, `origen='manual'`), `POST /api/panel/turnos/{id}/{ausente|atendido|cancelar}`; comando `python -m app.panel.usuarios` (O4)
   - Migración `007_turno_origen_ocupacion`: `turno.origen` y EXCLUDE ampliados a `atendido` (O19: un atendido ocupa el horario hasta su `fin`)
   - Auth endurecida dentro de C-08 (O2/O3): refresh solo por cookie con `X-Panel-Csrf`, logout que revoca el refresh por 7 días, `POST /api/turnos` exige recepción/admin
@@ -398,9 +398,9 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 
 ### [C-14] `panel-catalogo-disponibilidad`
 - **Estado**: `[ ]` pendiente (propuesto en C-08, decisión O18 del 2026-11-09)
-- **Scope**: UI de catálogo y disponibilidad sobre `frontend-panel/` — la promesa de C-04 ("el panel UI llega con C-08") se movió acá
+- **Scope**: UI de catálogo y disponibilidad sobre `frontend/panel/` — la promesa de C-04 ("el panel UI llega con C-08") se movió acá
   - Pantallas de tratamientos (duración y precio), profesionales, sillones y franjas de disponibilidad, sobre los CRUD `/api/admin/*` de C-04
-  - Reutiliza la sesión, el cliente de API y los tokens de `frontend-panel/`; solo recepción y admin (el rol `odontologo` no accede)
+  - Reutiliza la sesión, el cliente de API y los tokens de `frontend/panel/`; solo recepción y admin (el rol `odontologo` no accede)
   - Reglas verificables: RN-TU-04/05/07 (duración configurable, disponibilidad vigente), R1, R2, R3, R7 (E2E Playwright)
 - **Dependencias**: C-08
 - **Governance**: MEDIO
@@ -431,7 +431,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ### [C-16] `panel-ficha-presupuestos-ui`
 - **Estado**: `[ ]` pendiente (propuesto en C-11, decisión O13 del 2026-11-10)
 - **Scope**: Pantallas del panel para lo que C-11 entregó solo por API
-  - Ficha clínica (antecedentes con control de versión), odontograma FDI (registro en lote y estado vigente), presupuestos (armado, estados, cobro) sobre `frontend-panel/`
+  - Ficha clínica (antecedentes con control de versión), odontograma FDI (registro en lote y estado vigente), presupuestos (armado, estados, cobro) sobre `frontend/panel/`
   - La odontóloga edita ficha y odontograma de sus pacientes desde la UI (O4, O16: lectura si el acceso venció); recepción/admin operan presupuestos y pagos
   - Reglas verificables: R1, R2 (cargas en paralelo), R3 (360 px), R7 (E2E Playwright de la edición de ficha y del registro de odontograma)
   - Pantallas de alta, edición y vínculo de pacientes (turno ↔ paciente): quedan acá por la decisión O16 de C-12 (C-12 solo entrega el listado y la búsqueda); sin el vínculo, el ausentismo por paciente no cuenta turnos

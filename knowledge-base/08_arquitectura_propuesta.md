@@ -17,8 +17,9 @@ Stack **congelado (Resoluciones 2026-09-30, ver `10_preguntas_abiertas.md` §Res
 
 ```
 proyecto/
-├── frontend-paciente/     # reserva pública mobile-first (sin login)
-├── frontend-panel/        # panel odontólogo + recepción/admin
+├── frontend/              # todos los clientes web (R21)
+│   ├── paciente/          # reserva pública mobile-first (sin login)
+│   └── panel/             # panel odontólogo + recepción/admin
 ├── backend/
 │   ├── agenda/            # turnos, disponibilidad, anti-solape
 │   ├── pacientes/         # fichas, ausentismo

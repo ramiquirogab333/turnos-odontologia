@@ -108,6 +108,7 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 - R1. NUNCA `any` → TypeScript estricto (`tsconfig` strict), componentes en PascalCase.
 - R2. NUNCA fetches en cascada en el flujo de reserva → paralelizar con `Promise.all` + límites `Suspense`.
 - R3. NUNCA una pantalla de reserva que no funcione a 360px → mobile-first es criterio de aceptación.
+- R21. NUNCA un frontend fuera de `frontend/` → todo cliente web vive en `frontend/<nombre>` (hoy `frontend/paciente` y `frontend/panel`); uno nuevo se crea ahí y se suma a la CI con su propio `working-directory`.
 
 **Base de datos (PostgreSQL vía SQLAlchemy + Alembic)**
 - R4. NUNCA tipos sin zona horaria / strings sin límite / float para dinero → `DateTime(timezone=True)`, `String` + `CHECK`, `Numeric` vía SQLAlchemy.

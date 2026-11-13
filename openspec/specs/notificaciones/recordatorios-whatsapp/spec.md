@@ -229,7 +229,7 @@ El sistema no SHALL guardar el texto del mensaje en la base ni escribir teléfon
 - **THEN** el log del ciclo informa solo cantidades e ids, sin nombres, teléfonos ni códigos
 
 ### Requirement: Pantalla de recordatorios del panel a 360px
-`frontend-panel/` SHALL ofrecer a recepción y admin la sección "Recordatorios" usable a 360 px de ancho sin scroll horizontal (R3), con los turnos por avisar, su estado, "Abrir WhatsApp" (abre el link en otra pestaña y registra el envío) y "No se pudo enviar". La odontóloga no SHALL ver la sección.
+`frontend/panel/` SHALL ofrecer a recepción y admin la sección "Recordatorios" usable a 360 px de ancho sin scroll horizontal (R3), con los turnos por avisar, su estado, "Abrir WhatsApp" (abre el link en otra pestaña y registra el envío) y "No se pudo enviar". La odontóloga no SHALL ver la sección.
 
 #### Scenario: Recepción avisa desde el celular (Happy Path)
 - **GIVEN** que recepción entra al panel en un celular de 360 px y hay un recordatorio `pendiente` de "Carlos Sintético"

@@ -75,7 +75,7 @@
 
 ### DD-09 — Agenda del profesional y panel (C-08, decisiones del Product Owner 2026-11-09)
 **Decisión**: se aprueban las decisiones O1 a O19 de `openspec/changes/archive/2026-11-10-c-08-agenda-profesional-panel/design.md`. Las que cambian reglas o contratos:
-- O1/O2 (críticas): pantalla de ingreso mínima en `frontend-panel/` y refresh token **solo en cookie `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth`**; el access vive en memoria. `POST /api/auth/refresh` lee solo la cookie y exige la cabecera `X-Panel-Csrf: 1` (defensa CSRF, junto con SameSite=Strict). El refresh ya no viaja en el JSON de login ni de refresh. El logout revoca el `jti` del access y el del refresh hasta que el refresh pueda vencer (antes solo 15 minutos).
+- O1/O2 (críticas): pantalla de ingreso mínima en `frontend/panel/` y refresh token **solo en cookie `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth`**; el access vive en memoria. `POST /api/auth/refresh` lee solo la cookie y exige la cabecera `X-Panel-Csrf: 1` (defensa CSRF, junto con SameSite=Strict). El refresh ya no viaja en el JSON de login ni de refresh. El logout revoca el `jti` del access y el del refresh hasta que el refresh pueda vencer (antes solo 15 minutos).
 - O3 (crítica): `POST /api/turnos` exige rol `recepcion` o `admin`.
 - O4 (crítica): los usuarios del panel se crean con el comando idempotente `python -m app.panel.usuarios` (contraseña por `PANEL_USUARIO_PASSWORD`).
 - O5/O6 (críticas): la odontóloga es de solo lectura y no recibe el teléfono del paciente (minimización, Ley 25.326).

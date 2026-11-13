@@ -67,14 +67,14 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: frontend-paciente
+        working-directory: frontend/paciente
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: frontend-paciente/package-lock.json
+          cache-dependency-path: frontend/paciente/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -120,7 +120,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: frontend-paciente/package-lock.json
+          cache-dependency-path: frontend/paciente/package-lock.json
       - name: Secreto JWT efímero (R17)
         run: echo "JWT_SECRET_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - name: Clave de cifrado de tokens efímera (R17, C-10)
@@ -142,12 +142,12 @@ jobs:
           docker compose --profile e2e logs backend worker gcal-falso
           exit 1
       - name: Dependencias del frontend y Chromium
-        working-directory: frontend-paciente
+        working-directory: frontend/paciente
         run: |
           npm ci
           npx playwright install --with-deps chromium
       - name: E2E
-        working-directory: frontend-paciente
+        working-directory: frontend/paciente
         run: npm run e2e
         env:
           CI: 'true'
@@ -157,28 +157,28 @@ jobs:
         with:
           name: playwright-report
           path: |
-            frontend-paciente/playwright-report
-            frontend-paciente/test-results
+            frontend/paciente/playwright-report
+            frontend/paciente/test-results
           retention-days: 7
       - name: Logs del backend y del worker
         if: failure()
         run: docker compose --profile e2e logs backend worker gcal-falso
 
   # C-08 (D8): el panel interno tiene sus propios jobs, copia de los del frontend público.
-  frontend-panel:
+  frontend/panel:
     name: frontend-panel (tsc + lint + unit + build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: frontend-panel
+        working-directory: frontend/panel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: frontend-panel/package-lock.json
+          cache-dependency-path: frontend/panel/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -221,7 +221,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: frontend-panel/package-lock.json
+          cache-dependency-path: frontend/panel/package-lock.json
       - name: Secreto JWT efímero (R17)
         run: echo "JWT_SECRET_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - name: Clave de cifrado de tokens efímera (R17, C-10)
@@ -243,12 +243,12 @@ jobs:
           docker compose --profile e2e logs backend worker gcal-falso
           exit 1
       - name: Dependencias del panel y Chromium
-        working-directory: frontend-panel
+        working-directory: frontend/panel
         run: |
           npm ci
           npx playwright install --with-deps chromium
       - name: E2E del panel
-        working-directory: frontend-panel
+        working-directory: frontend/panel
         run: npm run e2e
         env:
           CI: 'true'
@@ -258,8 +258,8 @@ jobs:
         with:
           name: playwright-report-panel
           path: |
-            frontend-panel/playwright-report
-            frontend-panel/test-results
+            frontend/panel/playwright-report
+            frontend/panel/test-results
           retention-days: 7
       - name: Logs del backend y del worker
         if: failure()

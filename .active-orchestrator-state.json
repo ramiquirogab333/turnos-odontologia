@@ -170,7 +170,7 @@
         "skill": "clerk-nextjs-patterns / auth-implementation-patterns (reference)"
       },
       {
-        "why": "If Next.js is chosen at C-01, App Router patterns for public + panel frontends (frontend-paciente/, frontend-panel/).",
+        "why": "If Next.js is chosen at C-01, App Router patterns for public + panel frontends (frontend/paciente/, frontend/panel/).",
         "changes": ["C-01", "C-05", "C-08"],
         "installs": "~31.2K",
         "source": "wshobson/agents",
