@@ -7,13 +7,15 @@ Matriz RBAC (03_actores_y_roles.md):
 
 from datetime import datetime
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.sesiones import cargar_contexto, sesion_vigente
 from app.auth.service import decode_token
+from app.plataforma.auditoria import contexto_auditoria
 from app.shared.db import get_session
+from app.shared.red import ip_cliente
 from app.shared.reloj import get_reloj
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -60,6 +62,7 @@ def _sesion_invalida() -> HTTPException:
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     session: AsyncSession = Depends(get_session),
     ahora: datetime = Depends(get_reloj),
@@ -95,6 +98,8 @@ async def get_current_user(
     contexto = await cargar_contexto(session, sid=payload["sid"], usuario_id=usuario_id)
     if contexto is None or not sesion_vigente(contexto, ahora):
         raise _sesion_invalida()
+    # C-13 (D4, O9): la IP real del pedido queda disponible para ``registrar(ip=AUTO)`` en todo el caso de uso.
+    contexto_auditoria.set(ip_cliente(request))
     return PermissionContext(
         usuario_id=contexto.usuario_id,
         email=contexto.email,
@@ -120,4 +125,11 @@ async def require_recepcion_o_admin(context: PermissionContext = Depends(get_cur
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Rol requerido: recepcion o admin",
         )
+    return context
+
+
+async def require_admin(context: PermissionContext = Depends(get_current_user)) -> PermissionContext:
+    """Exige rol admin; cualquier otro rol -> 403 (consulta de la auditoría y directorio de usuarios, C-13 O6)."""
+    if not context.tiene_rol("admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Rol requerido: admin")
     return context

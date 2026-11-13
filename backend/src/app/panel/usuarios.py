@@ -30,7 +30,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.sesiones import MOTIVO_DESACTIVADO, revocar_de_usuario
-from app.models.core import RegistroAuditoria, Rol, Usuario, UsuarioRol
+from app.models.core import Rol, Usuario, UsuarioRol
+from app.plataforma.auditoria import registrar
 from app.shared.db import get_engine, get_session_factory
 from app.shared.logger import get_logger
 from app.turnos.models import Profesional
@@ -115,8 +116,8 @@ async def desactivar_usuario(session: AsyncSession, *, email: str, ahora: dateti
     usuario = await _usuario_por_email(session, email)
     usuario.is_active = False
     revocadas = await revocar_de_usuario(session, int(usuario.id), motivo=MOTIVO_DESACTIVADO, ahora=ahora)
-    session.add(RegistroAuditoria(usuario_id=None, accion="SESIONES_REVOCADAS", entidad="usuario",
-                                  entidad_id=str(usuario.id), datos_despues={"cantidad": revocadas}))
+    registrar(session, accion="SESIONES_REVOCADAS", entidad="usuario", entidad_id=usuario.id, usuario_id=None,
+              despues={"cantidad": revocadas}, ip=None)
     await session.commit()
     return revocadas
 

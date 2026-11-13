@@ -22,7 +22,8 @@ from app.integraciones.gcal.errores import (ConexionActivaError, ConexionInexist
 from app.integraciones.gcal.models import EventoCalendar, GcalConexion, GcalConflicto
 from app.integraciones.gcal.proveedor import ErrorProveedor, ProveedorCalendario
 from app.integraciones.gcal.schemas import ConexionOut
-from app.models.core import RegistroAuditoria, Usuario
+from app.models.core import Usuario
+from app.plataforma.auditoria import registrar
 from app.panel.service import SinProfesionalAsociadoError
 from app.shared.logger import get_logger
 from app.shared.settings import Settings
@@ -69,9 +70,8 @@ def leer_state(state: str, ajustes: Settings, ahora: datetime) -> dict[str, Any]
 
 def _auditar(session: AsyncSession, usuario_id: int | None, accion: str, conexion: GcalConexion,
              despues: dict[str, object]) -> None:
-    session.add(RegistroAuditoria(  # RN-GL-01: sin tokens ni datos del paciente
-        usuario_id=usuario_id, accion=accion, entidad="gcal_conexion", entidad_id=str(conexion.id),
-        datos_despues={"profesional_id": conexion.profesional_id, **despues}, ip=None))
+    registrar(session, accion=accion, entidad="gcal_conexion", entidad_id=conexion.id, usuario_id=usuario_id,
+              despues={"profesional_id": conexion.profesional_id, **despues})  # RN-GL-01: sin tokens ni datos del paciente
 
 
 async def _profesional_de(session: AsyncSession, usuario_id: int) -> int:
@@ -101,6 +101,8 @@ async def iniciar_conexion(session: AsyncSession, usuario_id: int, ajustes: Sett
     conexion.oauth_nonce_hash = _hash_nonce(nonce)
     conexion.oauth_verifier_cifrado = cifrar(verificador, clave)
     conexion.oauth_expira_en = ahora + VIGENCIA_STATE
+    await session.flush()  # id de la conexión nueva
+    _auditar(session, usuario_id, "inicio_conexion_gcal", conexion, {})  # C-13 (O10): sin URL, state ni verificador
     await session.commit()
     desafio = base64.urlsafe_b64encode(hashlib.sha256(verificador.encode()).digest()).decode().rstrip("=")
     parametros = {

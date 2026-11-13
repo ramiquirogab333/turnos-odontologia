@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.core import RegistroAuditoria
+from app.plataforma.auditoria import registrar
 from app.pagos.calculo import monto_sena, vencimiento
 from app.pagos.config import medios_disponibles, obtener_configuracion
 from app.pagos.errores import (
@@ -248,9 +248,8 @@ class ResultadoAcreditacion:
 def _auditar(session: AsyncSession, *, usuario_id: int | None, accion: str, entidad: str, entidad_id: int,
              antes: dict[str, Any] | None, despues: dict[str, Any]) -> None:
     """Registro de auditoría en la misma transacción (RN-GL-01). Sin PII de contacto."""
-    session.add(RegistroAuditoria(
-        usuario_id=usuario_id, accion=accion, entidad=entidad, entidad_id=str(entidad_id),
-        datos_antes=antes, datos_despues=despues, ip=None))
+    registrar(session, accion=accion, entidad=entidad, entidad_id=entidad_id, usuario_id=usuario_id,
+              antes=antes, despues=despues)
 
 
 def _marcar_a_reembolsar(session: AsyncSession, pago: PagoSena, turno: Turno, *, motivo: str,

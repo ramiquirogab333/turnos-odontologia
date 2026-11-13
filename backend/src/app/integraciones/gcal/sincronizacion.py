@@ -17,7 +17,7 @@ from app.integraciones.gcal.models import GcalConexion
 from app.integraciones.gcal.proveedor import AccesoRevocado, ErrorProveedor, ProveedorCalendario
 from app.integraciones.gcal.pull import pull
 from app.integraciones.gcal.reconciliacion import reconciliar_push
-from app.models.core import RegistroAuditoria
+from app.plataforma.auditoria import registrar
 from app.shared.logger import get_logger
 from app.shared.settings import Settings, get_settings
 
@@ -103,10 +103,9 @@ async def _marcar_revocada(session: AsyncSession, conexion: GcalConexion, fallo:
                                       .execution_options(populate_existing=True))).scalar_one()
     conexion.estado, conexion.proximo_intento_en = "revocada", None
     conexion.ultimo_error = type(fallo).__name__
-    session.add(RegistroAuditoria(  # sin usuario (lo hizo el sistema) y sin tokens
-        usuario_id=None, accion="UPDATE", entidad="gcal_conexion", entidad_id=str(conexion.id),
-        datos_despues={"profesional_id": conexion.profesional_id, "estado": "revocada", "origen": "invalid_grant"},
-        ip=None))
+    registrar(session, accion="UPDATE", entidad="gcal_conexion", entidad_id=conexion.id, usuario_id=None,
+              despues={"profesional_id": conexion.profesional_id, "estado": "revocada", "origen": "invalid_grant"},
+              ip=None)  # sin usuario (lo hizo el sistema) y sin tokens
     await session.commit()
     logger.warning("gcal_sync: conexión %d revocada (%s)", conexion.id, type(fallo).__name__)
 

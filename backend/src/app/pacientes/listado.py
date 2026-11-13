@@ -4,7 +4,7 @@
 solo dígitos, en el comienzo del DNI. Los comodines de ``q`` se escapan. Los contadores salen de UNA subconsulta
 agregada por ``paciente_id`` unida con ``LEFT JOIN``: la página y el total son las dos únicas consultas (sin N+1).
 Sin índice de texto (una clínica tiene miles de pacientes, SU-02); si creciera, ``pg_trgm``. El texto buscado no se
-audita ni se loguea.
+audita ni se loguea: la auditoría de la lectura (C-13, D8) guarda solo la página, los filtros booleanos y la cantidad.
 """
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.core import ObraSocial, Paciente
 from app.pacientes.schemas_listado import ListadoOut, ListadoQuery, PacienteListadoOut
 from app.panel.schemas import Ref
+from app.plataforma.auditoria import registrar
 from app.panel.service import zona_clinica
 from app.turnos.models import Turno
 
@@ -34,7 +35,7 @@ def _condicion_q(q: str) -> ColumnElement[bool]:
     return or_(*condiciones)
 
 
-async def listar_pacientes(session: AsyncSession, query: ListadoQuery) -> ListadoOut:
+async def listar_pacientes(session: AsyncSession, query: ListadoQuery, usuario_id: int) -> ListadoOut:
     """Página de pacientes con su total y, por persona, atendidos, ausentes y fecha de su último turno vinculado.
 
     Un turno sin paciente vinculado no cuenta para nadie; ``en_espera`` y ``cancelado`` tampoco.
@@ -66,6 +67,12 @@ async def listar_pacientes(session: AsyncSession, query: ListadoQuery) -> Listad
         .where(and_(True, *filtros)).order_by(*orden)
         .limit(query.por_pagina).offset((query.pagina - 1) * query.por_pagina))).all()
     zona = zona_clinica()
+    # C-13 (D8): sin rastro no hay datos; el texto de ``q`` nunca entra (la guarda de ``registrar`` lo bloquea).
+    registrar(session, accion="lectura_listado_pacientes", entidad="paciente", entidad_id=None, usuario_id=usuario_id,
+              despues={"pagina": query.pagina, "por_pagina": query.por_pagina, "orden": query.orden,
+                       "con_ausencias": query.con_ausencias, "con_busqueda": query.q is not None,
+                       "devueltos": len(filas)})
+    await session.commit()
     return ListadoOut(
         total=total, pagina=query.pagina, por_pagina=query.por_pagina,
         pacientes=[PacienteListadoOut(

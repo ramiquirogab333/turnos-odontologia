@@ -10,6 +10,7 @@ from app.pacientes.errores import DniDuplicadoError, ObraSocialInactivaError, Pa
 from app.pacientes.schemas import PacienteCreate, PacienteOut, PacienteVistaClinicaOut, VinculoTurnoOut
 from app.pagos.errores import TurnoInexistenteError
 from app.panel.schemas import Ref
+from app.plataforma.auditoria import registrar
 from app.turnos.models import Turno
 
 SQLSTATE_UNICO = "23505"
@@ -78,9 +79,20 @@ async def crear_paciente(session: AsyncSession, data: PacienteCreate, usuario_id
     return await paciente_out(session, paciente)
 
 
-async def buscar_por_dni(session: AsyncSession, dni: str) -> list[PacienteOut]:
+async def buscar_por_dni(session: AsyncSession, dni: str, usuario_id: int) -> list[PacienteOut]:
+    """Búsqueda exacta; la auditoría guarda el id hallado y la cantidad, nunca el DNI buscado (C-13, D8)."""
     filas = (await session.execute(select(Paciente).where(Paciente.dni == dni))).scalars().all()
-    return [await paciente_out(session, p) for p in filas]
+    resultado = [await paciente_out(session, p) for p in filas]
+    registrar(session, accion="busqueda_paciente_dni", entidad="paciente", usuario_id=usuario_id,
+              entidad_id=filas[0].id if filas else None, despues={"encontrados": len(filas)})
+    await session.commit()
+    return resultado
+
+
+async def auditar_lectura_paciente(session: AsyncSession, paciente_id: int, usuario_id: int) -> None:
+    """Registra y confirma la lectura de los datos de un paciente antes de entregarlos (C-13, D8)."""
+    registrar(session, accion="lectura_paciente", entidad="paciente", entidad_id=paciente_id, usuario_id=usuario_id)
+    await session.commit()
 
 
 async def editar_paciente(session: AsyncSession, paciente_id: int, data: PacienteCreate,

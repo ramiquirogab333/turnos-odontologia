@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.core import Paciente, RegistroAuditoria
+from app.models.core import Paciente
+from app.plataforma.auditoria import registrar
 from app.notificaciones.mensaje import DatosMensaje, armar_mensaje, link_wa_me
 from app.notificaciones.models import Recordatorio
 from app.notificaciones.schemas import EstadoVisible, RecordatorioOut
@@ -97,9 +98,8 @@ async def _cargar_vigente(session: AsyncSession, recordatorio_id: int) -> tuple:
 
 def _auditar(session: AsyncSession, usuario_id: int, recordatorio: Recordatorio, antes: dict[str, object],
              despues: dict[str, object]) -> None:
-    session.add(RegistroAuditoria(
-        usuario_id=usuario_id, accion="UPDATE", entidad="recordatorio", entidad_id=str(recordatorio.id),
-        datos_antes=antes, datos_despues={**despues, "turno_id": recordatorio.turno_id}, ip=None))
+    registrar(session, accion="UPDATE", entidad="recordatorio", entidad_id=recordatorio.id, usuario_id=usuario_id,
+              antes=antes, despues={**despues, "turno_id": recordatorio.turno_id})
 
 
 async def marcar_enviado(session: AsyncSession, recordatorio_id: int, usuario_id: int,

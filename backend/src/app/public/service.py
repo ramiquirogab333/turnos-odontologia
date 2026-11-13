@@ -26,7 +26,8 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integraciones.gcal.disponibilidad import franjas_ocupadas
-from app.models.core import Disponibilidad, RegistroAuditoria
+from app.models.core import Disponibilidad
+from app.plataforma.auditoria import registrar
 from app.pagos.calculo import monto_sena, vencimiento
 from app.pagos.config import medios_disponibles, obtener_configuracion
 from app.public.schemas import ReservaPublicaRequest
@@ -251,15 +252,12 @@ async def reservar_turno_publico(session: AsyncSession, data: ReservaPublicaRequ
     try:
         await session.flush()
         await session.refresh(turno)  # Identity: id no se rellena tras flush sin refresh
-        session.add(RegistroAuditoria(  # RN-GL-01: misma transacción atómica (sin PII de contacto)
-            usuario_id=None, accion="CREATE", entidad="turno", entidad_id=str(turno.id),
-            datos_despues={
-                "profesional_id": turno.profesional_id, "sillon_id": turno.sillon_id,
-                "tratamiento_id": turno.tratamiento_id, "inicio": turno.inicio.isoformat(),
-                "fin": turno.fin.isoformat(), "estado": turno.estado, "origen": "reserva_publica",
-            },
-            ip=None,
-        ))
+        registrar(session, accion="CREATE", entidad="turno", entidad_id=turno.id, usuario_id=None,
+                  despues={  # RN-GL-01: misma transacción atómica (sin PII de contacto)
+                      "profesional_id": turno.profesional_id, "sillon_id": turno.sillon_id,
+                      "tratamiento_id": turno.tratamiento_id, "inicio": turno.inicio.isoformat(),
+                      "fin": turno.fin.isoformat(), "estado": turno.estado, "origen": "reserva_publica",
+                  }, ip=None)
         await session.commit()
     except (IntegrityError, DBAPIError) as exc:
         await session.rollback()

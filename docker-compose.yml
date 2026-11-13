@@ -128,6 +128,9 @@ services:
       # C-15: sesión del panel, límites de solicitudes (Redis) e IP real detrás de un proxy. Sin secretos (R17).
       REDIS_URL: redis://redis:6379/0
       SESION_MAXIMA_HORAS: ${SESION_MAXIMA_HORAS:-12}
+      # C-13 (D10): límites de la exportación de datos.
+      EXPORT_MAX_POR_HORA: ${EXPORT_MAX_POR_HORA:-20}
+      EXPORT_TIMEOUT_SEGUNDOS: ${EXPORT_TIMEOUT_SEGUNDOS:-300}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       RATE_LIMIT_TIMEOUT_MS: ${RATE_LIMIT_TIMEOUT_MS:-200}
       RATE_LIMIT_LOGIN_IP_EMAIL_MAX: ${RATE_LIMIT_LOGIN_IP_EMAIL_MAX:-5}

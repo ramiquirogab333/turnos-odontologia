@@ -13,7 +13,8 @@ from app.auth.rbac import PermissionContext
 from app.gestion.errores import FueraDePlazoError
 from app.gestion.eventos import EventoTurno, NotificadorTurnos
 from app.gestion.service import ESTADOS_GESTIONABLES, publicar_sin_romper
-from app.models.core import RegistroAuditoria, Usuario
+from app.models.core import Usuario
+from app.plataforma.auditoria import registrar
 from app.pagos.estados import (
     CancelacionFueraDePlazoError,
     atendido_habilitado_desde,
@@ -271,15 +272,12 @@ async def crear_turno_manual(session: AsyncSession, data: TurnoManualCreate, usu
     try:
         await session.flush()
         await session.refresh(turno)  # Identity: el id no se rellena tras el flush sin refresh
-        session.add(RegistroAuditoria(  # RN-GL-01: misma transacción; sin nombre, teléfono ni código (R19)
-            usuario_id=usuario_id, accion="CREATE", entidad="turno", entidad_id=str(turno.id),
-            datos_despues={
-                "profesional_id": turno.profesional_id, "sillon_id": turno.sillon_id,
-                "tratamiento_id": turno.tratamiento_id, "inicio": turno.inicio.isoformat(),
-                "fin": turno.fin.isoformat(), "estado": turno.estado, "origen": "alta_manual_panel",
-            },
-            ip=None,
-        ))
+        registrar(session, accion="CREATE", entidad="turno", entidad_id=turno.id, usuario_id=usuario_id,
+                  despues={  # RN-GL-01: misma transacción; sin nombre, teléfono ni código (R19)
+                      "profesional_id": turno.profesional_id, "sillon_id": turno.sillon_id,
+                      "tratamiento_id": turno.tratamiento_id, "inicio": turno.inicio.isoformat(),
+                      "fin": turno.fin.isoformat(), "estado": turno.estado, "origen": "alta_manual_panel",
+                  })
         await session.commit()
     except (IntegrityError, DBAPIError) as exc:
         await session.rollback()

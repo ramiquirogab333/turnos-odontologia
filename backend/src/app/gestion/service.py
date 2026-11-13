@@ -23,7 +23,7 @@ from app.gestion.errores import (
 from app.gestion.eventos import EventoTurno, NotificadorTurnos
 from app.gestion.schemas import MotivoNoConfirmable, MotivoNoModificable
 from app.pagos.config import obtener_configuracion
-from app.models.core import RegistroAuditoria
+from app.plataforma.auditoria import registrar
 from app.notificaciones.models import Recordatorio
 from app.pagos.errores import OperacionReintentableError, TurnoInexistenteError
 from app.pagos.estados import (
@@ -277,11 +277,10 @@ async def _reprogramar_una_vez(session: AsyncSession, turno_id: int, nuevo_inici
     estado_sena = pago.estado if pago else None
     turno.inicio, turno.fin, turno.sillon_id = nuevo_inicio, nuevo_fin, sillon.id
     turno.estado = "reservado"  # un confirmado vuelve a reservado (O5)
-    session.add(RegistroAuditoria(  # RN-GL-01: misma transacción, sin PII de contacto
-        usuario_id=None, accion="UPDATE", entidad="turno", entidad_id=str(turno.id), datos_antes=antes,
-        datos_despues={"inicio": nuevo_inicio.isoformat(), "fin": nuevo_fin.isoformat(),
+    registrar(session, accion="UPDATE", entidad="turno", entidad_id=turno.id, usuario_id=None, antes=antes,
+              despues={"inicio": nuevo_inicio.isoformat(), "fin": nuevo_fin.isoformat(),
                        "sillon_id": sillon.id, "estado": "reservado", "origen": "reprogramacion_paciente"},
-        ip=None))
+              ip=None)  # RN-GL-01: misma transacción, sin PII de contacto
     try:
         await session.flush()  # los EXCLUDE de la base son la garantía final (R5)
         await session.commit()

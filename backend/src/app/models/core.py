@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     Text,
+    text,
     Time,
     UniqueConstraint,
     func,
@@ -167,7 +168,7 @@ class RegistroAuditoria(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     usuario_id: Mapped[int | None] = mapped_column(
-        ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True, index=True
+        ForeignKey("usuario.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     accion: Mapped[str] = mapped_column(Text, nullable=False)
     entidad: Mapped[str] = mapped_column(Text, nullable=False)
@@ -186,4 +187,6 @@ class RegistroAuditoria(Base):
     __table_args__ = (
         CheckConstraint("LENGTH(accion) BETWEEN 2 AND 50", name="ck_auditoria_accion_len"),
         CheckConstraint("LENGTH(entidad) BETWEEN 2 AND 50", name="ck_auditoria_entidad_len"),
+        CheckConstraint("ip IS NULL OR LENGTH(ip) <= 45", name="ck_auditoria_ip_len"),
+        Index("ix_registro_auditoria_entidad", "entidad", "entidad_id", text("created_at DESC")),
     )

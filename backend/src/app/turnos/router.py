@@ -60,12 +60,12 @@ async def referencia_handler(request: object, exc: ReferenceNotFoundError) -> JS
 async def crear_turno(
     data: TurnoCreate,
     session: AsyncSession = Depends(get_session),
-    _contexto: PermissionContext = Depends(require_recepcion_o_admin),
+    contexto: PermissionContext = Depends(require_recepcion_o_admin),
 ) -> TurnoRead:
     """Create a turno blocking its slot on profesional AND sillon (D9)."""
     for intento in range(MAX_INTENTOS_CARRERA):
         try:
-            turno = await service.create_turno(session, data)
+            turno = await service.alta_turno_interna(session, data, contexto.usuario_id)
             await session.commit()
             break
         except DBAPIError as exc:

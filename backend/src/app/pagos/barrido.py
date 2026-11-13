@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.models.core import RegistroAuditoria
+from app.plataforma.auditoria import registrar
 from app.pagos.models import PagoSena
 from app.public.service import LOCK_RESERVAS
 from app.shared.logger import get_logger
@@ -39,10 +39,9 @@ async def expirar_pre_reservas(session: AsyncSession, ahora: datetime) -> int:
             pago.estado = "vencido"
         vence = turno.en_espera_vence_en
         turno.estado = "cancelado"
-        session.add(RegistroAuditoria(
-            usuario_id=None, accion="UPDATE", entidad="turno", entidad_id=str(turno.id),
-            datos_antes={"estado": "en_espera", "en_espera_vence_en": vence.isoformat() if vence else None},
-            datos_despues={"estado": "cancelado", "origen": "vencimiento_sena"}, ip=None))
+        registrar(session, accion="UPDATE", entidad="turno", entidad_id=turno.id, usuario_id=None,
+                  antes={"estado": "en_espera", "en_espera_vence_en": vence.isoformat() if vence else None},
+                  despues={"estado": "cancelado", "origen": "vencimiento_sena"}, ip=None)
     await session.commit()
     return len(vencidos)
 

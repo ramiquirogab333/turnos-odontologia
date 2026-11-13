@@ -103,6 +103,9 @@ class Settings(BaseSettings):
     purga_sesiones_habilitado: bool = True
     purga_sesiones_intervalo_segundos: int = Field(3600, gt=0)
     purga_sesiones_margen_minutos: int = Field(60, ge=0)
+    # C-13 (D10, O15): tope de exportaciones por usuario y hora, y tiempo máximo de una exportación (y de su lease).
+    export_max_por_hora: int = Field(20, gt=0)
+    export_timeout_segundos: int = Field(300, gt=0)
 
     @field_validator("trusted_proxies", mode="before")
     @classmethod

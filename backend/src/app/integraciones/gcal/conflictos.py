@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.integraciones.gcal.errores import AccionNoValidaError, ConflictoCerradoError, ConflictoInexistenteError
 from app.integraciones.gcal.models import EventoCalendar, GcalConexion, GcalConflicto
 from app.integraciones.gcal.schemas import ConflictoOut
-from app.models.core import RegistroAuditoria
+from app.plataforma.auditoria import registrar
 from app.shared.settings import get_settings
 from app.turnos.models import Profesional, Tratamiento, Turno
 
@@ -40,11 +40,10 @@ def _cerrar(conflicto: GcalConflicto, resolucion: str, ahora: datetime, usuario_
 
 
 def _auditar(session: AsyncSession, usuario_id: int | None, conflicto: GcalConflicto, antes: str, resolucion: str) -> None:
-    session.add(RegistroAuditoria(  # RN-GL-01: solo ids, tipos y estados; ningún dato del paciente
-        usuario_id=usuario_id, accion="UPDATE", entidad="gcal_conflicto", entidad_id=str(conflicto.id),
-        datos_antes={"estado": antes}, datos_despues={"estado": "resuelto", "resolucion": resolucion,
-                                                        "tipo": conflicto.tipo, "turno_id": conflicto.turno_id},
-        ip=None))
+    registrar(session, accion="UPDATE", entidad="gcal_conflicto", entidad_id=conflicto.id,  # RN-GL-01: solo ids,
+              usuario_id=usuario_id, antes={"estado": antes},  # tipos y estados; ningún dato del paciente
+              despues={"estado": "resuelto", "resolucion": resolucion, "tipo": conflicto.tipo,
+                       "turno_id": conflicto.turno_id})
 
 
 async def abrir_conflicto(session: AsyncSession, conexion_id: int, turno: Turno, evento: EventoCalendar, tipo: str,

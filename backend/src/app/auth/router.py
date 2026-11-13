@@ -31,7 +31,8 @@ from app.auth.sesiones import (
     revocar_sesiones,
     rotar_refresh,
 )
-from app.models.core import RegistroAuditoria, Rol, Usuario, UsuarioRol
+from app.models.core import Rol, Usuario, UsuarioRol
+from app.plataforma.auditoria import registrar
 from app.shared.db import get_session
 from app.shared.limites import (
     RESPUESTA_429_OPENAPI,
@@ -100,16 +101,8 @@ async def _audit(
     ip: str | None,
     datos_despues: dict[str, str] | None = None,
 ) -> None:
-    session.add(
-        RegistroAuditoria(
-            usuario_id=usuario_id,
-            accion=accion,
-            entidad=entidad,
-            entidad_id=entidad_id,
-            datos_despues=datos_despues,
-            ip=ip,
-        )
-    )
+    registrar(session, accion=accion, entidad=entidad, entidad_id=entidad_id, usuario_id=usuario_id,
+              despues=datos_despues, ip=ip)
 
 
 async def _get_user_with_roles(
@@ -172,7 +165,7 @@ async def login(
     if encontrado is None or not correcta:
         await limitador.registrar(llave_par, ajustes.rate_limit_login_ip_email_ventana_seg)
         await limitador.registrar(llave_email, ajustes.rate_limit_login_email_ventana_seg)
-        await _audit(session, "LOGIN_FAILED", "usuario", email if encontrado is None else str(encontrado[0].id),
+        await _audit(session, "LOGIN_FAILED", "usuario", None if encontrado is None else str(encontrado[0].id),  # C-13 O17: nunca el email intentado
                      None if encontrado is None else int(encontrado[0].id), ip, {"motivo": "credenciales"})
         await session.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")

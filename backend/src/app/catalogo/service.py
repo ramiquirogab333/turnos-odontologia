@@ -16,10 +16,13 @@ from typing import Any, TypeVar
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.base import Base
-from app.models.core import RegistroAuditoria
+from app.plataforma.auditoria import AUTO, registrar
 from app.repositories.base import BaseRepository
 
 ModelType = TypeVar("ModelType", bound=Base)
+
+# Columnas que identifican a una persona (el personal): nunca van a la auditoría; solo su nombre de campo (C-13, D2).
+COLUMNAS_DE_IDENTIDAD: frozenset[str] = frozenset({"nombre", "matricula"})
 
 
 def _jsonable(value: Any) -> Any:
@@ -48,7 +51,9 @@ class BaseCatalogoService(BaseRepository[ModelType]):
         self.entidad = entidad
 
     def _datos(self, entity: ModelType) -> dict[str, Any]:
-        return {c.name: getattr(entity, c.name) for c in entity.__table__.columns}
+        """Valores auditables de la fila: sin identidad del personal (``nombre``, ``matricula``; D2, R19)."""
+        return {c.name: getattr(entity, c.name) for c in entity.__table__.columns
+                if c.name not in COLUMNAS_DE_IDENTIDAD}
 
     async def _audit(
         self,
@@ -59,17 +64,8 @@ class BaseCatalogoService(BaseRepository[ModelType]):
         usuario_id: int | None,
         ip: str | None,
     ) -> None:
-        self.session.add(
-            RegistroAuditoria(
-                usuario_id=usuario_id,
-                accion=accion,
-                entidad=self.entidad,
-                entidad_id=entidad_id,
-                datos_antes=_jsonable_dict(antes),
-                datos_despues=_jsonable_dict(despues),
-                ip=ip,
-            )
-        )
+        registrar(self.session, accion=accion, entidad=self.entidad, entidad_id=entidad_id, usuario_id=usuario_id,
+                  antes=_jsonable_dict(antes), despues=_jsonable_dict(despues), ip=ip if ip is not None else AUTO)
 
     async def create(
         self,
@@ -86,7 +82,7 @@ class BaseCatalogoService(BaseRepository[ModelType]):
             "CREATE",
             str(entity.id),
             None,
-            _jsonable_dict(self._datos(entity)),
+            {**(_jsonable_dict(self._datos(entity)) or {}), "campos": sorted(data.model_dump())},
             usuario_id,
             ip,
         )
@@ -104,10 +100,11 @@ class BaseCatalogoService(BaseRepository[ModelType]):
         if entity is None:
             return None
         antes = _jsonable_dict(self._datos(entity))
-        for field, value in data.model_dump(exclude_unset=True).items():
+        cambios = data.model_dump(exclude_unset=True)
+        for field, value in cambios.items():
             setattr(entity, field, value)
         await self.session.flush()
-        despues = _jsonable_dict(self._datos(entity))
+        despues = {**(_jsonable_dict(self._datos(entity)) or {}), "campos": sorted(cambios)}
         await self._audit(
             "UPDATE",
             str(entity.id),

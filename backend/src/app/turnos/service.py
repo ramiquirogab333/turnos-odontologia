@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.plataforma.auditoria import registrar
 from app.shared.exceptions import OverlapError, ReferenceNotFoundError
 from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 from app.turnos.schemas import TurnoCreate
@@ -92,4 +93,18 @@ async def create_turno(session: AsyncSession, data: TurnoCreate) -> Turno:
         if getattr(getattr(exc, "orig", None), "sqlstate", "") == "23P01":
             raise OverlapError(motivo=motivo_desde_mensaje(str(exc.orig))) from exc
         raise
+    return turno
+
+
+async def alta_turno_interna(session: AsyncSession, data: TurnoCreate, usuario_id: int) -> Turno:
+    """``create_turno`` + su registro ``alta_turno_interna`` en la misma transacción (C-13, O10; RN-GL-01).
+
+    Sin contacto ni datos del paciente (la primitiva no los recibe). El caller confirma; un rechazo no deja registro.
+    """
+    turno = await create_turno(session, data)
+    await session.refresh(turno)  # Identity: el id no se rellena tras el flush sin refresh
+    registrar(session, accion="alta_turno_interna", entidad="turno", entidad_id=turno.id, usuario_id=usuario_id,
+              despues={"profesional_id": turno.profesional_id, "sillon_id": turno.sillon_id,
+                       "tratamiento_id": turno.tratamiento_id, "inicio": turno.inicio.isoformat(),
+                       "fin": turno.fin.isoformat(), "estado": turno.estado})
     return turno

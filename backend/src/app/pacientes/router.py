@@ -56,7 +56,7 @@ async def buscar_paciente(
     contexto: PermissionContext = Depends(require_recepcion_o_admin),
     session: AsyncSession = Depends(get_session),
 ) -> list[PacienteOut]:
-    return await service.buscar_por_dni(session, dni)
+    return await service.buscar_por_dni(session, dni, contexto.usuario_id)
 
 
 # Declarado ANTES de ``/pacientes/{paciente_id}``: si no, "listado" se interpretaría como un id.
@@ -68,7 +68,7 @@ async def listar_pacientes(
     contexto: PermissionContext = Depends(require_recepcion_o_admin),
     session: AsyncSession = Depends(get_session),
 ) -> ListadoOut:
-    return await listado.listar_pacientes(session, query)
+    return await listado.listar_pacientes(session, query, contexto.usuario_id)
 
 
 @router.get("/pacientes/{paciente_id}", response_model=PacienteOut | PacienteVistaClinicaOut,
@@ -82,9 +82,10 @@ async def consultar_paciente(
 ) -> PacienteOut | PacienteVistaClinicaOut:
     alcance = await alcance_paciente(session, contexto, paciente_id, ahora)
     paciente = await service.obtener_paciente(session, paciente_id)
-    if alcance.ve_contacto:
-        return await service.paciente_out(session, paciente)
-    return await service.paciente_vista_clinica(session, paciente)
+    respuesta = (await service.paciente_out(session, paciente) if alcance.ve_contacto
+                 else await service.paciente_vista_clinica(session, paciente))
+    await service.auditar_lectura_paciente(session, paciente_id, contexto.usuario_id)  # sin rastro no hay datos
+    return respuesta
 
 
 @router.put("/pacientes/{paciente_id}", response_model=PacienteOut,
