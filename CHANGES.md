@@ -412,7 +412,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-15] `auth-hardening-panel`
-- **Estado**: `[ ]` implementado, a la espera de archivar (decisiones O1–O17 aprobadas el 2026-11-13; **obligatorio antes de producción**)
+- **Estado**: `[x]` archivado 2026-11-13 (`openspec/changes/archive/2026-11-13-c-15-auth-hardening-panel/`, specs nuevas en `openspec/specs/auth/sesion-panel/spec.md` y `openspec/specs/plataforma/limite-de-solicitudes/spec.md`, y `openspec/specs/auth/panel-acceso-web/spec.md`, `openspec/specs/auth/panel-login/spec.md`, `openspec/specs/plataforma/trabajos-programados/spec.md`, `openspec/specs/turnos/gestion-paciente/spec.md`, `openspec/specs/turnos/reserva-publica/spec.md` (modificadas); decisiones O1–O17 aprobadas el 2026-11-13; **obligatorio antes de producción**)
 - **Scope final**: sesión del panel en el servidor (migración `012_sesion_panel`, reemplaza `token_blacklist`); cada pedido verifica sesión, usuario activo y roles de la base; duración máxima absoluta (`SESION_MAXIMA_HORAS`, 12 h); login endurecido (email normalizado, hash ficticio, bcrypt en un hilo, inactivos); límites de solicitudes con Redis (login por IP+email / IP / email, refresh, endpoints públicos; fail-open); IP real con `TRUSTED_PROXIES` y auditoría con IP real (`LOGIN_BLOQUEADO` una vez por ventana, `SESIONES_REVOCADAS`); `--desactivar`/`--reactivar` en `app.panel.usuarios`; purga de sesiones en el worker; mensajes de 429 en los dos frontends.
   - Seguimientos (fuera de alcance): UI para listar y cerrar sesiones, MFA, recuperación de contraseña, agrupar IPv6 por /64, revisar la defensa CSRF si el API se publica con CORS.
   - Nota C-09 (O13, rate limiting de endpoints públicos con Redis): resuelto acá (O8).
