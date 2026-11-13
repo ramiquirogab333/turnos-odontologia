@@ -70,9 +70,9 @@ Organizadas por **épica** y luego por **historia de usuario** (formato US-NNN).
 **Para** tener un solo calendario actualizado
 
 **Criterios de aceptación**:
-- [ ] CA-1: Los turnos aparecen en Google Calendar y viceversa.
+- [x] CA-1: Los turnos aparecen en Google Calendar y viceversa (C-10: los turnos `reservado`/`confirmado` aparecen como eventos sin datos del paciente; los eventos ocupados de Google se traen como franjas ocupadas que la reserva pública no ofrece; los conflictos se resuelven a mano en la sección «Google Calendar» del panel, a 360 px).
 
-**Reglas relacionadas**: RN-GC-01, RN-GC-02
+**Reglas relacionadas**: RN-GC-01, RN-GC-02, RN-GC-03, RN-GC-04
 
 ## Épica 4: Panel admin
 

@@ -35,7 +35,7 @@
 **Contexto**: hoy es el sistema principal en uso.
 **Alternativas consideradas**: reemplazar GCal por agenda propia única.
 **Justificación**: adopción sin fricción para el profesional.
-**Trade-offs aceptados**: complejidad de conflictos de sincronía (RN-GC-02 pendiente).
+**Trade-offs aceptados**: complejidad de conflictos de sincronía. **Cierre (C-10, 2026-11-12)**: criterio de RN-GC-02 aprobado (O9, O18, O20): nunca se sobrescribe, conflicto visible y resolución manual por recepción/admin; el evento no identifica al paciente (O8, supuesto de negocio a confirmar con el PO); las franjas ocupadas de Google bloquean la reserva pública pero no el alta manual (O10, supuesto de negocio). Tokens OAuth cifrados con Fernet (O1); la API nunca llama a Google (solo el canje OAuth): sincroniza el worker (O4).
 
 ### DD-06 — Alcance clínico-administrativo mínimo en v1
 **Decisión**: odontograma FDI básico + presupuestos con OS + nomenclador precargado; MP + transferencia; sin ARCA nativa.

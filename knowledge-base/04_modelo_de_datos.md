@@ -24,7 +24,8 @@ CierreCaja 1───* CierreCajaLinea (foto inmutable de la caja de un día, de
 Turno 1───* Recordatorio (WhatsApp)
 Profesional 1───* Disponibilidad (franjas configurables)
 Usuario *───1 Rol (paciente-público / odontólogo / recepción-admin)
-Turno *───* EventoCalendar (sincronía bidireccional GCal)
+Turno 1───* EventoCalendar (sincronía bidireccional GCal, desde C-10: un turno puede tener varios eventos a lo largo del tiempo, pero uno solo vigente por conexión)
+Profesional 1───0..1 GcalConexion 1───* EventoCalendar / GcalConflicto (desde C-10)
 *───* RegistroAuditoria (quién, qué, cuándo)
 ObraSocial 1───* Nomenclador (precargado AR)
 ```
@@ -61,7 +62,7 @@ ObraSocial 1───* Nomenclador (precargado AR)
 
 ### Turno
 - Atributos: id, paciente_id, profesional_id, sillon_id, tratamiento_id, inicio, fin (derivado de duración), estado (reservado / confirmado / cancelado / ausente / atendido; más `en_espera` desde C-06 —ver GAP en `CHANGES.md` header—), origen (`web` / `manual` / `whatsapp`; columna `NOT NULL DEFAULT 'web'` con `CHECK`, migración 007 de C-08; los turnos sin código de gestión se rellenaron como `manual`), código de gestión pública.
-- Relaciones: 1───* Recordatorio; *───* EventoCalendar; 1───* PagoSena (desde C-06).
+- Relaciones: 1───* Recordatorio; 1───* EventoCalendar (historial: a lo sumo uno vigente por conexión, C-10 O16); 1───* PagoSena (desde C-06).
 - Constraints: fin = inicio + duración del tratamiento; no solape por profesional NI por sillón/box desde día 1 (RN-TU-03, EXCLUDE parciales por estado, estrategia A); cancelación/reprogramación solo con ≥ 24 hs de anticipación. Estado `en_espera` (C-06): pre-reserva con seña pendiente que NO bloquea agenda ni genera recordatorio/calendario; solo la seña acreditada (`reservado`) bloquea el slot (R8), con la excepción del alta manual de recepción/admin (C-08, O7), que nace `reservado` sin seña. Ocupan agenda `reservado`, `confirmado` y `atendido` (O19).
 - Índices: (profesional_id, inicio), (sillon_id, inicio), (paciente_id, inicio), estado; índice sobre cada FK.
 
@@ -88,6 +89,19 @@ ObraSocial 1───* Nomenclador (precargado AR)
 - Estado `anulado` (C-09 O7, agrega un quinto estado a los cuatro originales): el turno se canceló o se reprogramó (el recordatorio del horario anterior) o empezó sin que se avisara. Motivos: `sin_telefono`, `numero_invalido`, `sin_whatsapp`, `otro`, `error_proveedor` (estado `fallido`) y `turno_cancelado`, `turno_reprogramado`, `turno_iniciado` (estado `anulado`).
 - Constraints: un solo recordatorio no `anulado` por (`turno_id`, `turno_inicio`) (índice único parcial); `confirmado` ⇔ `confirmado_en`; `enviado` ⇒ `enviado_en`; `fallido`/`anulado` ⇒ `motivo`. Marcar `ausente` o `atendido` NO anula el recordatorio (historial).
 - Relaciones: *───1 Turno; *───0..1 Usuario (quien lo marcó enviado).
+
+### GcalConexion (desde C-10, migración `011_google_calendar`)
+- Atributos: `id`, `profesional_id` (único: una conexión por profesional), `usuario_id` (quien conectó), `estado` (`pendiente` / `activa` / `revocada` / `desconectada`), `cuenta_email`, `calendario_id` (`primary`), `refresh_token_cifrado` y `access_token_cifrado` (Fernet con `GCAL_TOKEN_CLAVE`, O1: nunca en claro ni en logs), `access_expira_en`, `sync_token` (lectura incremental), `oauth_nonce_hash` / `oauth_verifier_cifrado` / `oauth_expira_en` (estado OAuth de un solo uso, vence a los 10 min), `ultimo_sync_ok_en`, `proximo_intento_en` y `fallos_consecutivos` (espera creciente 1/5/15/60 min), `ultimo_error` (clase + código HTTP, sin datos personales).
+- Constraints: `activa` exige refresh token; `pendiente` exige nonce y vencimiento; índice parcial de trabajo `(proximo_intento_en) WHERE estado = 'activa'`.
+
+### EventoCalendar (desde C-10)
+- Atributos: `id`, `conexion_id`, `turno_id` (nulo en las franjas ajenas), `origen` (`sistema` = evento del turno; `google` = franja ocupada ajena), `google_event_id`, `estado` (`pendiente` / `sincronizado` / `borrado` / `desvinculado`), `inicio`, `fin` (último horario conocido en Google), `ocupa`, `etag`, `hash_contenido`, `generacion` (sufijo del id determinista: restaurar un evento borrado crea otro con `generacion + 1`).
+- Constraints: `origen = 'sistema'` ⇔ `turno_id` no nulo; único `(conexion_id, google_event_id)`; índice único parcial `(conexion_id, turno_id)` para el vínculo vigente (`pendiente`/`sincronizado`); índice GiST parcial `(conexion_id, tstzrange(inicio, fin))` de las franjas ajenas que ocupan (la usa la disponibilidad).
+- **De un evento ajeno solo se guarda el horario y si ocupa** (O19, Ley 25.326): nunca título, descripción, lugar ni invitados. El evento que el sistema escribe en Google lleva "Turno · <tratamiento>", el sillón y un enlace al panel; nunca nombre, teléfono, DNI, email ni código de gestión (O8).
+
+### GcalConflicto (desde C-10)
+- Atributos: `id`, `conexion_id`, `turno_id`, `evento_id`, `tipo` (`movido_en_google` / `borrado_en_google` / `solapa_evento_externo`), `estado` (`abierto` / `resuelto`), `sistema_inicio/fin` y `google_inicio/fin` (foto al detectar), `resolucion` (`restaurar_en_google` / `desvincular` / `revisado` / `turno_cancelado` / `solape_desaparecido`), `resuelto_por_usuario_id`, `detectado_en`, `resuelto_en`.
+- Constraints: `resuelto` ⇔ `resolucion` y `resuelto_en`; un conflicto abierto por (`evento_id`, `turno_id`, `tipo`).
 
 ### Presupuesto (desde C-11)
 - Atributos: id, `paciente_id`, `obra_social_id` (nula = particular), `estado` (`borrador`, `presentado`, `aceptado`, `rechazado`, `anulado`), `subtotal`, `cobertura_total`, `diferencial_total`, `total_paciente` (todos `NUMERIC(12,2)`, con `CHECK total_paciente = subtotal - cobertura_total + diferencial_total`), `notas`, `creado_por`, fechas de presentación, resolución y anulación (+ motivo).

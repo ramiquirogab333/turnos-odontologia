@@ -85,7 +85,7 @@ turnos-odontologia/
 ├── backend/                        # Código backend: FastAPI + SQLAlchemy + Alembic + tests
 │   ├── src/
 │   │   ├── app/                    # `main` y módulos por dominio: `turnos/`, `auth/`, `catalogo/`, `public/`, `pagos/`, `panel/`, `pacientes/`, `clinica/`, `gestion/`, `models/`, `repositories/`, `db/`, `shared/`
-│   │   └── alembic/                # Entorno + migraciones (001..009: agenda con EXCLUDE, modelos, auth, catálogo, reserva pública, seña/pagos, origen/ocupación del turno, ficha/odontograma/presupuestos y caja/cierres/devoluciones)
+│   │   └── alembic/                # Entorno + migraciones (001..011: agenda con EXCLUDE, modelos, auth, catálogo, reserva pública, seña/pagos, origen/ocupación del turno, ficha/odontograma/presupuestos caja/cierres/devoluciones, recordatorios y Google Calendar)
 │   ├── tests/                      # Suite pytest (`conftest.py`, helpers y tests unitarios e integración por change; `pythonpath = src`)
 │   ├── pytest.ini                  # `asyncio_mode = auto`, `testpaths = tests`, `pythonpath = src`
 │   ├── requirements.txt            # Pins del backend
@@ -279,6 +279,16 @@ Todo bajo `/api/panel` con `Authorization: Bearer <access>`, solo para recepció
 - **E2E:** levantar `postgres redis backend worker` con `APP_ENV=e2e MP_GATEWAY=fake MP_WEBHOOK_SECRET=secreto-webhook-sintetico-e2e SENA_BARRIDO_SEGUNDOS=3 RECORDATORIOS_INTERVALO_SEGUNDOS=3` y correr `npm run e2e` en `frontend-paciente` y `frontend-panel` (los E2E de vencimiento de la seña ahora dependen del worker).
 - **Rollback:** bajar `worker` y `redis`, `SENA_BARRIDO_EN_API=true` en la API y `alembic downgrade 009_caja_cierres_devol` (borra la tabla `recordatorio`; los turnos no se tocan).
 - **Tests nuevos:** `cd backend && python -m pytest tests/test_recordatorios_*.py tests/test_jobs_*.py tests/test_settings_jobs.py tests/test_gestion_confirmacion_integration.py -q`.
+
+### Google Calendar (C-10)
+
+- **Migración:** `cd backend && alembic upgrade head` aplica `011_google_calendar` (tablas `gcal_conexion`, `evento_calendar` y `gcal_conflicto`). El `downgrade` las borra: se pierde el vínculo con Google (los eventos ya creados quedan en los calendarios; desconectar antes si se quieren dejar desvinculados).
+- **Crear el cliente OAuth** en Google Cloud: habilitar la *Google Calendar API*, pantalla de consentimiento «Externa» en modo prueba y cargar como **usuarias de prueba** las cuentas de las profesionales (el permiso `calendar.events` es sensible: sin verificar la app Google muestra un aviso y limita a 100 usuarios), y crear un cliente OAuth de tipo **«Aplicación web»** con la URI de redirección `http://localhost:8000/api/panel/google-calendar/oauth/callback` (o la de tu despliegue = `GCAL_REDIRECT_URI`).
+- **Variables** (siempre por entorno, nunca en el repo, R17/R20): `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET`, `GCAL_TOKEN_CLAVE` (generala con `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`), `GCAL_REDIRECT_URI`, `PUBLIC_PANEL_URL`, y opcionales `GCAL_SYNC_HABILITADO` (`true`), `GCAL_SYNC_INTERVALO_SEGUNDOS` (`60`), `GCAL_HORIZONTE_DIAS` (`60`). Backend y worker las reciben por Docker Compose. Sin ellas todo sigue como antes: la API arranca, `POST /api/panel/google-calendar/conexion/iniciar` responde 503 `gcal_no_configurado` y el worker no registra `gcal_sync`.
+- **Operación:** cada odontóloga entra a **Google Calendar** en el panel y toca *Conectar Google Calendar*. Los turnos `reservado`/`confirmado` de los próximos 60 días aparecen como eventos «Turno · <tratamiento>» **sin datos del paciente**; los eventos ocupados de su Google se traen como franjas ocupadas (solo horario) que la reserva pública no ofrece. Si mueve o borra un evento en Google, el turno NO cambia: queda un conflicto con el horario del sistema y el de Google para que recepción o admin elija *Restaurar en Google*, *Desvincular* o *Marcar como revisado*. La API nunca llama a Google (salvo el canje OAuth del regreso): sincroniza el worker cada `GCAL_SYNC_INTERVALO_SEGUNDOS`.
+- **Rollback:** `GCAL_SYNC_HABILITADO=false` detiene la sincronía al instante; `alembic downgrade 010_recordatorios` borra las tablas.
+- **Google falso para desarrollo y E2E** (perfil `e2e` de Compose, solo con `APP_ENV=e2e`): `docker compose --profile e2e up -d --build --wait postgres redis gcal-falso` y luego backend y worker con `GCAL_OAUTH_BASE_URL=http://localhost:8090 GCAL_TOKEN_BASE_URL=http://gcal-falso:8090 GCAL_API_BASE_URL=http://gcal-falso:8090 GCAL_SYNC_INTERVALO_SEGUNDOS=3` además de las credenciales sintéticas y `GCAL_TOKEN_CLAVE`. El E2E (`npm run e2e` en `frontend-panel` y `frontend-paciente`) simula lo que hace la profesional en Google con los endpoints `/_control/*` del falso.
+- **Tests nuevos:** `cd backend && python -m pytest tests/test_gcal_*.py tests/test_settings_gcal.py -q`.
 
 ---
 

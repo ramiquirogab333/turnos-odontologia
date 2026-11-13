@@ -36,7 +36,7 @@
 | Alta ✅ | ¿Tabla concreta tratamiento→duración para la v1? | Seed data y cálculo de horarios | Admin/clínica |
 | Alta ✅ | ¿Stack tecnológico (frontend, backend, DB, hosting)? | Toda implementación (02, 08) | Equipo técnico |
 | Media | ¿Login de paciente o solo nombre + teléfono por turno? | Auth y modelo Paciente/Usuario | Product Owner |
-| Media | Resolución de conflictos de sincronía con Google Calendar (RN-GC-02) | Integración GCal | Equipo técnico |
+| Media ✅ | Resolución de conflictos de sincronía con Google Calendar (RN-GC-02) — cerrada en C-10 (2026-11-12): resolución manual con criterio visible, nunca auto-sobrescritura (ver RN-GC-02 y DD-05) | Integración GCal | Equipo técnico |
 | Media | ¿El anti-solape de v1 controla sillón además de profesional? | Lógica de disponibilidad (SU-03) | Product Owner |
 | Media | Confirmar cifras de mercado (ej. DentalSoft "+300 clínicas / −82% ausencias" son autodeclaraciones sin auditoría) | Métricas de éxito (01) | Product Owner |
 | Baja | ¿Una sola sede en v1 (SU-02)? | Modelo de datos | Product Owner |
