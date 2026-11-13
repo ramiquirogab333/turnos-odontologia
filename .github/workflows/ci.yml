@@ -34,12 +34,23 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # C-15 (O17): el adaptador Redis del limitador se prueba contra un Redis real (no se salta en CI).
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
     env:
       DATABASE_URL: postgresql+asyncpg://turnos:turnos@localhost:5433/turnos
       TEST_DATABASE_URL: postgresql+asyncpg://turnos:turnos@localhost:5433/turnos
+      REDIS_URL: redis://localhost:6379/0
       PYTHONPATH: src
       # C-06: pasarela FALSA (sin red) y secreto de webhook SINTÉTICO; barrido apagado en los tests.
       APP_ENV: test
@@ -109,6 +120,12 @@ jobs:
       GCAL_API_BASE_URL: http://gcal-falso:8090
       GCAL_SYNC_INTERVALO_SEGUNDOS: '3'
       E2E_GCAL_URL: http://localhost:8090
+      # C-15 (O17): el E2E inicia sesión decenas de veces desde la misma IP; se suben los umbrales de IP y el par
+      # IP + email queda en su default para que el E2E del bloqueo lo ejercite con un email propio.
+      RATE_LIMIT_LOGIN_IP_MAX: '1000'
+      RATE_LIMIT_REFRESH_IP_MAX: '1000'
+      RATE_LIMIT_PUBLICO_ESCRITURA_MAX: '1000'
+      RATE_LIMIT_PUBLICO_LECTURA_MAX: '1000'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -210,6 +227,12 @@ jobs:
       GCAL_API_BASE_URL: http://gcal-falso:8090
       GCAL_SYNC_INTERVALO_SEGUNDOS: '3'
       E2E_GCAL_URL: http://localhost:8090
+      # C-15 (O17): el E2E inicia sesión decenas de veces desde la misma IP; se suben los umbrales de IP y el par
+      # IP + email queda en su default para que el E2E del bloqueo lo ejercite con un email propio.
+      RATE_LIMIT_LOGIN_IP_MAX: '1000'
+      RATE_LIMIT_REFRESH_IP_MAX: '1000'
+      RATE_LIMIT_PUBLICO_ESCRITURA_MAX: '1000'
+      RATE_LIMIT_PUBLICO_LECTURA_MAX: '1000'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
