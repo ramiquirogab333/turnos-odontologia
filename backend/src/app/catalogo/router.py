@@ -14,6 +14,7 @@ misma transacción (RN-GL-01).
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.red import ip_cliente
 from app.auth.rbac import PermissionContext, get_current_user, require_recepcion_o_admin  # noqa: F401  (re-export)
 from app.catalogo.schemas import (
     DisponibilidadCreate,
@@ -43,8 +44,9 @@ router_sillones = APIRouter(prefix="/api/admin/sillones", tags=["admin-sillones"
 router_disponibilidad = APIRouter(prefix="/api/admin/disponibilidad", tags=["admin-disponibilidad"])
 
 
-def _ip(request: Request) -> str:
-    return request.client.host if request.client else "testclient"
+def _ip(request: Request) -> str | None:
+    """IP real del cliente (C-15, D6); ``None`` si no se conoce, nunca un texto inventado."""
+    return ip_cliente(request)
 
 
 # ===========================================================================

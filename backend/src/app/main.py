@@ -6,11 +6,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from redis.asyncio import Redis
 from sqlalchemy import select
 
 from app.shared.db import get_session_factory
 from app.shared.exceptions import OverlapError, ReferenceNotFoundError
+from app.shared.limites import registrar_handlers_limites
 from app.shared.logger import get_logger
+from app.shared.red import instalar_proxy_headers
 from app.shared.settings import get_settings
 from app.turnos.router import (
     referencia_handler,
@@ -53,6 +56,8 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     Por defecto lo corre el worker (``app.jobs``); la bandera sirve para desarrollo y pruebas sin Redis.
     """
     settings = get_settings()
+    # Pool de Redis para los límites de solicitudes (C-15); no conecta hasta el primer uso y falla abierto (O5).
+    application.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
     application.state.barrido_task = None
     if settings.sena_barrido_habilitado and settings.sena_barrido_en_api:
         application.state.barrido_task = asyncio.create_task(
@@ -60,6 +65,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await application.state.redis.aclose()
         tarea = application.state.barrido_task
         if tarea is not None:
             tarea.cancel()
@@ -68,6 +74,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Turnos Odontología — C-01", version="0.1.0", lifespan=lifespan)
+instalar_proxy_headers(app, get_settings().trusted_proxies)  # C-15 D6: vacío = IP del socket
 app.include_router(turnos_router)
 app.include_router(auth_router)
 app.include_router(router_tratamientos)
@@ -86,6 +93,7 @@ app.include_router(caja_router)
 app.include_router(indicadores_router)
 app.include_router(recordatorios_router)
 app.include_router(gcal_router)
+registrar_handlers_limites(app)
 registrar_handlers_clinicos(app)
 registrar_handlers_caja(app)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]

@@ -10,6 +10,11 @@ from fastapi import APIRouter, Depends, Header, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.limites import (
+    RESPUESTA_429_OPENAPI,
+    limitar_publico_escritura,
+    limitar_publico_lectura,
+)
 from app.pagos.deps import get_pasarela
 from app.pagos.errores import (
     MedioNoHabilitadoError,
@@ -48,10 +53,12 @@ def _datos_pago(pago: PagoSena | None, config: ConfiguracionSena) -> dict[str, A
 
 @router.post(
     "/{turno_id}/sena",
+    dependencies=[Depends(limitar_publico_escritura)],
     response_model=IniciarSenaResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Inicia la seña de un turno en espera (Mercado Pago o transferencia)",
-    responses={
+    responses={**RESPUESTA_429_OPENAPI,
+        
         200: {"model": IniciarSenaResponse, "description": "Reintento con el mismo medio: mismo pago pendiente"},
         404: {"description": "Código de gestión ausente o ajeno"},
         409: {"model": ReservaConflictoBody, "description": "Turno no vigente u horario ya tomado"},
@@ -95,9 +102,11 @@ async def iniciar(
 
 @router.get(
     "/{turno_id}/sena",
+    dependencies=[Depends(limitar_publico_lectura)],
     response_model=EstadoSenaResponse,
     summary="Estado de la seña de un turno",
-    responses={404: {"description": "Código de gestión ausente o ajeno"}},
+    responses={**RESPUESTA_429_OPENAPI,
+        404: {"description": "Código de gestión ausente o ajeno"}},
 )
 async def consultar(
     turno_id: int,

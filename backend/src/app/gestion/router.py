@@ -11,6 +11,11 @@ from fastapi import APIRouter, Depends, Header, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.limites import (
+    RESPUESTA_429_OPENAPI,
+    limitar_publico_escritura,
+    limitar_publico_lectura,
+)
 from app.gestion.deps import get_notificador, get_reloj
 from app.gestion.errores import (
     FueraDePlazoError,
@@ -71,9 +76,11 @@ def _respuesta_reintentar() -> JSONResponse:
 
 @router.get(
     "",
+    dependencies=[Depends(limitar_publico_lectura)],
     response_model=GestionTurnoResponse,
     summary="Datos del turno para gestionarlo (cancelar o cambiar el horario)",
-    responses={404: {"description": "Código de gestión ausente, desconocido o de un turno sin código"}},
+    responses={**RESPUESTA_429_OPENAPI,
+        404: {"description": "Código de gestión ausente, desconocido o de un turno sin código"}},
 )
 async def consultar(
     codigo: CodigoGestion = None,
@@ -89,9 +96,11 @@ async def consultar(
 
 @router.post(
     "/confirmar",
+    dependencies=[Depends(limitar_publico_escritura)],
     response_model=ConfirmacionResponse,
     summary="Confirma la asistencia al turno reservado (sin ventana de 24 h)",
-    responses={
+    responses={**RESPUESTA_429_OPENAPI,
+        
         404: {"description": "Código de gestión ausente o desconocido"},
         409: {"model": ErrorGestionBody, "description": "Seña pendiente, turno no modificable o ya iniciado"},
         503: {"description": "Operación transitoria no completada: reintentar"},
@@ -121,9 +130,11 @@ async def confirmar(
 
 @router.post(
     "/cancelar",
+    dependencies=[Depends(limitar_publico_escritura)],
     response_model=CancelacionResponse,
     summary="Cancela el turno del paciente (24 h de anticipación si ya tiene seña acreditada)",
-    responses={
+    responses={**RESPUESTA_429_OPENAPI,
+        
         404: {"description": "Código de gestión ausente o desconocido"},
         409: {"model": ErrorGestionBody, "description": "Fuera de plazo o turno no modificable"},
         503: {"description": "Operación transitoria no completada: reintentar"},
@@ -150,10 +161,12 @@ async def cancelar(
 
 @router.post(
     "/reprogramar",
+    dependencies=[Depends(limitar_publico_escritura)],
     response_model=ReprogramacionResponse,
     status_code=status.HTTP_200_OK,
     summary="Mueve el turno a otro horario libre de la misma profesional (24 h de anticipación)",
-    responses={
+    responses={**RESPUESTA_429_OPENAPI,
+        
         404: {"description": "Código de gestión ausente o desconocido"},
         409: {"description": "Fuera de plazo, seña pendiente, turno no modificable u horario ocupado"},
         422: {"description": "Horario fuera de la disponibilidad, igual al actual o pasado"},

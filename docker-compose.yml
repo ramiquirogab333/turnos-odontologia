@@ -18,9 +18,12 @@ services:
       retries: 10
       start_period: 10s
 
-  # C-09 (D1, R18): Redis solo lo usa el worker; la API no depende de él.
+  # C-09 (D1, R18): Redis lo usa el worker (arq) y, desde C-15, la API para los límites de solicitudes (fail-open).
   redis:
     image: redis:7-alpine
+    ports:
+      # Solo en loopback: sirve para correr los tests de integración del limitador desde el host; no se expone fuera.
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -63,6 +66,10 @@ services:
       GCAL_OAUTH_BASE_URL: ${GCAL_OAUTH_BASE_URL:-https://accounts.google.com}
       GCAL_TOKEN_BASE_URL: ${GCAL_TOKEN_BASE_URL:-https://oauth2.googleapis.com}
       GCAL_API_BASE_URL: ${GCAL_API_BASE_URL:-https://www.googleapis.com}
+      # C-15 (D8): purga de sesiones vencidas del panel.
+      PURGA_SESIONES_HABILITADO: ${PURGA_SESIONES_HABILITADO:-true}
+      PURGA_SESIONES_INTERVALO_SEGUNDOS: ${PURGA_SESIONES_INTERVALO_SEGUNDOS:-3600}
+      PURGA_SESIONES_MARGEN_MINUTOS: ${PURGA_SESIONES_MARGEN_MINUTOS:-60}
     depends_on:
       postgres:
         condition: service_healthy
@@ -118,10 +125,29 @@ services:
       GCAL_OAUTH_BASE_URL: ${GCAL_OAUTH_BASE_URL:-https://accounts.google.com}
       GCAL_TOKEN_BASE_URL: ${GCAL_TOKEN_BASE_URL:-https://oauth2.googleapis.com}
       GCAL_API_BASE_URL: ${GCAL_API_BASE_URL:-https://www.googleapis.com}
+      # C-15: sesión del panel, límites de solicitudes (Redis) e IP real detrás de un proxy. Sin secretos (R17).
+      REDIS_URL: redis://redis:6379/0
+      SESION_MAXIMA_HORAS: ${SESION_MAXIMA_HORAS:-12}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      RATE_LIMIT_TIMEOUT_MS: ${RATE_LIMIT_TIMEOUT_MS:-200}
+      RATE_LIMIT_LOGIN_IP_EMAIL_MAX: ${RATE_LIMIT_LOGIN_IP_EMAIL_MAX:-5}
+      RATE_LIMIT_LOGIN_IP_EMAIL_VENTANA_SEG: ${RATE_LIMIT_LOGIN_IP_EMAIL_VENTANA_SEG:-900}
+      RATE_LIMIT_LOGIN_IP_MAX: ${RATE_LIMIT_LOGIN_IP_MAX:-30}
+      RATE_LIMIT_LOGIN_IP_VENTANA_SEG: ${RATE_LIMIT_LOGIN_IP_VENTANA_SEG:-900}
+      RATE_LIMIT_LOGIN_EMAIL_MAX: ${RATE_LIMIT_LOGIN_EMAIL_MAX:-20}
+      RATE_LIMIT_LOGIN_EMAIL_VENTANA_SEG: ${RATE_LIMIT_LOGIN_EMAIL_VENTANA_SEG:-3600}
+      RATE_LIMIT_REFRESH_IP_MAX: ${RATE_LIMIT_REFRESH_IP_MAX:-60}
+      RATE_LIMIT_REFRESH_IP_VENTANA_SEG: ${RATE_LIMIT_REFRESH_IP_VENTANA_SEG:-900}
+      RATE_LIMIT_PUBLICO_ESCRITURA_MAX: ${RATE_LIMIT_PUBLICO_ESCRITURA_MAX:-10}
+      RATE_LIMIT_PUBLICO_ESCRITURA_VENTANA_SEG: ${RATE_LIMIT_PUBLICO_ESCRITURA_VENTANA_SEG:-600}
+      RATE_LIMIT_PUBLICO_LECTURA_MAX: ${RATE_LIMIT_PUBLICO_LECTURA_MAX:-120}
+      RATE_LIMIT_PUBLICO_LECTURA_VENTANA_SEG: ${RATE_LIMIT_PUBLICO_LECTURA_VENTANA_SEG:-60}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   # C-10 (D11, O15): servidor falso de Google (OAuth + Calendar) SOLO para los E2E: perfil `e2e`, nunca arranca con

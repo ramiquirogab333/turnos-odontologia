@@ -1,6 +1,6 @@
-"""Servicio de autenticación: verificación de contraseña, JWT y blacklist (R13, R16, R17).
+"""Servicio de autenticación: verificación de contraseña y JWT (R13, R16, R17).
 
-Todo el trabajo de I/O (blacklist de jti) es asíncrono; nunca se bloquea el loop.
+La revocación vive en ``app.auth.sesiones`` (C-15); acá no hay I/O de base de datos.
 Los secretos provienen únicamente de variables de entorno a través de Settings.
 """
 
@@ -9,11 +9,6 @@ from typing import Any
 
 import bcrypt
 import jwt
-from sqlalchemy import literal_column, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.auth import TokenBlacklist
 from app.shared.settings import get_settings
 
 
@@ -34,46 +29,50 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _emitir(
+    data: dict[str, Any],
+    tipo: str,
+    por_defecto: timedelta,
+    expires_delta: timedelta | None,
+    ahora: datetime | None,
+    expires_at: datetime | None,
+) -> str:
+    """Firma un JWT. ``expires_at`` (tope absoluto de la sesión) manda sobre la duración relativa (C-15, D1)."""
+    settings = get_settings()
+    emitido = ahora or _now()
+    vence = expires_at if expires_at is not None else emitido + (expires_delta or por_defecto)
+    to_encode = {**data, "exp": vence, "iat": emitido, "type": tipo}
+    return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+
+
 def create_access_token(
-    data: dict[str, Any], expires_delta: timedelta | None = None
+    data: dict[str, Any],
+    expires_delta: timedelta | None = None,
+    *,
+    ahora: datetime | None = None,
+    expires_at: datetime | None = None,
 ) -> str:
     """Crea un JWT de acceso con expiración corta y claims requeridos."""
-    settings = get_settings()
-    to_encode = data.copy()
-    expire = _now() + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
-    to_encode.update(
-        {
-            "exp": expire,
-            "iat": _now(),
-            "type": "access",
-        }
-    )
-    return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return _emitir(data, "access", timedelta(minutes=get_settings().access_token_expire_minutes),
+                   expires_delta, ahora, expires_at)
 
 
 def create_refresh_token(
-    data: dict[str, Any], expires_delta: timedelta | None = None
+    data: dict[str, Any],
+    expires_delta: timedelta | None = None,
+    *,
+    ahora: datetime | None = None,
+    expires_at: datetime | None = None,
 ) -> str:
     """Crea un JWT de refresh con expiración mayor (cookie HttpOnly)."""
-    settings = get_settings()
-    to_encode = data.copy()
-    expire = _now() + (
-        expires_delta or timedelta(minutes=settings.refresh_token_expire_minutes)
-    )
-    to_encode.update(
-        {
-            "exp": expire,
-            "iat": _now(),
-            "type": "refresh",
-        }
-    )
-    return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return _emitir(data, "refresh", timedelta(minutes=get_settings().refresh_token_expire_minutes),
+                   expires_delta, ahora, expires_at)
 
 
 def decode_token(token: str) -> dict[str, Any]:
     """Decodifica y valida un JWT: firma, expiración y claims requeridos.
 
-    Claims requeridos: sub, roles, email, jti, type, iat, exp.
+    Claims requeridos: sub, roles, email, jti, sid, type, iat, exp (C-15: ``sid`` liga el token a su sesión).
     """
     settings = get_settings()
     payload = jwt.decode(
@@ -82,36 +81,8 @@ def decode_token(token: str) -> dict[str, Any]:
         algorithms=[settings.jwt_algorithm],
         options={"require": ["exp", "iat"]},
     )
-    required = {"sub", "roles", "email", "jti", "type", "iat", "exp"}
+    required = {"sub", "roles", "email", "jti", "sid", "type", "iat", "exp"}
     missing = required - set(payload.keys())
     if missing:
         raise jwt.InvalidTokenError(f"claims faltantes: {sorted(missing)}")
     return payload
-
-
-async def is_jti_blacklisted(session: AsyncSession, jti: str) -> bool:
-    """True si el jti está en la blacklist y no ha expirado."""
-    now = _now()
-    result = await session.execute(
-        select(TokenBlacklist.id).where(
-            TokenBlacklist.jti == jti,
-            TokenBlacklist.expires_at > now,
-        )
-    )
-    return result.first() is not None
-
-
-async def blacklist_jti(session: AsyncSession, jti: str, expires_at: datetime) -> bool:
-    """Revoca un jti hasta ``expires_at``. Idempotente (C-08, D10): si ya estaba, extiende el horizonte y no falla.
-
-    Devuelve True si esta llamada insertó la fila y False si ya existía. Con dos llamadas simultáneas sobre el mismo
-    jti, la segunda espera al commit de la primera y devuelve False: así el refresh decide quién gana la rotación.
-    """
-    insertada = (await session.execute(
-        pg_insert(TokenBlacklist).values(jti=jti, expires_at=expires_at)
-        .on_conflict_do_update(
-            index_elements=[TokenBlacklist.jti], set_={"expires_at": expires_at},
-            where=TokenBlacklist.expires_at < expires_at)
-        .returning(literal_column("(xmax = 0)"))
-    )).scalar_one_or_none()
-    return bool(insertada)

@@ -1,12 +1,13 @@
 """Application settings (R17: secrets only via env vars)."""
 
+import ipaddress
 import re
 from datetime import timedelta
-from typing import Literal
+from typing import Annotated, Literal
 
 from cryptography.fernet import Fernet
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 JWT_SECRET_MIN_LENGTH = 32
 ENTORNOS_CON_PASARELA_FALSA = ("test", "e2e")
@@ -81,6 +82,44 @@ class Settings(BaseSettings):
     # Canje y revocación de tokens (otro host que el del consentimiento): en E2E el consentimiento lo abre el
     # navegador del host y el canje lo hace el contenedor, así que tienen URLs distintas.
     gcal_token_base_url: str = GCAL_TOKEN_BASE_URL_GOOGLE
+
+    # C-15 (D3, D5, D6, D8): sesión del panel, límites de solicitudes, IP real y purga. Sin secretos (R17).
+    sesion_maxima_horas: int = Field(12, ge=1, le=168)
+    rate_limit_login_ip_email_max: int = Field(5, gt=0)
+    rate_limit_login_ip_email_ventana_seg: int = Field(900, gt=0)
+    rate_limit_login_ip_max: int = Field(30, gt=0)
+    rate_limit_login_ip_ventana_seg: int = Field(900, gt=0)
+    rate_limit_login_email_max: int = Field(20, gt=0)
+    rate_limit_login_email_ventana_seg: int = Field(3600, gt=0)
+    rate_limit_refresh_ip_max: int = Field(60, gt=0)
+    rate_limit_refresh_ip_ventana_seg: int = Field(900, gt=0)
+    rate_limit_publico_escritura_max: int = Field(10, gt=0)
+    rate_limit_publico_escritura_ventana_seg: int = Field(600, gt=0)
+    rate_limit_publico_lectura_max: int = Field(120, gt=0)
+    rate_limit_publico_lectura_ventana_seg: int = Field(60, gt=0)
+    rate_limit_timeout_ms: int = Field(200, gt=0)
+    # Lista separada por comas de IPs o CIDR; vacía = no confiar en ninguna cabecera X-Forwarded-For (O10).
+    trusted_proxies: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    purga_sesiones_habilitado: bool = True
+    purga_sesiones_intervalo_segundos: int = Field(3600, gt=0)
+    purga_sesiones_margen_minutos: int = Field(60, ge=0)
+
+    @field_validator("trusted_proxies", mode="before")
+    @classmethod
+    def _parsear_proxies_confiables(cls, value: object) -> object:
+        """Acepta ``"192.0.2.1, 198.51.100.0/24"``; rechaza basura y las redes que confían en todo el mundo."""
+        if isinstance(value, str):
+            value = [parte.strip() for parte in value.split(",") if parte.strip()]
+        if not isinstance(value, list):
+            return value
+        for entrada in value:
+            try:
+                red = ipaddress.ip_network(str(entrada), strict=False)
+            except ValueError:
+                raise ValueError(f"TRUSTED_PROXIES tiene una entrada que no es una IP ni un CIDR: {entrada!r}") from None
+            if red.prefixlen == 0:
+                raise ValueError("TRUSTED_PROXIES no puede incluir 0.0.0.0/0 ni ::/0: confiaría en cualquier cliente")
+        return value
 
     @field_validator("reminder_lead_time", mode="before")
     @classmethod

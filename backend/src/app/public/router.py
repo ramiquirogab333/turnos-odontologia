@@ -15,6 +15,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.limites import (
+    RESPUESTA_429_OPENAPI,
+    limitar_publico_escritura,
+    limitar_publico_lectura,
+)
 from app.public.schemas import (
     DisponibilidadPublicaQuery,
     DisponibilidadPublicaResponse,
@@ -40,6 +45,8 @@ router = APIRouter(prefix="/api/public", tags=["public"])
 
 @router.get(
     "/tratamientos",
+    dependencies=[Depends(limitar_publico_lectura)],
+    responses=RESPUESTA_429_OPENAPI,
     response_model=list[TratamientoPublico],
     summary="Tratamientos reservables (paso 1 del wizard)",
 )
@@ -51,6 +58,8 @@ async def tratamientos_publicos(session: AsyncSession = Depends(get_session)) ->
 
 @router.get(
     "/profesionales",
+    dependencies=[Depends(limitar_publico_lectura)],
+    responses=RESPUESTA_429_OPENAPI,
     response_model=list[ProfesionalPublico],
     summary="Profesionales con agenda vigente",
 )
@@ -65,9 +74,11 @@ async def profesionales_publicos(session: AsyncSession = Depends(get_session)) -
 
 @router.get(
     "/disponibilidad",
+    dependencies=[Depends(limitar_publico_lectura)],
     response_model=DisponibilidadPublicaResponse,
     summary="Franjas horarias libres para un profesional y tratamiento",
-    responses={200: {"description": "Lista de slots libres"}},
+    responses={**RESPUESTA_429_OPENAPI,
+        200: {"description": "Lista de slots libres"}},
 )
 async def disponibilidad(
     query: Annotated[DisponibilidadPublicaQuery, Query()],
@@ -96,10 +107,12 @@ async def disponibilidad(
 
 @router.post(
     "/turnos",
+    dependencies=[Depends(limitar_publico_escritura)],
     response_model=ReservaPublicaResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Reserva pública de turno sin autenticación",
-    responses={
+    responses={**RESPUESTA_429_OPENAPI,
+        
         201: {"description": "Turno reservado con código de gestión"},
         409: {"model": ReservaConflictoBody, "description": "Solape de agenda con alternativas libres"},
         422: {"description": "Validación de teléfono/FK/inicio/campos extra"},

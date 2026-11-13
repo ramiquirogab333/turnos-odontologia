@@ -75,7 +75,7 @@ class BaseCatalogoService(BaseRepository[ModelType]):
         self,
         data: Any,
         usuario_id: int | None = None,
-        ip: str | None = "testclient",
+        ip: str | None = None,
     ) -> ModelType:
         entity = self.model(**data.model_dump())
         await self.add(entity)
@@ -98,7 +98,7 @@ class BaseCatalogoService(BaseRepository[ModelType]):
         id_: int,
         data: Any,
         usuario_id: int | None = None,
-        ip: str | None = "testclient",
+        ip: str | None = None,
     ) -> ModelType | None:
         entity = await self.get_by_id(id_)
         if entity is None:
@@ -123,7 +123,7 @@ class BaseCatalogoService(BaseRepository[ModelType]):
         self,
         id_: int,
         usuario_id: int | None = None,
-        ip: str | None = "testclient",
+        ip: str | None = None,
     ) -> bool:
         entity = await self.get_by_id(id_)
         if entity is None:

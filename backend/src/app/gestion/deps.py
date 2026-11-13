@@ -1,16 +1,12 @@
 """Dependencias inyectables de la gestión del turno. Los tests las sobreescriben con ``dependency_overrides``."""
 
-from datetime import datetime, timezone
-
 from app.gestion.eventos import NotificadorTurnos
 from app.integraciones.gcal.notificador import NotificadorCalendario
 from app.notificaciones.notificador import NotificadorCompuesto, NotificadorRecordatorios
 from app.shared.db import get_session_factory
+from app.shared.reloj import get_reloj
 
-
-def get_reloj() -> datetime:
-    """El 'ahora' del servidor (con zona). Se inyecta para que la ventana de 24 h sea testeable sin reloj real."""
-    return datetime.now(timezone.utc)
+__all__ = ["get_notificador", "get_reloj"]  # get_reloj vive en app.shared.reloj (C-15) y se reexporta aquí
 
 
 def get_notificador() -> NotificadorTurnos:

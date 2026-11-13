@@ -5,10 +5,16 @@ Matriz RBAC (03_actores_y_roles.md):
 - recepcion / admin: CRUD total sobre turnos, pacientes, disponibilidad, caja.
 """
 
+from datetime import datetime
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.sesiones import cargar_contexto, sesion_vigente
 from app.auth.service import decode_token
+from app.shared.db import get_session
+from app.shared.reloj import get_reloj
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -22,11 +28,13 @@ class PermissionContext:
         email: str,
         roles: list[str],
         jti: str | None = None,
+        sid: str | None = None,
     ) -> None:
         self.usuario_id = usuario_id
         self.email = email
         self.roles = list(roles)
         self.jti = jti
+        self.sid = sid
 
     def tiene_rol(self, rol: str) -> bool:
         """True si el usuario posee el rol dado."""
@@ -42,10 +50,24 @@ class PermissionContext:
         return self
 
 
+def _sesion_invalida() -> HTTPException:
+    """401 genérico: no distingue sesión cerrada, vencida ni usuario inactivo."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Sesión inválida o vencida",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    session: AsyncSession = Depends(get_session),
+    ahora: datetime = Depends(get_reloj),
 ) -> PermissionContext:
-    """Dependencia FastAPI: decodifica el access token y retorna PermissionContext."""
+    """Dependencia FastAPI: valida el access y la sesión en el servidor (una consulta, C-15 D2).
+
+    Los roles del ``PermissionContext`` salen de la base en este pedido, no del token.
+    """
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -54,7 +76,7 @@ async def get_current_user(
         )
     try:
         payload = decode_token(credentials.credentials)
-    except Exception:  # token inválido / expirado -> 401
+    except Exception:  # token inválido / expirado / sin sid -> 401
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido o expirado",
@@ -66,11 +88,19 @@ async def get_current_user(
             detail="Se requiere un token de acceso",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    try:
+        usuario_id = int(payload["sub"])
+    except (TypeError, ValueError):
+        raise _sesion_invalida()
+    contexto = await cargar_contexto(session, sid=payload["sid"], usuario_id=usuario_id)
+    if contexto is None or not sesion_vigente(contexto, ahora):
+        raise _sesion_invalida()
     return PermissionContext(
-        usuario_id=int(payload["sub"]),
-        email=str(payload["email"]),
-        roles=list(payload.get("roles", [])),
+        usuario_id=contexto.usuario_id,
+        email=contexto.email,
+        roles=contexto.roles,
         jti=str(payload.get("jti", "")),
+        sid=str(payload["sid"]),
     )
 
 

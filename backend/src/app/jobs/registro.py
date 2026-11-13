@@ -7,10 +7,11 @@ loguea sin datos personales (solo el nombre del trabajo y la clase del error, R1
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.auth.sesiones import purgar_sesiones
 from app.integraciones.gcal.proveedor import ProveedorCalendario
 from app.integraciones.gcal.proveedor_http import ProveedorHttp
 from app.integraciones.gcal.sincronizacion import sincronizar_calendarios
@@ -58,6 +59,16 @@ def trabajos_programados(ajustes: Settings, proveedor_gcal: ProveedorCalendario 
             return cancelados
 
         trabajos.append(TrabajoProgramado("barrido_sena", ajustes.sena_barrido_segundos, barrido_sena))
+    if ajustes.purga_sesiones_habilitado:
+        margen = timedelta(minutes=ajustes.purga_sesiones_margen_minutos)
+
+        async def purga_sesiones(session: AsyncSession, ahora: datetime) -> int:
+            borradas = await purgar_sesiones(session, ahora, margen)
+            if borradas:
+                logger.info("purga de sesiones: %d vencidas borradas", borradas)  # solo la cantidad (R19)
+            return borradas
+
+        trabajos.append(TrabajoProgramado("purga_sesiones", ajustes.purga_sesiones_intervalo_segundos, purga_sesiones))
     if ajustes.gcal_sync_habilitado:
         if ajustes.gcal_configurado:
             proveedor = proveedor_gcal or ProveedorHttp.desde_ajustes(ajustes)
