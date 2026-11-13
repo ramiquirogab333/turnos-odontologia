@@ -141,4 +141,6 @@ Organizadas por **épica** y luego por **historia de usuario** (formato US-NNN).
 **Criterios de aceptación**:
 - [ ] CA-1: Exporto turnos/pacientes en formato tabular descargable.
 
+> Enmienda C-13 O6/O7, 2026-11-13: recepción y admin exportan turnos y cierres de caja; **solo admin exporta pacientes**. Cada exportación queda auditada antes de entregar datos. La consulta de la auditoría (US-011) es solo de admin.
+
 **Reglas relacionadas**: RN-GL-02

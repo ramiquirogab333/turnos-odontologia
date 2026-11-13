@@ -18,13 +18,15 @@ Duda abierta: si opera uno o varios odontólogos desde el día 1 (impacta agenda
 |-----|--------|-----------|----------------------|---------------------------|--------------------|----------------|----------------------|
 | Paciente (sin login) | Crear (propios) / cancelar / reprogramar (propios, regla 24 hs) | Ver y editar solo sus datos del turno | Lectura de horarios libres | — | Pagar (MP/transferencia) | — | — |
 | Odontólogo/a | Lectura (su agenda) + marcar atendido (sus turnos) | Lectura (sus pacientes: turno atendido) y escritura clínica (ficha y odontograma) con atención en los últimos 12 meses o turno pendiente; presupuestos: lectura; pagos: — | Lectura | Lectura | — | Lectura | — |
-| Recepción/admin | CRUD total | CRUD total | CRUD total | CRUD total | CRUD total | Lectura/administración | Lectura/generación |
+| Recepción/admin | CRUD total | CRUD total | CRUD total | CRUD total | CRUD total | Lectura/administración | Exportación de turnos y cierres: recepción y admin; exportación de pacientes y consulta de la auditoría: solo admin (enmienda C-13 O6/O7, 2026-11-13) |
 
 Desde C-08 (decisiones O5 y O6, 2026-11-09): el odontólogo/a ve únicamente la agenda de la profesional asociada a su usuario (`usuario.profesional_id`) y no recibe el teléfono del paciente; recepción y admin ven todas las agendas, dan de alta turnos manuales y marcan atendido, ausente o cancelan. Si una persona tiene más de un rol, vale el permiso más amplio.
 
 Desde C-11 (decisiones O2-O4, O15 y O16, 2026-11-10) el odontólogo/a deja de ser de solo lectura: **marca `atendido` sus propios turnos** (O15; no marca `ausente`, no cancela ni da altas manuales, y no deshace un `atendido`: desde C-12 recepción y admin lo corrigen hasta 7 días después del inicio) y **escribe ficha y odontograma de sus pacientes** (los que tienen un turno `atendido` con su profesional, O2) mientras tenga una atención en los últimos 12 meses (365 días) o un turno pendiente con ellos (O16); fuera de esa ventana solo lee. Ve DNI y número de afiliado pero nunca teléfono ni email (O3), lee presupuestos sin pagos y no escribe datos administrativos, presupuestos ni pagos (O4). Ver RN-CL-01 a RN-CL-04 y RN-TU-12.
 
 Desde C-12 (decisiones O7, O9 y O15, 2026-11-11): la caja, los cierres de caja, los pagos pendientes de la seña (revisiones y devoluciones), los indicadores (ocupación y ausentismo) y el listado de pacientes son solo de recepción y admin; la odontóloga recibe 403 en todo eso. **Anular un cierre de caja es solo de admin** (con motivo); recepción lo consulta y lo crea. Recepción y admin también corrigen un `atendido` marcado por error (hasta 7 días después del inicio); la odontóloga no. Ver RN-CJ-01 a RN-CJ-05, RN-SN-11, RN-IN-01 y RN-IN-02.
+
+Desde C-13 (decisiones O6 y O7, 2026-11-13; enmienda C-13 O6/O7): **la consulta de la auditoría es solo de admin** (contiene la actividad e IPs del personal); **exportar turnos y cierres de caja es de recepción y admin; exportar pacientes (padrón con DNI y contacto) es solo de admin**. La odontóloga no consulta auditoría ni exporta. Ver RN-GL-01 y RN-GL-02.
 
 ## Rutas públicas
 

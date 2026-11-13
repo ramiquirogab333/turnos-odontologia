@@ -76,6 +76,6 @@ Cada regla tiene código único `RN-{DOMINIO}-{NN}` para trazabilidad. Fuente: d
 
 ## Dominio: Excepciones globales
 
-- **RN-GL-01**: Toda acción de gestión interna (panel) queda registrada en auditoría básica (quién, qué, cuándo).
-- **RN-GL-02**: Los datos deben poder exportarse masivamente.
+- **RN-GL-01**: Toda acción de gestión interna (panel) queda registrada en auditoría básica (quién, qué, cuándo). *Precisión C-13 (2026-11-13)*: cada ruta autenticada declara su política de auditoría (acción, lectura o exenta con motivo) y la suite falla si falta una; el registro se guarda en la misma transacción que la acción (si no se puede guardar, no hay acción ni lectura de datos de pacientes), lleva la IP real del pedido, es inmutable en la base y solo el admin lo consulta. Se auditan también las lecturas del listado de pacientes, la búsqueda por DNI y los datos de un paciente.
+- **RN-GL-02**: Los datos deben poder exportarse masivamente. *Precisión C-13 (2026-11-13)*: CSV por streaming; turnos y cierres de caja los exportan recepción y admin, pacientes solo el admin; cada exportación queda auditada **antes** del primer byte (usuario, IP, entidad, filtros y cantidad de filas, sin datos exportados) y se limita por usuario (una en curso y 20 por hora); las celdas de texto libre que empiezan con `=`, `+`, `-`, `@`, tabulación o retorno de carro se neutralizan con un apóstrofo.
 - **RN-GL-03**: El sistema debe funcionar bien en celular (mobile-first) en todos los flujos del paciente.

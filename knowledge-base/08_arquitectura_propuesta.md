@@ -27,7 +27,7 @@ proyecto/
 │   ├── pagos/             # Mercado Pago + transferencia, caja
 │   ├── notificaciones/    # WhatsApp (recordatorios/confirmación)
 │   ├── integraciones/     # Google Calendar sync (C-10: `integraciones/gcal/` = puerto `ProveedorCalendario`, adaptador `httpx`, proveedor falso, OAuth, push por reconciliación, pull incremental, conflictos y servidor falso para E2E)
-│   └── plataforma/        # usuarios, roles, auditoría, exportación
+│   └── plataforma/        # usuarios, roles, auditoría, exportación (C-13: app/plataforma/ — registrar, tipos, política por ruta, consulta y export CSV)
 └── jobs/                  # recordatorios programados, sincronización
 ```
 
@@ -58,6 +58,7 @@ proyecto/
 | `REDIS_URL` | Redis del worker (arq) y, desde C-15, de la API para los contadores de los límites de solicitudes (fail-open si no responde) | `redis://redis:6379/0` | N |
 | `SESION_MAXIMA_HORAS` | Duración máxima absoluta de la sesión del panel (C-15 O3; 1–168). Supuesto de negocio: una jornada | `12` | N |
 | `RATE_LIMIT_<GRUPO>_MAX` / `RATE_LIMIT_<GRUPO>_VENTANA_SEG` | Límites de solicitudes (C-15): `LOGIN_IP_EMAIL` 5 fallos/900 s, `LOGIN_IP` 30/900, `LOGIN_EMAIL` 20 fallos/3600, `REFRESH_IP` 60/900, `PUBLICO_ESCRITURA` 10/600, `PUBLICO_LECTURA` 120/60; todos > 0. Sin interruptor de apagado (O17) | ver descripción | N |
+| `EXPORT_MAX_POR_HORA` / `EXPORT_TIMEOUT_SEGUNDOS` | Límites de la exportación (C-13 O15, D10): exportaciones por usuario y hora (`20`) y tiempo máximo de una exportación, que también es la vigencia de su lease de «una en curso» (`300` s); ambos > 0 | `20` / `300` | N |
 | `RATE_LIMIT_TIMEOUT_MS` | Timeout del almacén de contadores; ante error o timeout se deja pasar y se avisa por log sin PII (O5) | `200` | N |
 | `TRUSTED_PROXIES` | IPs o CIDR (separados por comas) de los proxies de confianza para leer `X-Forwarded-For`; vacío = IP del socket; se rechazan `0.0.0.0/0` y `::/0` (O10) | `10.0.0.5` | N |
 | `PURGA_SESIONES_HABILITADO` / `PURGA_SESIONES_INTERVALO_SEGUNDOS` / `PURGA_SESIONES_MARGEN_MINUTOS` | Trabajo `purga_sesiones` del worker: borra en lotes de 500 las sesiones vencidas hace más que el margen (O11) | `true` / `3600` / `60` | N |

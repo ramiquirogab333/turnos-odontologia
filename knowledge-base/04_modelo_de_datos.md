@@ -138,9 +138,11 @@ Turno 1───* PagoSena (seña: pendiente → acreditado/bloquea → vencido/
 - Atributos: id, `sid` (UUID único, viaja en el JWT), usuario_id (FK con índice, ON DELETE CASCADE), `refresh_jti` (único refresh vigente), creada_en, expira_en (vencimiento absoluto, exclusivo; > creada_en), renovada_en, revocada_en, motivo_revocacion (`logout` | `usuario_desactivado`, siempre junto con revocada_en), ip_inicio (<= 45 caracteres).
 - Todos los instantes con zona horaria; índice sobre `expira_en` para la purga. Reemplaza a `token_blacklist` (eliminada en la 012).
 
-### RegistroAuditoria
-- Atributos: id, usuario, acción, entidad_afectada, fecha_hora.
-- Cubre roles y auditoría básica de v1.
+### RegistroAuditoria (C-13, migración 013)
+- Atributos reales (tabla `registro_auditoria`): `id` (BIGINT identidad), `usuario_id` (FK a `usuario`, **ON DELETE RESTRICT** con su índice; nulo para el sistema o el paciente sin login), `accion` y `entidad` (TEXT de 2 a 50), `entidad_id` (TEXT, opcional), `datos_antes` y `datos_despues` (JSONB), `ip` (TEXT, a lo sumo 45 caracteres), `created_at` (TIMESTAMPTZ).
+- **De solo agregado:** un trigger `BEFORE UPDATE OR DELETE` rechaza toda modificación y borrado (SQLSTATE `P0001`); `TRUNCATE` queda como vía de mantenimiento del DBA y de la limpieza de los tests. Un usuario con registros no se borra (se desactiva).
+- Índices: `created_at`, `usuario_id` y `(entidad, entidad_id, created_at DESC)` para la historia de una entidad.
+- Nunca guarda datos personales, clínicos ni secretos (guarda única en `app/plataforma/auditoria.py`, R19). Los tipos legibles se derivan al leer (`accion` + `entidad` + `origen`); lo histórico no se reescribe.
 
 ## Seed data inicial
 
