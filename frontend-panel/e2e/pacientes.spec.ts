@@ -52,7 +52,8 @@ test('la odontóloga no ve la sección de pacientes y el servidor tampoco se la 
   await sembrarTurno(semilla, { inicio: enMs(2 * HORA + 5 * MINUTO) });
 
   await ingresar(page, EMAIL_ODONTOLOGA);
-  await expect(page.getByRole('navigation', { name: 'Secciones del panel' })).toHaveCount(0);
+  // C-10: la odontóloga ve una navegación acotada a su agenda y a Google Calendar (nada de pacientes ni caja).
+  await expect(page.getByRole('navigation', { name: 'Secciones del panel' }).getByRole('link')).toHaveText(['Agenda', 'Google Calendar']);
 
   await page.goto('/#/pacientes');
   await expect(page.getByRole('heading', { level: 1, name: 'Agenda' })).toBeVisible();

@@ -25,6 +25,7 @@ export const CBU_TRANSFERENCIA = '0000003100000000000043';
 export const TITULAR_TRANSFERENCIA = 'Clínica Demo Sintética';
 export const EMAIL_RECEPCION = 'recepcion.e2e@turnos.test';
 export const CLAVE_RECEPCION = 'password-e2e-sintetica';
+export const EMAIL_ODONTOLOGA = 'dra.sintetica.e2e@turnos.test';
 /** bcrypt de CLAVE_RECEPCION (dato sintético; solo existe en la base local de pruebas). */
 const HASH_CLAVE_RECEPCION = '$2b$10$ZBiMWnRW1aHUdN52SR5N5ubI2xDReJneSI4OZemXmYq5jYjOBFb4G';
 
@@ -40,6 +41,20 @@ async function conectar(): Promise<pg.Client> {
   const cliente = new pg.Client(CONEXION);
   await cliente.connect();
   return cliente;
+}
+
+/** TRUNCATE ... CASCADE puede chocar con un ciclo del worker (`deadlock detected`, 40P01): ruido del arnés; se reintenta. */
+async function truncarConReintento(c: pg.Client, consulta: string): Promise<void> {
+  for (let intento = 1; ; intento += 1) {
+    try {
+      await c.query(consulta);
+      return;
+    } catch (error) {
+      const codigo = (error as { code?: string }).code;
+      if (codigo !== '40P01' || intento >= 5) throw error;
+      await new Promise((resolver) => setTimeout(resolver, 500 * intento));
+    }
+  }
 }
 
 async function ejecutar<T>(accion: (cliente: pg.Client) => Promise<T>): Promise<T> {
@@ -64,7 +79,8 @@ export async function sembrar(): Promise<Semilla> {
     if (migrada.rowCount === 0) {
       throw new Error('La base no tiene las migraciones al día: corré `alembic upgrade head` desde backend/.');
     }
-    await c.query(
+    await truncarConReintento(
+      c,
       'TRUNCATE pago_sena, turno, disponibilidad, profesional, sillon, tratamiento, usuario_rol, usuario, rol RESTART IDENTITY CASCADE',
     );
     // Seña (C-06): datos bancarios SINTÉTICOS para la transferencia y un usuario de recepción de prueba.
@@ -108,7 +124,7 @@ export async function sembrar(): Promise<Semilla> {
 }
 
 export async function vaciarTurnos(): Promise<void> {
-  await ejecutar((c) => c.query('TRUNCATE pago_sena, turno RESTART IDENTITY CASCADE'));
+  await ejecutar((c) => truncarConReintento(c, 'TRUNCATE pago_sena, turno RESTART IDENTITY CASCADE'));
 }
 
 export interface TurnoGuardado {
@@ -208,5 +224,17 @@ export async function sembrarTurnoGestion(
       [id, opciones.estado === 'reservado' ? 'acreditado' : 'pendiente', `SENA-E2E-${String(id)}`],
     );
     return { id, codigo: opciones.codigo };
+  });
+}
+
+/** Odontóloga sintética vinculada a la profesional (C-10): es quien conecta su Google Calendar. */
+export async function sembrarOdontologa(profesionalId: number): Promise<void> {
+  await ejecutar(async (c) => {
+    const rol = await c.query<{ id: string }>("INSERT INTO rol (nombre) VALUES ('odontologo') RETURNING id");
+    const usuario = await c.query<{ id: string }>(
+      'INSERT INTO usuario (email, nombre_completo, hashed_password, profesional_id) VALUES ($1, $2, $3, $4) RETURNING id',
+      [EMAIL_ODONTOLOGA, 'Dra. Sintética', HASH_CLAVE_RECEPCION, profesionalId],
+    );
+    await c.query('INSERT INTO usuario_rol (usuario_id, rol_id) VALUES ($1, $2)', [usuario.rows[0]?.id, rol.rows[0]?.id]);
   });
 }

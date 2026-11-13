@@ -109,7 +109,10 @@ export async function contextoNuevo(browser: Browser, ancho: number, alto: numbe
 }
 
 /** Pasa a otra sección del panel con la navegación y espera su título. */
-export async function irASeccion(page: Page, seccion: 'Agenda' | 'Pacientes' | 'Indicadores' | 'Caja' | 'Recordatorios'): Promise<void> {
+export async function irASeccion(
+  page: Page,
+  seccion: 'Agenda' | 'Pacientes' | 'Indicadores' | 'Caja' | 'Recordatorios' | 'Google Calendar',
+): Promise<void> {
   await page.getByRole('navigation', { name: 'Secciones del panel' }).getByRole('link', { name: seccion }).click();
   await expect(page.getByRole('heading', { level: 1, name: seccion })).toBeVisible();
 }
@@ -117,4 +120,41 @@ export async function irASeccion(page: Page, seccion: 'Agenda' | 'Pacientes' | '
 /** Día de la clínica de un instante, a medianoche -03:00 + `hhmm` (para sembrar movimientos de un día pasado). */
 export function instanteClinica(dia: string, hhmm: string): Date {
   return new Date(inicioClinica(dia, hhmm));
+}
+
+// --- Google Calendar (C-10): el servidor falso de Google del perfil e2e de Compose -------------------------------------
+
+export const GCAL = process.env['E2E_GCAL_URL'] ?? 'http://localhost:8090';
+
+export interface EventoGoogleFalso {
+  readonly id: string;
+  readonly summary: string;
+  readonly description: string;
+  readonly start: { readonly dateTime: string };
+  readonly end: { readonly dateTime: string };
+}
+
+/** Lo que "hace la profesional en Google" y las fallas de Google (endpoints /_control del falso). */
+export async function controlGoogle(request: APIRequestContext, ruta: string, cuerpo: Record<string, unknown> = {}): Promise<void> {
+  const r = await request.post(`${GCAL}/_control/${ruta}`, { data: cuerpo });
+  expect(r.ok(), `el Google falso debe estar arriba en ${GCAL} (docker compose --profile e2e up -d gcal-falso)`).toBe(true);
+}
+
+export async function eventosGoogle(request: APIRequestContext): Promise<EventoGoogleFalso[]> {
+  const r = await request.get(`${GCAL}/_control/eventos`);
+  expect(r.ok()).toBe(true);
+  return (await r.json()) as EventoGoogleFalso[];
+}
+
+/** Conecta a la odontóloga con el Google falso por la API (consentimiento + callback), sin pasar por la pantalla. */
+export async function conectarGooglePorApi(request: APIRequestContext, email: string): Promise<void> {
+  const cabecera = await accesoPorApi(request, email);
+  const iniciar = await request.post(`${API}/api/panel/google-calendar/conexion/iniciar`, { headers: cabecera });
+  expect(iniciar.status(), 'iniciar la conexión (¿GCAL_* configuradas en el backend?)').toBe(200);
+  const { url_autorizacion: url } = (await iniciar.json()) as { url_autorizacion: string };
+  const consentimiento = await request.get(url, { maxRedirects: 0 });
+  expect(consentimiento.status()).toBe(302);
+  const callback = await request.get(consentimiento.headers()['location'] ?? '', { maxRedirects: 0 });
+  expect(callback.status()).toBe(303);
+  expect(callback.headers()['location']).toContain('resultado=conectado');
 }

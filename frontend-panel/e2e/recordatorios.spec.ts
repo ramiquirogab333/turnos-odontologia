@@ -112,7 +112,8 @@ test('la odontóloga no ve la sección y #recordatorios la deja en la agenda', a
   const turno = await sembrarTurno(semilla, { inicio: enMs(30 * HORA) });
   await esperarRecordatorio(turno);
   await ingresar(page, EMAIL_ODONTOLOGA);
-  await expect(page.getByRole('navigation', { name: 'Secciones del panel' })).toHaveCount(0);
+  // C-10: la odontóloga ve una navegación acotada a su agenda y a Google Calendar (nada de pacientes ni caja).
+  await expect(page.getByRole('navigation', { name: 'Secciones del panel' }).getByRole('link')).toHaveText(['Agenda', 'Google Calendar']);
   await page.goto('/#/recordatorios');
   await expect(page.getByRole('heading', { name: 'Agenda', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Abrir WhatsApp' })).toHaveCount(0);

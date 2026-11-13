@@ -41,6 +41,24 @@ async function conectar(): Promise<pg.Client> {
   return cliente;
 }
 
+/**
+ * TRUNCATE ... CASCADE toma bloqueos exclusivos de muchas tablas; si justo corre un ciclo del worker (recordatorios o
+ * Google Calendar) Postgres puede abortar uno de los dos con `deadlock detected` (40P01). Es ruido del arnés de
+ * pruebas, no de la app: se reintenta unas pocas veces.
+ */
+async function truncarConReintento(c: pg.Client, consulta: string): Promise<void> {
+  for (let intento = 1; ; intento += 1) {
+    try {
+      await c.query(consulta);
+      return;
+    } catch (error) {
+      const codigo = (error as { code?: string }).code;
+      if (codigo !== '40P01' || intento >= 5) throw error;
+      await new Promise((resolver) => setTimeout(resolver, 500 * intento));
+    }
+  }
+}
+
 async function ejecutar<T>(accion: (cliente: pg.Client) => Promise<T>): Promise<T> {
   const cliente = await conectar();
   try {
@@ -68,7 +86,8 @@ export async function sembrar(): Promise<Semilla> {
     if (migrada.rowCount === 0) {
       throw new Error('La base no tiene las migraciones al día (falta turno.origen): corré `alembic upgrade head`.');
     }
-    await c.query(
+    await truncarConReintento(
+      c,
       'TRUNCATE token_blacklist, cierre_caja_linea, cierre_caja, pago_presupuesto, presupuesto_linea, presupuesto, ficha, odontograma_registro, paciente, pago_sena_aprobacion, pago_sena, turno, disponibilidad, profesional, sillon, tratamiento, usuario_rol, usuario, rol, registro_auditoria RESTART IDENTITY CASCADE',
     );
     const ana = await insertar(
