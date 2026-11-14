@@ -97,7 +97,7 @@ async def test_downgrade_restaura_set_null_y_quita_trigger_indice_y_check_sin_pe
         session_factory: Factory) -> None:
     uid, _ = await crear_usuario_panel(session_factory, "admin@turnos.test", ["admin"])
     await _fila(session_factory, uid)
-    abajo = alembic("downgrade", "-1")
+    abajo = alembic("downgrade", "012_sesion_panel")
     try:
         assert abajo.returncode == 0, abajo.stderr
         url = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://turnos:turnos@localhost:5433/turnos")
@@ -122,4 +122,4 @@ async def test_downgrade_restaura_set_null_y_quita_trigger_indice_y_check_sin_pe
         arriba = alembic("upgrade", "head")
     assert arriba.returncode == 0, arriba.stderr
     async with session_factory() as s:
-        assert (await s.execute(text("SELECT version_num FROM alembic_version"))).scalar_one() == "013_auditoria_exportacion"
+        assert (await s.execute(text("SELECT version_num FROM alembic_version"))).scalar_one() == "014_catalogo_baja_logica"

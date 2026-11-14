@@ -111,14 +111,15 @@ async def test_sillon_indicado_ocupado_es_409_sillon(client, rec, mundo, session
     assert r.status_code == 409 and r.json()["motivo"] == "sillon" and r.json()["alternativas"] is not None
 
 
-async def test_sillon_indicado_inactivo_es_409_sillon(client, rec, mundo, session_factory) -> None:
+async def test_sillon_indicado_inactivo_es_422_no_reservable_c14(client, rec, mundo, session_factory) -> None:
     async with session_factory() as s:
         sillon = Sillon(nombre="Sillón 9", estado="inactivo")
         s.add(sillon)
         await s.commit()
         inactivo = int(sillon.id)
     r = await client.post(URL, json=cuerpo_alta(mundo, local(MARTES, "11:00"), sillon_id=inactivo), headers=rec["cab"])
-    assert r.status_code == 409 and r.json()["motivo"] == "sillon"
+    # C-14 (D7): antes respondía 409 "sillon" (sin sillón libre); ahora un sillón fuera de servicio no es reservable (422).
+    assert r.status_code == 422 and (r.json()["motivo"], r.json()["campo"]) == ("no_reservable", "sillon_id")
 
 
 async def test_sillon_o_profesional_o_tratamiento_inexistente_es_422(client, rec, mundo) -> None:

@@ -63,8 +63,13 @@ async def sembrar_agenda(factory: async_sessionmaker[AsyncSession], ids: dict[st
                          precio: str = "10000.00") -> None:
     """Franja 09:00-17:00 del día y tratamiento con precio base conocido (seña 30% = 3000.00)."""
     async with factory() as s:
-        s.add(Disponibilidad(profesional_id=ids["profesional_id"], dia_semana=fecha.weekday(),
-                             hora_inicio=time(9, 0), hora_fin=time(17, 0)))
+        # C-14: las franjas activas del mismo profesional y día no pueden superponerse; sembrar dos veces el mismo día es inocuo.
+        ya = (await s.execute(select(Disponibilidad.id).where(
+            Disponibilidad.profesional_id == ids["profesional_id"], Disponibilidad.dia_semana == fecha.weekday(),
+            Disponibilidad.is_active.is_(True)))).first()
+        if ya is None:
+            s.add(Disponibilidad(profesional_id=ids["profesional_id"], dia_semana=fecha.weekday(),
+                                 hora_inicio=time(9, 0), hora_fin=time(17, 0)))
         await s.execute(update(Tratamiento).where(Tratamiento.id == ids["tratamiento_id"])
                         .values(precio_base=Decimal(precio)))
         await s.commit()
