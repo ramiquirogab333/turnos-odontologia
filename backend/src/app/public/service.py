@@ -31,7 +31,7 @@ from app.plataforma.auditoria import registrar
 from app.pagos.calculo import monto_sena, vencimiento
 from app.pagos.config import medios_disponibles, obtener_configuracion
 from app.public.schemas import ReservaPublicaRequest
-from app.shared.exceptions import ReferenceNotFoundError
+from app.shared.exceptions import NoReservableError, ReferenceNotFoundError
 from app.shared.settings import get_settings
 from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 from app.turnos.service import ESTADOS_BLOQUEANTES, motivo_desde_mensaje
@@ -169,14 +169,24 @@ async def _slots_libres(session: AsyncSession, profesional_id: int, duracion_min
     return slots
 
 
+def _exigir_reservables(profesional: Profesional, tratamiento: Tratamiento) -> None:
+    """Un tratamiento o profesional inactivo no se ofrece ni se reserva (C-14, 422 ``no_reservable``)."""
+    if not tratamiento.is_active:
+        raise NoReservableError(campo="tratamiento_id")
+    if not profesional.is_active:
+        raise NoReservableError(campo="profesional_id")
+
+
 async def consultar_disponibilidad(session: AsyncSession, profesional_id: int, tratamiento_id: int,
                                    desde: date, hasta: date) -> list[dict[str, Any]]:
     """Calcula slots libres entre ``desde`` y ``hasta`` (inclusive, fechas locales de la clínica)."""
     tratamiento = await session.get(Tratamiento, tratamiento_id)
     if tratamiento is None:
         raise ReferenceNotFoundError(campo="tratamiento_id")
-    if await session.get(Profesional, profesional_id) is None:
+    profesional = await session.get(Profesional, profesional_id)
+    if profesional is None:
         raise ReferenceNotFoundError(campo="profesional_id")
+    _exigir_reservables(profesional, tratamiento)
     return await _slots_libres(session, profesional_id, tratamiento.duracion_minutos, desde, hasta)
 
 
@@ -217,6 +227,7 @@ async def reservar_turno_publico(session: AsyncSession, data: ReservaPublicaRequ
     tratamiento = await session.get(Tratamiento, data.tratamiento_id)
     if tratamiento is None:
         raise ReferenceNotFoundError(campo="tratamiento_id")
+    _exigir_reservables(profesional, tratamiento)
 
     inicio = data.inicio
     fin = inicio + timedelta(minutes=tratamiento.duracion_minutos)  # RN-TU-04

@@ -47,6 +47,7 @@ from app.public.service import (
     _sillon_libre,
     _sillones_activos,
 )
+from app.shared.exceptions import NoReservableError
 from app.shared.logger import get_logger
 from app.shared.settings import get_settings
 from app.turnos.models import Profesional, Tratamiento, Turno
@@ -245,6 +246,12 @@ async def _reprogramar_una_vez(session: AsyncSession, turno_id: int, nuevo_inici
 
     tratamiento = await session.get(Tratamiento, turno.tratamiento_id)
     assert tratamiento is not None  # FK obligatoria
+    profesional = await session.get(Profesional, turno.profesional_id)
+    assert profesional is not None  # FK obligatoria
+    if not profesional.is_active or not tratamiento.is_active:  # C-14 (D7): lo inactivo no se ofrece ni se reserva
+        campo = "profesional_id" if not profesional.is_active else "tratamiento_id"
+        await session.rollback()
+        raise NoReservableError(campo=campo)
     minutos = tratamiento.duracion_minutos  # duración vigente (RN-TU-04/05)
     nuevo_fin = nuevo_inicio + timedelta(minutes=minutos)
     sillon_defecto = await _franja_que_contiene(session, turno.profesional_id, nuevo_inicio, nuevo_fin)

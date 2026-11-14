@@ -52,7 +52,7 @@ router = APIRouter(prefix="/api/public", tags=["public"])
 )
 async def tratamientos_publicos(session: AsyncSession = Depends(get_session)) -> list[TratamientoPublico]:
     """Lista de solo lectura, ordenada por nombre."""
-    filas = await session.execute(select(Tratamiento).order_by(Tratamiento.nombre, Tratamiento.id))
+    filas = await session.execute(select(Tratamiento).where(Tratamiento.is_active.is_(True)).order_by(Tratamiento.nombre, Tratamiento.id))
     return [TratamientoPublico.model_validate(t) for t in filas.scalars().all()]
 
 
@@ -67,7 +67,9 @@ async def profesionales_publicos(session: AsyncSession = Depends(get_session)) -
     """Solo profesionales con al menos una franja activa (RN-TU-07); sin matrícula."""
     vigente = select(Disponibilidad.profesional_id).where(Disponibilidad.is_active.is_(True))
     filas = await session.execute(
-        select(Profesional).where(Profesional.id.in_(vigente)).order_by(Profesional.nombre, Profesional.id)
+        select(Profesional)
+        .where(Profesional.id.in_(vigente), Profesional.is_active.is_(True))
+        .order_by(Profesional.nombre, Profesional.id)
     )
     return [ProfesionalPublico.model_validate(p) for p in filas.scalars().all()]
 

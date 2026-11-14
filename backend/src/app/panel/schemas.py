@@ -31,10 +31,20 @@ class Ref(_Base):
     nombre: str
 
 
+class ProfesionalOpcion(Ref):
+    """Profesional de las opciones: ``activo=false`` se ve en los filtros pero no se ofrece para turnos nuevos (C-14)."""
+
+    activo: bool
+
+
 class TratamientoRef(_Base):
     id: int
     nombre: str
     duracion_minutos: int
+
+
+class TratamientoOpcion(TratamientoRef):
+    activo: bool
 
 
 class SenaAgenda(_Base):
@@ -90,9 +100,9 @@ class AgendaResponse(_Base):
 
 
 class OpcionesResponse(_Base):
-    profesionales: list[Ref]
+    profesionales: list[ProfesionalOpcion]
     sillones: list[Ref]
-    tratamientos: list[TratamientoRef]
+    tratamientos: list[TratamientoOpcion]
     puede_escribir: bool
 
 

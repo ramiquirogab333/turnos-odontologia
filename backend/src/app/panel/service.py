@@ -31,8 +31,10 @@ from app.panel.schemas import (
     CalendarioTurno,
     OcupadoGoogle,
     OpcionesResponse,
+    ProfesionalOpcion,
     Ref,
     SenaAgenda,
+    TratamientoOpcion,
     TratamientoRef,
     TurnoAgenda,
     TurnoManualCreado,
@@ -51,7 +53,7 @@ from app.public.service import (
     _sillon_libre,
     _sillones_activos,
 )
-from app.shared.exceptions import ReferenceNotFoundError
+from app.shared.exceptions import NoReservableError, ReferenceNotFoundError
 from app.shared.settings import get_settings
 from app.turnos.models import Profesional, Sillon, Tratamiento, Turno
 from app.turnos.service import ESTADOS_BLOQUEANTES, motivo_desde_mensaje
@@ -191,9 +193,10 @@ async def consultar_opciones(session: AsyncSession, alcance: Alcance) -> Opcione
     sillones = select(Sillon).where(Sillon.estado == "activo").order_by(Sillon.nombre, Sillon.id)
     tratamientos = select(Tratamiento).order_by(Tratamiento.nombre, Tratamiento.id)
     return OpcionesResponse(
-        profesionales=[Ref(id=p.id, nombre=p.nombre) for p in (await session.execute(profesionales)).scalars()],
+        profesionales=[ProfesionalOpcion(id=p.id, nombre=p.nombre, activo=p.is_active)
+                       for p in (await session.execute(profesionales)).scalars()],
         sillones=[Ref(id=s.id, nombre=s.nombre) for s in (await session.execute(sillones)).scalars()],
-        tratamientos=[TratamientoRef(id=t.id, nombre=t.nombre, duracion_minutos=t.duracion_minutos)
+        tratamientos=[TratamientoOpcion(id=t.id, nombre=t.nombre, duracion_minutos=t.duracion_minutos, activo=t.is_active)
                       for t in (await session.execute(tratamientos)).scalars()],
         puede_escribir=alcance.puede_escribir,
     )
@@ -229,7 +232,8 @@ async def crear_turno_manual(session: AsyncSession, data: TurnoManualCreate, usu
         FueraDeDisponibilidadError: no entra completo en una franja vigente (422, RN-TU-07).
         ReservaConflictoError: solape de profesional o sillón, con alternativas (409).
     """
-    if await session.get(Profesional, data.profesional_id) is None:
+    profesional = await session.get(Profesional, data.profesional_id)
+    if profesional is None:
         raise ReferenceNotFoundError(campo="profesional_id")
     tratamiento = await session.get(Tratamiento, data.tratamiento_id)
     if tratamiento is None:
@@ -239,6 +243,13 @@ async def crear_turno_manual(session: AsyncSession, data: TurnoManualCreate, usu
         elegido = await session.get(Sillon, data.sillon_id)
         if elegido is None:
             raise ReferenceNotFoundError(campo="sillon_id")
+    # C-14 (D7): lo inactivo no se ofrece para turnos nuevos (tampoco en el alta manual).
+    if not profesional.is_active:
+        raise NoReservableError(campo="profesional_id")
+    if not tratamiento.is_active:
+        raise NoReservableError(campo="tratamiento_id")
+    if elegido is not None and elegido.estado != "activo":
+        raise NoReservableError(campo="sillon_id")
 
     inicio = data.inicio
     minutos = tratamiento.duracion_minutos
