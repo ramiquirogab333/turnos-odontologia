@@ -64,15 +64,15 @@
 
 ## 8. E2E Playwright (R3, R7) — specs `catalogo/catalogo-panel`, `turnos/reserva-publica`
 
-- [ ] 8.1 `frontend/panel/e2e/catalogo.spec.ts` a 360 y 1280 px contra el stack E2E (`docker compose --profile e2e up -d --wait`): (a) recepción cambia la duración de un tratamiento y luego `GET /api/public/disponibilidad` (con `request`) devuelve horarios de la nueva duración (US-008 CA-2); (b) agrega una franja el martes y aparecen horarios públicos ese martes; una superpuesta muestra el error; (c) quitar una franja con un turno tomado muestra "1 turno" en el diálogo y el turno sigue en la agenda; (d) desactivar un tratamiento lo saca de `/api/public/tratamientos`, y borrar uno usado muestra el mensaje de 409; (e) a 360 px el ancho del documento no supera la ventana en las cuatro pestañas; (f) la odontóloga no ve "Catálogo". Datos sintéticos creados por la prueba y limpiados al final. Verificar en verde en CI.
-- [ ] 8.2 Correr las suites E2E completas de ambos frontends (C-05…C-15). Verificar: todo en verde, sin tests saltados nuevos. En este host Windows Playwright está restringido: la evidencia es la corrida de CI (anotar el enlace o el resultado en el acta).
+- [x] 8.1 `frontend/panel/e2e/catalogo.spec.ts` a 360 y 1280 px contra el stack E2E (`docker compose --profile e2e up -d --wait`): (a) recepción cambia la duración de un tratamiento y luego `GET /api/public/disponibilidad` (con `request`) devuelve horarios de la nueva duración (US-008 CA-2); (b) agrega una franja el martes y aparecen horarios públicos ese martes; una superpuesta muestra el error; (c) quitar una franja con un turno tomado muestra "1 turno" en el diálogo y el turno sigue en la agenda; (d) desactivar un tratamiento lo saca de `/api/public/tratamientos`, y borrar uno usado muestra el mensaje de 409; (e) a 360 px el ancho del documento no supera la ventana en las cuatro pestañas; (f) la odontóloga no ve "Catálogo". Datos sintéticos creados por la prueba y limpiados al final. Verificar en verde en CI.
+- [x] 8.2 Correr las suites E2E completas de ambos frontends (C-05…C-15). Verificar: todo en verde, sin tests saltados nuevos. En este host Windows Playwright está restringido: la evidencia es la corrida de CI (anotar el enlace o el resultado en el acta).
 
 ## 9. Documentación, auditoría y cierre
 
 - [x] 9.1 Actualizar `knowledge-base/04_modelo_de_datos.md` (`is_active`, `EXCLUDE` de franjas, índices únicos), `05_reglas_de_negocio.md` (precisión de RN-TU-04/05/07: cambios solo para turnos nuevos, inactivos no reservables, franjas sin superposición), `03_actores_y_roles.md` (precisión de O5), `06_funcionalidades.md` (US-008 con lo aprobado) y el README (sección "Catálogo": cómo cargar horarios, qué pasa con los turnos tomados, que un turno de un profesional inactivo no se reprograma online). Verificar coherencia con specs y código.
 - [x] 9.2 Actualizar `CHANGES.md` §C-14 (scope final, migración `014`, seguimientos: excepciones por fecha O8, control optimista O11) y §Backlog. Verificar coherencia con los specs.
 - [x] 9.3 Correr `spec-rules-auditor` sobre el código y los specs finales contra `05_reglas_de_negocio.md` y `AGENTS.md`; registrar el dictamen en `design.md` y corregir lo observado. Verificar dictamen APROBADO u OBSERVACIONES sin bloqueos.
-- [ ] 9.4 Verificación final: `python -m pytest -q` (backend), `npm test` + `npm run typecheck` + `npm run lint` + `npm run build` (panel y paciente), E2E completos en CI y `openspec validate c-14-panel-catalogo-disponibilidad --strict`. Registrar conteos en el acta.
+- [x] 9.4 Verificación final: `python -m pytest -q` (backend), `npm test` + `npm run typecheck` + `npm run lint` + `npm run build` (panel y paciente), E2E completos en CI y `openspec validate c-14-panel-catalogo-disponibilidad --strict`. Registrar conteos en el acta.
 
 ## Workflow follow-up
 
@@ -91,3 +91,13 @@
 - **Reprogramación con ítems inactivos (aprobada por el usuario 2026-11-14, tarea 5.5):** `POST /api/public/gestion/reprogramar` responde 422 `no_reservable` si el profesional o el tratamiento del turno están inactivos; el panel del paciente lo explica con un aviso propio (no "elegí otro horario"). Cierra la observación O-A de la auditoría final.
 - **Hallazgo técnico:** dos altas de franjas superpuestas simultáneas pueden terminar en deadlock (40P01) en el `EXCLUDE`; se traduce a 409 `franja_superpuesta`. `Disponibilidad.updated_at` exige `refresh` tras el `UPDATE`.
 - **Auditoría final (`spec-rules-auditor`):** OBSERVACIONES sin bloqueos (ver `design.md`).
+
+### Evidencia de CI (2026-11-14) — cierra 8.1, 8.2 y 9.4
+
+Corrida `ci` 43635593401 sobre `63b6b72` (https://github.com/ramiquirogab333/turnos-odontologia/actions/runs/43635593401): los 5 jobs en verde.
+
+- backend (pytest + PostgreSQL): 2283 passed.
+- frontend paciente y frontend panel (tsc + lint + unit + build): en verde.
+- e2e paciente (360 px): 26 passed.
+- e2e panel (360 y 1280 px): 102 passed, 2 skipped; `catalogo.spec.ts` 7/7 en `chromium-360` y 7/7 en `chromium-1280` (casos a–f de 8.1 más la validación de duración inválida). Los 2 skipped del run son `agenda.spec.ts:83` y `gestion.spec.ts:179` en `chromium-1280`: pruebas exclusivas de 360 px de C-08/C-11, saltadas por diseño; no hay saltos nuevos de C-14.
+- `openspec validate c-14-panel-catalogo-disponibilidad --strict`: válido.

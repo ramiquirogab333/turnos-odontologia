@@ -397,7 +397,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-14] `panel-catalogo-disponibilidad`
-- **Estado**: implementado 2026-11-14 (openspec/changes/c-14-panel-catalogo-disponibilidad/; decisiones O1–O13 aprobadas con la opción (a) el 2026-11-14; **pendiente de archivar** — `/opsx:archive c-14-panel-catalogo-disponibilidad` y marcar `[x]`; E2E `frontend/panel/e2e/catalogo.spec.ts` sin correr localmente: su evidencia verde es la de CI)
+- **Estado**: `[x]` archivado 2026-11-14 (`openspec/changes/archive/2026-11-14-c-14-panel-catalogo-disponibilidad/`, spec nueva en `openspec/specs/catalogo/catalogo-panel/spec.md`, y `openspec/specs/catalogo/tratamientos-disponibilidad/spec.md`, `openspec/specs/dominio/modelos-core/spec.md`, `openspec/specs/turnos/gestion-paciente/spec.md`, `openspec/specs/turnos/gestion-panel/spec.md`, `openspec/specs/turnos/reserva-publica/spec.md` (modificadas); decisiones O1–O13 aprobadas 2026-11-14)
 - **Scope**: UI de catálogo y disponibilidad sobre `frontend/panel/` — la promesa de C-04 ("el panel UI llega con C-08") se movió acá
   - Pantallas de tratamientos (duración y precio), profesionales, sillones y franjas de disponibilidad, sobre los CRUD `/api/admin/*` de C-04
   - Reutiliza la sesión, el cliente de API y los tokens de `frontend/panel/`; solo recepción y admin (el rol `odontologo` no accede)
