@@ -19,7 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import ActiveMixin, Base, TimestampMixin
@@ -135,6 +135,15 @@ class Disponibilidad(Base, ActiveMixin, TimestampMixin):
     __table_args__ = (
         CheckConstraint("dia_semana BETWEEN 0 AND 6", name="ck_disponibilidad_dia_semana"),
         CheckConstraint("hora_fin > hora_inicio", name="ck_disponibilidad_horas"),
+        # C-14 (migración 014): franjas activas del mismo profesional y día sin superposición; rango semiabierto.
+        ExcludeConstraint(
+            ("profesional_id", "="),
+            ("dia_semana", "="),
+            (text("rango_hora(hora_inicio, hora_fin, '[)')"), "&&"),
+            name="ex_disponibilidad_franja_activa",
+            using="gist",
+            where=text("is_active"),
+        ),
     )
 
 

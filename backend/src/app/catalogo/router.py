@@ -5,11 +5,14 @@ Endpoints bajo prefijo ``/api/admin/``:
 - ``GET/POST/PUT/DELETE /api/admin/profesionales``
 - ``GET/POST/PUT/DELETE /api/admin/sillones``
 - ``GET/POST/PUT/DELETE /api/admin/disponibilidad``
+- ``GET /api/admin/{recurso}/{id}/impacto`` (C-14): turnos futuros vigentes que alcanza un cambio.
 
 Cada endpoint exige rol ``recepcion`` u ``admin`` (RBAC de C-03); cualquier otro
 rol recibe 403. Las escrituras auditan en ``RegistroAuditoria`` dentro de la
 misma transacción (RN-GL-01).
 """
+
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +23,7 @@ from app.catalogo.schemas import (
     DisponibilidadCreate,
     DisponibilidadRead,
     DisponibilidadUpdate,
+    ImpactoRead,
     ProfesionalCreate,
     ProfesionalRead,
     ProfesionalUpdate,
@@ -32,11 +36,14 @@ from app.catalogo.schemas import (
 )
 from app.catalogo.service import (
     DisponibilidadService,
+    RecursoImpacto,
     ProfesionalService,
     SillonService,
     TratamientoService,
+    calcular_impacto,
 )
 from app.shared.db import get_session
+from app.shared.reloj import get_reloj
 
 router_tratamientos = APIRouter(prefix="/api/admin/tratamientos", tags=["admin-tratamientos"])
 router_profesionales = APIRouter(prefix="/api/admin/profesionales", tags=["admin-profesionales"])
@@ -323,6 +330,34 @@ async def eliminar_disponibilidad(
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Disponibilidad no encontrada")
     await session.commit()
+
+# ===========================================================================
+# Impacto de un cambio (C-14, D2): una ruta por recurso, solo lectura, sin datos de pacientes
+# ===========================================================================
+
+def _ruta_de_impacto(router: APIRouter, recurso: RecursoImpacto, nombre: str) -> None:
+    @router.get(
+        "/{id_}/impacto",
+        response_model=ImpactoRead,
+        summary=f"Turnos futuros vigentes que alcanza un cambio en {nombre}",
+        name=f"impacto_{recurso}",
+    )
+    async def impacto(
+        id_: int,
+        session: AsyncSession = Depends(get_session),
+        ahora: datetime = Depends(get_reloj),
+        context: PermissionContext = Depends(require_recepcion_o_admin),
+    ) -> ImpactoRead:
+        resultado = await calcular_impacto(session, recurso, id_, ahora)
+        if resultado is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{nombre.capitalize()} no encontrado")
+        return resultado
+
+
+_ruta_de_impacto(router_tratamientos, "tratamientos", "el tratamiento")
+_ruta_de_impacto(router_profesionales, "profesionales", "el profesional")
+_ruta_de_impacto(router_sillones, "sillones", "el sillón")
+_ruta_de_impacto(router_disponibilidad, "disponibilidad", "la franja")
 
 # Router principal que agrupa todos los sub-routers de catalogo.
 router = APIRouter(tags=["admin-catalogo"])

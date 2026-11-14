@@ -17,6 +17,15 @@ class PastStartError(Exception):
     """The requested inicio is in the past."""
 
 
+class NoReservableError(Exception):
+    """El tratamiento, profesional o sillón existe pero está inactivo o fuera de servicio: no se ofrece para turnos nuevos
+    (C-14, 422 ``no_reservable``). ``campo`` dice cuál."""
+
+    def __init__(self, campo: str) -> None:
+        super().__init__(f"No se ofrece para reservar: {campo}")
+        self.campo = campo
+
+
 class ReferenceNotFoundError(Exception):
     """A referenced FK parent does not exist."""
 

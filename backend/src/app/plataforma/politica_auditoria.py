@@ -59,6 +59,7 @@ def _catalogo() -> dict[Clave, Politica]:
         tabla[("GET", f"/api/admin/{base}/{{id_}}")] = _ex(_CONFIG)
         tabla[("PUT", f"/api/admin/{base}/{{id_}}")] = _sem("UPDATE")
         tabla[("DELETE", f"/api/admin/{base}/{{id_}}")] = _sem("DELETE")
+        tabla[("GET", f"/api/admin/{base}/{{id_}}/impacto")] = _ex("conteo agregado de turnos, sin datos de pacientes (C-14 D2)")
     return tabla
 
 

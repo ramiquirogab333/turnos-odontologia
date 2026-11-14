@@ -30,6 +30,7 @@ from app.catalogo.router import (
     router_tratamientos,
 )
 from app.caja.http import registrar_handlers as registrar_handlers_caja
+from app.catalogo.errores import registrar_handlers as registrar_handlers_catalogo
 from app.caja.router import router as caja_router
 from app.integraciones.gcal.router import router as gcal_router
 from app.plataforma.router_auditoria import router as auditoria_router
@@ -100,6 +101,7 @@ app.include_router(exportacion_router)
 registrar_handlers_limites(app)
 registrar_handlers_clinicos(app)
 registrar_handlers_caja(app)
+registrar_handlers_catalogo(app)
 app.add_exception_handler(OverlapError, solape_handler)  # type: ignore[arg-type]
 app.add_exception_handler(ReferenceNotFoundError, referencia_handler)  # type: ignore[arg-type]
 

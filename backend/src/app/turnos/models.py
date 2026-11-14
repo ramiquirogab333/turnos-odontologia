@@ -4,15 +4,15 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import BigInteger, CheckConstraint, Computed, DateTime, ForeignKey, Identity, Index, Numeric, Text
+from sqlalchemy import BigInteger, CheckConstraint, Computed, DateTime, ForeignKey, Identity, Index, Numeric, Text, text
 from sqlalchemy.dialects.postgresql import TSTZRANGE
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-from app.models.base import Base
+from app.models.base import ActiveMixin, Base
 
 
-class Profesional(Base):
+class Profesional(Base, ActiveMixin):
     """Odontologo que atiende turnos."""
 
     __tablename__ = "profesional"
@@ -26,6 +26,8 @@ class Profesional(Base):
         CheckConstraint("LENGTH(nombre) BETWEEN 1 AND 120", name="ck_profesional_nombre_len"),
         CheckConstraint("LENGTH(matricula) BETWEEN 1 AND 40", name="ck_profesional_matricula_len"),
         CheckConstraint("LENGTH(especialidad) <= 120", name="ck_profesional_especialidad_len"),
+        # C-14: la matrícula es única sin distinguir mayúsculas ni espacios en los extremos (migración 014).
+        Index("ux_profesional_matricula", text("lower(btrim(matricula))"), unique=True),
     )
 
 
@@ -41,10 +43,11 @@ class Sillon(Base):
     __table_args__ = (
         CheckConstraint("LENGTH(nombre) BETWEEN 1 AND 60", name="ck_sillon_nombre_len"),
         CheckConstraint("estado IN ('activo','inactivo','mantenimiento')", name="ck_sillon_estado"),
+        Index("ux_sillon_nombre", text("lower(btrim(nombre))"), unique=True),  # C-14 (migración 014)
     )
 
 
-class Tratamiento(Base):
+class Tratamiento(Base, ActiveMixin):
     """Prestacion con duracion (determina el fin del turno) y precio base."""
 
     __tablename__ = "tratamiento"
@@ -58,6 +61,7 @@ class Tratamiento(Base):
         CheckConstraint("LENGTH(nombre) BETWEEN 1 AND 120", name="ck_tratamiento_nombre_len"),
         CheckConstraint("duracion_minutos > 0", name="ck_tratamiento_duracion_pos"),
         CheckConstraint("precio_base >= 0", name="ck_tratamiento_precio_no_neg"),
+        Index("ux_tratamiento_nombre", text("lower(btrim(nombre))"), unique=True),  # C-14 (migración 014)
     )
 
 
