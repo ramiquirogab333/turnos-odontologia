@@ -462,6 +462,34 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 
 ---
 
+## Backlog post-roadmap
+
+Seguimientos que quedaron fuera de los changes archivados, consolidados el 2026-11-14 (el detalle de origen sigue en cada change). No bloquean C-14 ni C-16. Numeración tentativa: se confirma al hacer `/opsx:propose`.
+
+### Decisiones de negocio pendientes (sin código hasta decidir)
+
+Preguntas formuladas en `knowledge-base/10_preguntas_abiertas.md` §Preguntas pendientes para la clínica.
+
+| Tema | Origen | Destino si se aprueba |
+|------|--------|-----------------------|
+| Retención y purga de la auditoría (plazo legal) | C-13 O16 | C-17 (excepción al trigger + job de purga en el worker) |
+| Deshacer un `ausente` (toca R9) | C-12 O10 | Change propio |
+| Resolución automática de `en_revision` vencidos | C-09 O12, C-12 O6 b | Barrido en el scheduler de C-09 |
+| Devolución de un cobro de presupuesto (egreso de caja) | C-12 O2 | Change propio (decidido 2026-11-11) |
+| Honorarios por profesional y liquidación a obras sociales | C-12 O3 | Funcionalidad nueva, fuera de v1 |
+
+### Mejoras técnicas (decide el equipo técnico)
+
+| Change tentativo | Contenido | Origen | Prioridad |
+|------------------|-----------|--------|-----------|
+| **C-17** `hardening-despliegue` | Rol de BD de la aplicación sin `UPDATE`/`DELETE`/`TRUNCATE`; test del worker con Redis caído; agrupar IPv6 por /64 en los límites de solicitudes; revisar la defensa CSRF si el API se publica con CORS | C-13 O4 b, C-09, C-15 | Antes de producción |
+| **C-18** `recuperacion-contrasena-sesiones` | Recuperación de contraseña del panel (hoy solo por consola `app.panel.usuarios`); UI para listar y cerrar sesiones; MFA opcional | C-15 | Antes de producción (recuperación); MFA opcional |
+| — | Migrar a la API paga de WhatsApp vía el puerto `ProveedorWhatsApp` | C-09 | Cuando el costo se justifique |
+
+Orden sugerido: C-14 → C-16 → reunión con la clínica (decisiones de arriba) → C-17, C-18 y los changes que surjan de las decisiones.
+
+---
+
 ## Riesgos
 
 | Riesgo | Mitigación |

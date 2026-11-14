@@ -35,11 +35,23 @@
 | Alta ✅ | ¿WhatsApp manual o automático vía API (costo por mensaje)? | Diseño de notificaciones y costos (RN-WA-03) | Product Owner |
 | Alta ✅ | ¿Tabla concreta tratamiento→duración para la v1? | Seed data y cálculo de horarios | Admin/clínica |
 | Alta ✅ | ¿Stack tecnológico (frontend, backend, DB, hosting)? | Toda implementación (02, 08) | Equipo técnico |
-| Media | ¿Login de paciente o solo nombre + teléfono por turno? | Auth y modelo Paciente/Usuario | Product Owner |
+| Media ✅ | ¿Login de paciente o solo nombre + teléfono por turno? — cerrada (2026-11-14): sin login de paciente; reserva con nombre + teléfono y gestión del turno por enlace (DD-01, implementado en C-05/C-07/C-09) | Auth y modelo Paciente/Usuario | Product Owner |
 | Media ✅ | Resolución de conflictos de sincronía con Google Calendar (RN-GC-02) — cerrada en C-10 (2026-11-12): resolución manual con criterio visible, nunca auto-sobrescritura (ver RN-GC-02 y DD-05) | Integración GCal | Equipo técnico |
-| Media | ¿El anti-solape de v1 controla sillón además de profesional? | Lógica de disponibilidad (SU-03) | Product Owner |
+| Media ✅ | ¿El anti-solape de v1 controla sillón además de profesional? — cerrada (2026-11-14): sí, controla ambos; dos `EXCLUDE USING gist` parciales (profesional y sillón) desde la migración `001_create_agenda` (C-01), ampliados en `007` (C-08). SU-03 validado | Lógica de disponibilidad (SU-03) | Product Owner |
 | Media | Confirmar cifras de mercado (ej. DentalSoft "+300 clínicas / −82% ausencias" son autodeclaraciones sin auditoría) | Métricas de éxito (01) | Product Owner |
-| Baja | ¿Una sola sede en v1 (SU-02)? | Modelo de datos | Product Owner |
-| Baja | Granularidad de permisos odontólogo vs. recepción/admin | RBAC (03) | Product Owner |
+| Baja ✅ | ¿Una sola sede en v1 (SU-02)? — cerrada para v1 (2026-11-14): una sola sede; el modelo no tiene entidad Sede y las pantallas del panel (C-14, C-16) no llevan selector de sede. Multi-sucursal queda fuera de v1 (requiere migración) | Modelo de datos | Product Owner |
+| Baja ✅ | Granularidad de permisos odontólogo vs. recepción/admin — cerrada (2026-11-14): matriz de `03_actores_y_roles.md` §RBAC, implementada en C-03, ampliada en C-11 (D1, rutas por rol) y enmendada en C-13 (O6 auditoría solo admin, O7 exportación de pacientes solo admin) | RBAC (03) | Product Owner |
+
+## Preguntas pendientes para la clínica (post-roadmap)
+
+Surgieron como seguimientos de los changes archivados. Ninguna bloquea C-14 ni C-16; no se implementan sin decisión explícita. El backlog técnico asociado está en `CHANGES.md` §Backlog post-roadmap.
+
+| Prioridad | Pregunta | Origen | Bloquea | Decisor |
+|-----------|----------|--------|---------|---------|
+| Alta | ¿Cuánto tiempo se conserva el registro de auditoría y cuándo se purga? Plazo legal a confirmar con asesoría (Ley 25.326; la historia clínica tiene plazo mínimo propio por Ley 26.529). Hasta decidir: no se purga nada | C-13 O16 | Retención/purga (exige excepción al trigger de solo agregado) | Clínica + asesoría legal |
+| Media | ¿Se puede deshacer un `ausente` marcado por error? Implicaría devolver una seña retenida a `acreditado` (toca R9 / RN de ausentismo) | C-12 O10 | Change de corrección de ausentes | Product Owner |
+| Media | ¿Qué pasa con un pago `en_revision` vencido: se rechaza solo, se acredita o sigue manual? Hoy se lista y se resuelve a mano | C-09 O12, C-12 O6 b | Barrido automático en el worker de C-09 | Product Owner |
+| Media | ¿Cómo se registra la devolución de un cobro de presupuesto hecha fuera del sistema (egreso de caja)? Ya decidido que va en un change propio (2026-11-11); falta definir la regla | C-12 O2 | Change de devolución de cobros | Product Owner |
+| Baja | ¿Se necesitan honorarios por profesional y liquidación a obras sociales? Hoy la "liquidación" es solo el consolidado por medio de pago | C-12 O3 | Funcionalidad nueva (fuera de v1) | Product Owner |
 
 [DISCOVERY] `stack` could not be inferred with confidence from the source docs. Please confirm: qué tecnologías (frontend, backend, DB, hosting) usará el proyecto — las fuentes declaran libertad total de stack.

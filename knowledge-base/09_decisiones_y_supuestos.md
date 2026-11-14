@@ -150,6 +150,7 @@
 **Origen**: state.discovery (ocupación por sillón) + discovery §5 (agenda multi-profesional + sillones con anti-solape).
 **Riesgo si es falso**: sobredimensionar la lógica de disponibilidad.
 **Cómo validar**: confirmar si v1 controla sillones o solo profesionales.
+**Validado (2026-11-14)**: v1 controla ambos — `EXCLUDE USING gist` por profesional y por sillón desde la migración `001_create_agenda` (C-01).
 
 ### SU-04 — Adopción de reserva online por el paciente
 **Supuesto**: los pacientes usarán la reserva online en vez de WhatsApp por costumbre.
