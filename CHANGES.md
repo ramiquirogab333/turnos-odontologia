@@ -397,11 +397,13 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-14] `panel-catalogo-disponibilidad`
-- **Estado**: `[ ]` pendiente (propuesto en C-08, decisión O18 del 2026-11-09)
+- **Estado**: implementado 2026-11-14 (openspec/changes/c-14-panel-catalogo-disponibilidad/; decisiones O1–O13 aprobadas con la opción (a) el 2026-11-14; **pendiente de archivar** — `/opsx:archive c-14-panel-catalogo-disponibilidad` y marcar `[x]`; E2E `frontend/panel/e2e/catalogo.spec.ts` sin correr localmente: su evidencia verde es la de CI)
 - **Scope**: UI de catálogo y disponibilidad sobre `frontend/panel/` — la promesa de C-04 ("el panel UI llega con C-08") se movió acá
   - Pantallas de tratamientos (duración y precio), profesionales, sillones y franjas de disponibilidad, sobre los CRUD `/api/admin/*` de C-04
   - Reutiliza la sesión, el cliente de API y los tokens de `frontend/panel/`; solo recepción y admin (el rol `odontologo` no accede)
   - Reglas verificables: RN-TU-04/05/07 (duración configurable, disponibilidad vigente), R1, R2, R3, R7 (E2E Playwright)
+- **Scope final**: sección «Catálogo» del panel (`#/catalogo`, pestañas Tratamientos, Profesionales, Sillones y Horarios; solo recepción y admin) sobre los CRUD de `/api/admin/*`; migración `014_catalogo_baja_logica` (`is_active` en `tratamiento` y `profesional`, `EXCLUDE` de franjas activas sin superposición con el tipo `rango_hora`, índices únicos `lower(btrim(...))` de nombres y matrícula); baja lógica (`activo`) y borrado con 409 `en_uso`; consulta de impacto `GET /api/admin/{recurso}/{id}/impacto`; lo inactivo no se ofrece ni se reserva (422 `no_reservable` en la reserva pública y el alta manual; `activo` en las opciones de la agenda y filtro con "(inactivo)"); edición de franjas validada contra lo guardado; topes de duración (5–480, múltiplos de 5, `[SUPUESTO]` O12) y precio; errores 404/409/422 con `motivo` (cero 500 previsibles en el catálogo); `frontend/paciente` vuelve al paso 1 ante `no_reservable`.
+  - Seguimientos (fuera de alcance): excepciones por fecha para vacaciones y feriados (O8); control de edición concurrente optimista (O11); reprogramar o avisar automáticamente a los pacientes alcanzados por un cambio (O2 b/c); historial de precios y vigencias futuras; filtrar los indicadores de ocupación por profesional activo.
 - **Dependencias**: C-08
 - **Governance**: MEDIO
 - **Leer antes**:
@@ -464,7 +466,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 
 ## Backlog post-roadmap
 
-Seguimientos que quedaron fuera de los changes archivados, consolidados el 2026-11-14 (el detalle de origen sigue en cada change). No bloquean C-14 ni C-16. Numeración tentativa: se confirma al hacer `/opsx:propose`.
+Seguimientos que quedaron fuera de los changes archivados, consolidados el 2026-11-14 (el detalle de origen sigue en cada change). No bloquean C-16 (C-14 ya está implementado). Numeración tentativa: se confirma al hacer `/opsx:propose`.
 
 ### Decisiones de negocio pendientes (sin código hasta decidir)
 
@@ -486,7 +488,7 @@ Preguntas formuladas en `knowledge-base/10_preguntas_abiertas.md` §Preguntas pe
 | **C-18** `recuperacion-contrasena-sesiones` | Recuperación de contraseña del panel (hoy solo por consola `app.panel.usuarios`); UI para listar y cerrar sesiones; MFA opcional | C-15 | Antes de producción (recuperación); MFA opcional |
 | — | Migrar a la API paga de WhatsApp vía el puerto `ProveedorWhatsApp` | C-09 | Cuando el costo se justifique |
 
-Orden sugerido: C-14 → C-16 → reunión con la clínica (decisiones de arriba) → C-17, C-18 y los changes que surjan de las decisiones.
+Orden sugerido: C-16 → reunión con la clínica (decisiones de arriba) → C-17, C-18 y los changes que surjan de las decisiones.
 
 ---
 
