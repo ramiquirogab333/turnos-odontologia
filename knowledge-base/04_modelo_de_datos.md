@@ -47,19 +47,25 @@ ObraSocial 1───* Nomenclador (precargado AR)
 - Solo se agregan registros (nunca se modifican ni se borran): el estado vigente por pieza y cara se deriva del historial. `caries` y `obturado` exigen cara; los estados de pieza la rechazan.
 
 ### Profesional (odontólogo/a)
-- Atributos: id, nombre, matrícula, especialidad.
+- Atributos: id, nombre, matrícula, especialidad, `is_active` (desde C-14, `BOOLEAN NOT NULL DEFAULT true`: baja lógica; un profesional inactivo se conserva con su historia y no se ofrece para turnos nuevos).
 - Relaciones: 1───* Turno; 1───* Disponibilidad.
+- Constraints (C-14): matrícula única sin distinguir mayúsculas ni espacios en los extremos (índice único sobre `lower(btrim(matricula))`).
 - Constraints: sin superposición de turnos por profesional desde el día 1 — multi-odontólogo día 1 (Resolución 2026-09-30 nº1); garantía en DB con `EXCLUDE USING gist` parcial por estado (estrategia A del DDL de C-01: dos EXCLUDE —profesional + rango y sillón/box + rango— con `WHERE estado IN ('reservado','confirmado','atendido')` desde la migración 007 de C-08, porque un `atendido` ocupa el horario hasta su `fin`), RN-TU-03.
 
 ### Sillón
-- Atributos: id, nombre/identificador, estado.
+- Atributos: id, nombre/identificador, estado (`activo`, `inactivo` o `mantenimiento`; solo `activo` se ofrece para turnos nuevos).
 - Relaciones: 1───* Turno (ocupación por sillón).
+- Constraints (C-14): nombre único sin distinguir mayúsculas ni espacios en los extremos (índice único sobre `lower(btrim(nombre))`).
 - Constraints: sin superposición de turnos por sillón/box desde el día 1 — multi-sillón día 1 (Resolución 2026-09-30 nº1); garantía en DB con `EXCLUDE USING gist` parcial por estado (estrategia A del DDL de C-01), RN-TU-03.
 
 ### Tratamiento
-- Atributos: id, nombre, costo base (`Numeric`, no float), duración_minutos (duración estimada en minutos, configurable por admin, no fija en código).
+- Atributos: id, nombre, costo base (`Numeric`, no float), duración_minutos (duración estimada en minutos, configurable por admin, no fija en código), `is_active` (desde C-14: baja lógica; un tratamiento inactivo se conserva con su historia y no se ofrece para turnos nuevos).
 - Relaciones: 1───* Turno.
-- Constraints: duración > 0 (`CHECK`); tabla tratamiento→duración editable por admin (RN-TU-05); seed inicial aportado por la clínica (si falta, placeholder explícito documentado — C-02/C-04).
+- Constraints: duración > 0 (`CHECK`); tabla tratamiento→duración editable por admin (RN-TU-05); seed inicial aportado por la clínica (si falta, placeholder explícito documentado — C-02/C-04). C-14: nombre único sin distinguir mayúsculas ni espacios en los extremos (índice único sobre `lower(btrim(nombre))`); en el borde de la API la duración va de 5 a 480 minutos en múltiplos de 5 `[SUPUESTO: rango a confirmar con la clínica, 10_preguntas_abiertas.md]` y el precio de 0 a 99.999.999,99 con dos decimales.
+
+### Disponibilidad (franja de atención)
+- Atributos: id, `profesional_id`, `dia_semana` (0 = lunes … 6 = domingo), `hora_inicio` y `hora_fin` (horas locales de la clínica), `sillon_defecto_id` (opcional), `is_active` (franja pausada si es falso).
+- Constraints: `hora_fin > hora_inicio` (`CHECK`); **desde C-14, dos franjas activas del mismo profesional y día no se superponen**: `EXCLUDE USING gist (profesional_id WITH =, dia_semana WITH =, rango_hora(hora_inicio, hora_fin, '[)') WITH &&) WHERE (is_active)` (migración `014_catalogo_baja_logica`; `rango_hora` es un tipo de rango sobre `time`; el rango es semiabierto, así que 09–13 y 13–17 conviven). Los turnos no referencian la franja: quitarla o pausarla no los toca.
 
 ### Turno
 - Atributos: id, paciente_id, profesional_id, sillon_id, tratamiento_id, inicio, fin (derivado de duración), estado (reservado / confirmado / cancelado / ausente / atendido; más `en_espera` desde C-06 —ver GAP en `CHANGES.md` header—), origen (`web` / `manual` / `whatsapp`; columna `NOT NULL DEFAULT 'web'` con `CHECK`, migración 007 de C-08; los turnos sin código de gestión se rellenaron como `manual`), código de gestión pública.

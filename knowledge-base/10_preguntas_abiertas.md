@@ -53,5 +53,6 @@ Surgieron como seguimientos de los changes archivados. Ninguna bloquea C-14 ni C
 | Media | ¿Qué pasa con un pago `en_revision` vencido: se rechaza solo, se acredita o sigue manual? Hoy se lista y se resuelve a mano | C-09 O12, C-12 O6 b | Barrido automático en el worker de C-09 | Product Owner |
 | Media | ¿Cómo se registra la devolución de un cobro de presupuesto hecha fuera del sistema (egreso de caja)? Ya decidido que va en un change propio (2026-11-11); falta definir la regla | C-12 O2 | Change de devolución de cobros | Product Owner |
 | Baja | ¿Se necesitan honorarios por profesional y liquidación a obras sociales? Hoy la "liquidación" es solo el consolidado por medio de pago | C-12 O3 | Funcionalidad nueva (fuera de v1) | Product Owner |
+| Baja | ¿Es correcto el rango de duración de un tratamiento (5 a 480 min, múltiplos de 5)? Hoy es un supuesto del equipo; cambiarlo es tocar una constante y su test | C-14 O12 | Ajuste de topes del catálogo | Admin/clínica |
 
 [DISCOVERY] `stack` could not be inferred with confidence from the source docs. Please confirm: qué tecnologías (frontend, backend, DB, hosting) usará el proyecto — las fuentes declaran libertad total de stack.

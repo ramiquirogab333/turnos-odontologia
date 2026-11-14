@@ -93,10 +93,12 @@ Organizadas por **épica** y luego por **historia de usuario** (formato US-NNN).
 **Para** que la agenda refleje la realidad del consultorio
 
 **Criterios de aceptación**:
-- [ ] CA-1: Edito la tabla tratamiento→duración sin tocar código.
-- [ ] CA-2: Los horarios libres se recalculan con la nueva configuración.
+- [x] CA-1: Edito la tabla tratamiento→duración sin tocar código (C-14: pestaña Tratamientos del panel; duración de 5 a 480 minutos en múltiplos de 5 `[SUPUESTO]`).
+- [x] CA-2: Los horarios libres se recalculan con la nueva configuración (C-14: la consulta pública usa la duración y las franjas vigentes; los turnos ya tomados no cambian; lo inactivo deja de ofrecerse y reactivarlo vuelve a ofrecerlo).
 
-**Reglas relacionadas**: RN-TU-04, RN-TU-05
+**Reglas relacionadas**: RN-TU-04, RN-TU-05, RN-TU-07
+
+**Aprobado en C-14 (2026-11-14)**: baja lógica en lugar de borrado (borrar un ítem en uso responde 409 y sugiere desactivar), franjas sin superposición, edición de horarios por día de la semana (sin excepciones por fecha: vacaciones y feriados se cubren pausando o quitando franjas), confirmación con el impacto en los turnos tomados, y solo recepción y admin.
 
 ## Épica 5: Ficha clínica y pagos
 

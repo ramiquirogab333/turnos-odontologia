@@ -26,6 +26,8 @@ Desde C-11 (decisiones O2-O4, O15 y O16, 2026-11-10) el odontólogo/a deja de se
 
 Desde C-12 (decisiones O7, O9 y O15, 2026-11-11): la caja, los cierres de caja, los pagos pendientes de la seña (revisiones y devoluciones), los indicadores (ocupación y ausentismo) y el listado de pacientes son solo de recepción y admin; la odontóloga recibe 403 en todo eso. **Anular un cierre de caja es solo de admin** (con motivo); recepción lo consulta y lo crea. Recepción y admin también corrigen un `atendido` marcado por error (hasta 7 días después del inicio); la odontóloga no. Ver RN-CJ-01 a RN-CJ-05, RN-SN-11, RN-IN-01 y RN-IN-02.
 
+Desde C-14 (decisiones O4 y O5, 2026-11-14), precisión de la matriz: el catálogo (tratamientos, profesionales, sillones y horarios) se administra desde la sección **Catálogo** del panel, y tanto esa sección como `/api/admin/*` son **solo de recepción y admin**. La "Lectura" de disponibilidad y tratamientos de la odontóloga se refiere a lo que ve en su agenda y en las opciones del alta (`/api/panel/agenda/opciones`); no tiene acceso a las pantallas ni a la API de administración del catálogo (403).
+
 Desde C-13 (decisiones O6 y O7, 2026-11-13; enmienda C-13 O6/O7): **la consulta de la auditoría es solo de admin** (contiene la actividad e IPs del personal); **exportar turnos y cierres de caja es de recepción y admin; exportar pacientes (padrón con DNI y contacto) es solo de admin**. La odontóloga no consulta auditoría ni exporta. Ver RN-GL-01 y RN-GL-02.
 
 ## Rutas públicas
