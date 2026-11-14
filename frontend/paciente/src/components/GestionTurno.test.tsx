@@ -294,4 +294,21 @@ describe('GestionTurno: cambiar horario', () => {
 
     expect(await screen.findByText(/Ya no podés cancelar ni cambiar el turno online/)).toBeInTheDocument();
   });
+
+  it('un 422 no_reservable al reprogramar explica que ya no se puede online y no propone elegir otro horario (C-14)', async () => {
+    servidor(
+      gestion(RESERVADO),
+      disponibilidad(),
+      post('reprogramar', { detail: 'x', motivo: 'no_reservable', campo: 'profesional_id' }, 422),
+    );
+    await montar();
+
+    await usuario.click(await screen.findByRole('button', { name: /cambiar horario/i }));
+    await usuario.click(await screen.findByRole('button', { name: '11:00' }));
+    await usuario.click(screen.getByRole('button', { name: /continuar/i }));
+    await usuario.click(screen.getByRole('button', { name: /confirmar cambio/i }));
+
+    expect(await screen.findByText(/ya no se puede reprogramar por internet/)).toBeInTheDocument();
+    expect(screen.queryByText(/Elegí otro horario/)).toBeNull();
+  });
 });

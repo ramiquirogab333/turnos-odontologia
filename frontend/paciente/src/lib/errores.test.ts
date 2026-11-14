@@ -98,6 +98,22 @@ describe('interpretarRespuestaError', () => {
   });
 });
 
+describe('interpretarRespuestaError: 422 no_reservable (C-14)', () => {
+  it.each(['tratamiento_id', 'profesional_id'] as const)('un 422 no_reservable con campo %s es un tipo propio, no "fuera de horario"', (campo) => {
+    const e = interpretarRespuestaError(422, { detail: 'No se ofrece', motivo: 'no_reservable', campo });
+    expect(e).toEqual({ tipo: 'no_reservable', campo });
+  });
+
+  it('un no_reservable con campo desconocido o ausente conserva el tipo con campo nulo', () => {
+    expect(interpretarRespuestaError(422, { detail: 'x', motivo: 'no_reservable', campo: 'otra_cosa' })).toEqual({ tipo: 'no_reservable', campo: null });
+    expect(interpretarRespuestaError(422, { detail: 'x', motivo: 'no_reservable' })).toEqual({ tipo: 'no_reservable', campo: null });
+  });
+
+  it('un 422 de texto sin motivo sigue siendo fuera de horario', () => {
+    expect(interpretarRespuestaError(422, { detail: 'Referencia inexistente: profesional_id' }).tipo).toBe('fuera_de_horario');
+  });
+});
+
 describe('interpretarRespuestaError: 429 (C-15)', () => {
   it.each([
     ['300', 'Hiciste muchos pedidos seguidos. Probá de nuevo en 5 minutos.'],

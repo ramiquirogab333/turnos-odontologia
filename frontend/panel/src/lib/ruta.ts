@@ -1,5 +1,5 @@
 /** Secciones del panel. La sección activa vive en el hash de la URL (`#/caja`): sin dependencias y sin recargar. */
-export const SECCIONES = ['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios', 'google-calendar', 'datos'] as const;
+export const SECCIONES = ['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios', 'google-calendar', 'datos', 'catalogo'] as const;
 export type Seccion = (typeof SECCIONES)[number];
 
 /** La odontóloga ve su agenda y la conexión con su Google Calendar; el resto es de recepción y admin. */
@@ -13,6 +13,7 @@ export const TITULO_SECCION: Readonly<Record<Seccion, string>> = {
   recordatorios: 'Recordatorios',
   'google-calendar': 'Google Calendar',
   datos: 'Datos',
+  catalogo: 'Catálogo',
 };
 
 function esSeccion(valor: string): valor is Seccion {
@@ -40,6 +41,17 @@ export function pestanaDeDatos(hash: string): 'exportar' | 'auditoria' {
   const query = hash.split('?')[1];
   if (query === undefined || leerSeccion(hash) !== 'datos') return 'exportar';
   return new URLSearchParams(query).get('pestana') === 'auditoria' ? 'auditoria' : 'exportar';
+}
+
+export type PestanaCatalogo = 'tratamientos' | 'profesionales' | 'sillones' | 'horarios';
+export const PESTANAS_CATALOGO: readonly PestanaCatalogo[] = ['tratamientos', 'profesionales', 'sillones', 'horarios'];
+
+/** Pestaña de «Catálogo» del hash (`#/catalogo?pestana=horarios`); cualquier otro valor abre Tratamientos. */
+export function pestanaDeCatalogo(hash: string): PestanaCatalogo {
+  const query = hash.split('?')[1];
+  if (query === undefined || leerSeccion(hash) !== 'catalogo') return 'tratamientos';
+  const valor = new URLSearchParams(query).get('pestana');
+  return PESTANAS_CATALOGO.find((p) => p === valor) ?? 'tratamientos';
 }
 
 export function irA(seccion: Seccion): void {

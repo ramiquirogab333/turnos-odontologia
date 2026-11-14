@@ -15,11 +15,11 @@ function montar(actual: Seccion) {
 }
 
 describe('Navegacion', () => {
-  it('muestra las siete secciones en un nav con nombre', () => {
+  it('muestra las ocho secciones en un nav con nombre', () => {
     montar('agenda');
     const nav = screen.getByRole('navigation', { name: 'Secciones del panel' });
     expect(nav).toBeInTheDocument();
-    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios', 'Google Calendar', 'Datos']);
+    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios', 'Google Calendar', 'Datos', 'Catálogo']);
   });
 
   it('con una lista acotada (la odontóloga) solo muestra esas secciones', () => {

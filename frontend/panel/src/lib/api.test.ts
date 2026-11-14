@@ -155,14 +155,20 @@ describe('crearApi: lecturas validadas', () => {
 
   it('valida las opciones y el usuario', async () => {
     const opciones = {
-      profesionales: [{ id: 1, nombre: 'Dra. Ana Ficticia' }],
+      profesionales: [{ id: 1, nombre: 'Dra. Ana Ficticia', activo: true }],
       sillones: [{ id: 2, nombre: 'Sillón 1' }],
-      tratamientos: [{ id: 3, nombre: 'Limpieza dental', duracion_minutos: 30 }],
+      tratamientos: [{ id: 3, nombre: 'Limpieza dental', duracion_minutos: 30, activo: false }],
       puede_escribir: true,
     };
     const me = { id: 1, email: 'recepcion@turnos.test', nombre_completo: 'Rita Recepción', roles: ['recepcion'] };
     const { api: a } = api(servidor((url) => (url === '/api/panel/agenda/opciones' ? json(opciones) : json(me))));
-    expect((await a.opciones()).puede_escribir).toBe(true);
+    const leidas = await a.opciones();
+    expect(leidas.puede_escribir).toBe(true);
+    expect(leidas.profesionales[0]?.activo).toBe(true);
+    expect(leidas.tratamientos[0]?.activo).toBe(false);
+    const sinActivo = { ...opciones, tratamientos: [{ id: 3, nombre: 'Limpieza dental', duracion_minutos: 30 }] };
+    const { api: vieja } = api(servidor(() => json(sinActivo)));
+    await expect(vieja.opciones()).rejects.toBeInstanceOf(ErrorDeRespuesta);
     expect((await a.me()).roles).toEqual(['recepcion']);
     const { api: mala } = api(servidor(() => json({ ...me, roles: ['superusuario'] })));
     await expect(mala.me()).rejects.toBeInstanceOf(ErrorDeRespuesta);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Agenda } from './components/Agenda';
 import { Caja } from './components/Caja';
+import { Catalogo } from './components/Catalogo';
 import { GoogleCalendar } from './components/GoogleCalendar';
 import { Cargando } from './components/Cargando';
 import { Datos } from './components/Datos';
@@ -11,7 +12,7 @@ import { Navegacion } from './components/Navegacion';
 import { Pacientes } from './components/Pacientes';
 import { Recordatorios } from './components/Recordatorios';
 import type { Api } from './lib/api';
-import { leerSeccion, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA, TITULO_SECCION, type Seccion } from './lib/ruta';
+import { leerSeccion, pestanaDeCatalogo, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA, TITULO_SECCION, type Seccion } from './lib/ruta';
 import { ErrorSesion, type MotivoCierre, type Sesion } from './lib/sesion';
 import type { Usuario } from './lib/tipos';
 
@@ -76,6 +77,10 @@ function Secciones({ usuario, api, hoy }: PropsPanel) {
         {seccion === 'datos' && (
           // Se remonta si el hash cambia de pestaña (un enlace directo `#/datos?pestana=auditoria` en la misma página).
           <Datos key={pestanaDeDatos(hash)} api={api} roles={usuario.roles} hoy={hoy} pestanaInicial={pestanaDeDatos(hash)} />
+        )}
+        {seccion === 'catalogo' && (
+          // Se remonta si el hash cambia de pestaña, igual que «Datos».
+          <Catalogo key={pestanaDeCatalogo(hash)} api={api} pestanaInicial={pestanaDeCatalogo(hash)} />
         )}
         {seccion === 'google-calendar' && (
           <GoogleCalendar

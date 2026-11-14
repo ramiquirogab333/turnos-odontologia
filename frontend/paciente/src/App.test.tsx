@@ -302,6 +302,42 @@ describe('paso 3: contacto y confirmación', () => {
     expect(await screen.findByRole('button', { name: '10:30' })).toBeInTheDocument();
   });
 
+  it('422 no_reservable (tratamiento desactivado): vuelve al paso 1 con el aviso, sin ese tratamiento y conservando nombre y teléfono (C-14)', async () => {
+    const s = servidor({
+      turnos: () => json({ detail: 'El tratamiento no se ofrece', motivo: 'no_reservable', campo: 'tratamiento_id' }, 422),
+    });
+    const usuario = nuevoUsuario();
+    await montar();
+    await hastaElPaso3(usuario);
+    await completar(usuario);
+    await usuario.click(screen.getByRole('button', { name: 'Confirmar turno' }));
+
+    expect(await screen.findByRole('heading', { name: '¿Qué tratamiento necesitás?' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Ese tratamiento ya no se ofrece. Elegí otro.');
+    expect(screen.queryByRole('radio', { name: /limpieza/i })).toBeNull();
+    expect(screen.getByRole('radio', { name: /consulta/i })).not.toBeChecked();
+    expect(s.posts()).toHaveLength(1);
+
+    // Al volver al paso 3 con otro tratamiento, el nombre y el teléfono siguen cargados.
+    await usuario.click(screen.getByRole('radio', { name: /consulta/i }));
+    await usuario.click(screen.getByRole('button', { name: 'Ver horarios' }));
+    await usuario.click(await screen.findByRole('button', { name: '10:00' }));
+    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
+    expect(screen.getByLabelText(/nombre completo/i)).toHaveValue('Carlos Sintético');
+    expect(screen.getByLabelText(/teléfono/i)).toHaveValue('+5491144445555');
+  });
+
+  it('422 no_reservable (profesional desactivada): pide elegir otra y no la vuelve a ofrecer (C-14)', async () => {
+    servidor({ turnos: () => json({ detail: 'x', motivo: 'no_reservable', campo: 'profesional_id' }, 422) });
+    const usuario = nuevoUsuario();
+    await montar();
+    await hastaElPaso3(usuario);
+    await completar(usuario);
+    await usuario.click(screen.getByRole('button', { name: 'Confirmar turno' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Esa profesional ya no atiende por este medio. Elegí otra o llamá a la clínica.');
+    expect(screen.getByRole('heading', { name: '¿Qué tratamiento necesitás?' })).toBeInTheDocument();
+  });
+
   it('409: muestra las alternativas en hora de la clínica y reserva la que elija el paciente', async () => {
     let intento = 0;
     const alternativas = [

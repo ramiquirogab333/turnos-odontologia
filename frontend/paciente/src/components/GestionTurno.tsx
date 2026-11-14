@@ -30,6 +30,8 @@ function mensajeDeError(error: ErrorGestion): string {
       return 'Este turno ya empezó.';
     case 'no_encontrado':
       return 'No encontramos un turno con ese código. Revisá que esté bien escrito.';
+    case 'no_reservable':
+      return 'Este turno ya no se puede reprogramar por internet. Comunicate con la clínica para cambiarlo o cancelalo.';
     case 'horario_invalido':
     case 'limite':
     case 'desconocido':

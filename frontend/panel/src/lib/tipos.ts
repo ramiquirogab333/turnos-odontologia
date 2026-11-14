@@ -70,10 +70,19 @@ export interface Agenda {
   readonly ocupados_google: readonly OcupadoGoogle[];
 }
 
+/** Profesional de las opciones: `activo=false` se ve en filtros pero no se ofrece para turnos nuevos (C-14). */
+export interface ProfesionalOpcion extends Ref {
+  readonly activo: boolean;
+}
+
+export interface TratamientoOpcion extends TratamientoRef {
+  readonly activo: boolean;
+}
+
 export interface Opciones {
-  readonly profesionales: readonly Ref[];
+  readonly profesionales: readonly ProfesionalOpcion[];
   readonly sillones: readonly Ref[];
-  readonly tratamientos: readonly TratamientoRef[];
+  readonly tratamientos: readonly TratamientoOpcion[];
   readonly puede_escribir: boolean;
 }
 
@@ -473,3 +482,96 @@ export interface ConsultaAuditoria {
   readonly entidadId: string | null;
   readonly cursor: string | null;
 }
+
+// --- Catálogo (C-14). El precio viaja como texto decimal; las horas como "HH:MM:SS" (hora de la clínica). ---------
+
+export type RecursoCatalogo = 'tratamientos' | 'profesionales' | 'sillones' | 'disponibilidad';
+export type EstadoSillon = 'activo' | 'inactivo' | 'mantenimiento';
+
+export interface TratamientoAdmin {
+  readonly id: number;
+  readonly nombre: string;
+  readonly duracion_minutos: number;
+  readonly precio_base: string;
+  readonly activo: boolean;
+}
+
+export interface ProfesionalAdmin {
+  readonly id: number;
+  readonly nombre: string;
+  readonly matricula: string;
+  readonly especialidad: string;
+  readonly activo: boolean;
+}
+
+export interface SillonAdmin {
+  readonly id: number;
+  readonly nombre: string;
+  readonly estado: EstadoSillon;
+}
+
+export interface FranjaAdmin {
+  readonly id: number;
+  readonly profesional_id: number;
+  /** 0 = lunes … 6 = domingo. */
+  readonly dia_semana: number;
+  readonly hora_inicio: string;
+  readonly hora_fin: string;
+  readonly sillon_defecto_id: number | null;
+  readonly activo: boolean;
+}
+
+export interface CatalogoAdmin {
+  readonly tratamientos: readonly TratamientoAdmin[];
+  readonly profesionales: readonly ProfesionalAdmin[];
+  readonly sillones: readonly SillonAdmin[];
+  readonly franjas: readonly FranjaAdmin[];
+}
+
+export interface DatosTratamiento {
+  readonly nombre: string;
+  readonly duracion_minutos: number;
+  readonly precio_base: string;
+}
+
+export interface DatosProfesional {
+  readonly nombre: string;
+  readonly matricula: string;
+  readonly especialidad: string;
+}
+
+export interface DatosSillon {
+  readonly nombre: string;
+  readonly estado: EstadoSillon;
+}
+
+export interface DatosFranja {
+  readonly profesional_id: number;
+  readonly dia_semana: number;
+  readonly hora_inicio: string;
+  readonly hora_fin: string;
+  readonly sillon_defecto_id: number | null;
+}
+
+/** Turnos futuros vigentes que alcanza un cambio (sin datos de pacientes). */
+export interface Impacto {
+  readonly turnos_futuros: number;
+  readonly primero: string | null;
+}
+
+export interface FranjaEnConflicto {
+  readonly id: number;
+  readonly dia_semana: number;
+  readonly hora_inicio: string;
+  readonly hora_fin: string;
+}
+
+export type ErrorCatalogo =
+  | { readonly tipo: 'sin_permiso' }
+  | { readonly tipo: 'no_encontrado' }
+  | { readonly tipo: 'en_uso' }
+  | { readonly tipo: 'duplicado'; readonly campo: string | null }
+  | { readonly tipo: 'franja_superpuesta'; readonly franja: FranjaEnConflicto | null }
+  | { readonly tipo: 'no_reservable'; readonly campo: string | null }
+  | { readonly tipo: 'validacion'; readonly campo: string | null; readonly mensaje: string }
+  | { readonly tipo: 'desconocido' };

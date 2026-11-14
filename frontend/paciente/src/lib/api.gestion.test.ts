@@ -136,6 +136,19 @@ describe('reprogramarTurno', () => {
   });
 });
 
+describe('reprogramarTurno: 422 no_reservable (C-14)', () => {
+  it.each(['profesional_id', 'tratamiento_id'])('un 422 no_reservable con campo %s es su propio tipo y no un horario inválido', async (campo) => {
+    servidor(json({ detail: 'x', motivo: 'no_reservable', campo }, 422));
+    expect(await reprogramarTurno('x', 'y')).toEqual({ ok: false, error: { tipo: 'no_reservable' } });
+  });
+
+  it('un 422 sin ese motivo sigue siendo horario_invalido', async () => {
+    servidor(json({ detail: 'x', motivo: 'mismo_horario' }, 422));
+    const r = await reprogramarTurno('x', 'y');
+    expect(!r.ok && r.error.tipo).toBe('horario_invalido');
+  });
+});
+
 describe('consultarGestion: confirmación (C-09)', () => {
   it('acepta puede_confirmar y los motivos del contrato', async () => {
     for (const motivo of ['sena_pendiente', 'turno_no_modificable', 'turno_iniciado', 'ya_confirmado'] as const) {

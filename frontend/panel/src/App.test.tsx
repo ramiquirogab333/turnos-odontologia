@@ -18,9 +18,9 @@ function json(cuerpo: unknown, status = 200): Response {
 const ME = { id: 1, email: 'recepcion@turnos.test', nombre_completo: 'Rita Recepción', roles: ['recepcion'] };
 const AGENDA = { vista: 'dia', desde: '2031-11-18', hasta: '2031-11-18', turnos: [], ocupados_google: [] };
 const OPCIONES = {
-  profesionales: [{ id: 1, nombre: 'Dra. Ana Ficticia' }],
+  profesionales: [{ id: 1, nombre: 'Dra. Ana Ficticia', activo: true }],
   sillones: [{ id: 2, nombre: 'Sillón 1' }],
-  tratamientos: [{ id: 3, nombre: 'Limpieza dental', duracion_minutos: 30 }],
+  tratamientos: [{ id: 3, nombre: 'Limpieza dental', duracion_minutos: 30, activo: true }],
   puede_escribir: true,
 };
 
@@ -289,10 +289,10 @@ describe('App: secciones del panel (C-12)', () => {
     window.location.hash = '';
   });
 
-  it('recepción ve las siete secciones y empieza en la agenda', async () => {
+  it('recepción ve las ocho secciones y empieza en la agenda', async () => {
     await abrir(servidor(refresco, ...panel, ...secciones));
     const nav = await screen.findByRole('navigation', { name: 'Secciones del panel' });
-    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios', 'Google Calendar', 'Datos']);
+    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Pacientes', 'Indicadores', 'Caja', 'Recordatorios', 'Google Calendar', 'Datos', 'Catálogo']);
     expect(screen.getByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Agenda' })).toHaveAttribute('aria-current', 'page');
   });
@@ -394,6 +394,47 @@ describe('App: secciones del panel (C-12)', () => {
     await abrir(servidor(refresco, odontologa, ...panel, ...secciones));
     expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Datos' })).toBeNull();
+  });
+
+  const CATALOGO: Manejador[] = [
+    ruta('GET /api/admin/tratamientos', [{ id: 3, nombre: 'Limpieza dental', duracion_minutos: 45, precio_base: '18500.00', activo: true }]),
+    ruta('GET /api/admin/profesionales', [{ id: 1, nombre: 'Dra. Ana Ficticia', matricula: 'MP-99001', especialidad: '', activo: true }]),
+    ruta('GET /api/admin/sillones', [{ id: 2, nombre: 'Sillón 1', estado: 'activo' }]),
+    ruta('GET /api/admin/disponibilidad', []),
+  ];
+
+  it('recepción abre «Catálogo» desde la navegación: pide las cuatro listas y abre Tratamientos (C-14)', async () => {
+    const fetchFn = servidor(refresco, ...panel, ...secciones, ...CATALOGO);
+    await abrir(fetchFn);
+    await usuario.click(await screen.findByRole('link', { name: 'Catálogo' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Catálogo' })).toBeInTheDocument();
+    expect(await screen.findByText('Limpieza dental')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Tratamientos' })).toHaveAttribute('aria-selected', 'true');
+    expect(pedidos(fetchFn)).toEqual(
+      expect.arrayContaining(['/api/admin/tratamientos', '/api/admin/profesionales', '/api/admin/sillones', '/api/admin/disponibilidad']),
+    );
+  });
+
+  it('#/catalogo?pestana=horarios abre Horarios y una pestaña inválida abre Tratamientos (C-14)', async () => {
+    window.location.hash = '#/catalogo?pestana=horarios';
+    await abrir(servidor(refresco, ...panel, ...secciones, ...CATALOGO));
+    expect(await screen.findByRole('tab', { name: 'Horarios', selected: true })).toBeInTheDocument();
+    await act(() => {
+      window.location.hash = '#/catalogo?pestana=precios';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      return Promise.resolve();
+    });
+    expect(await screen.findByRole('tab', { name: 'Tratamientos', selected: true })).toBeInTheDocument();
+  });
+
+  it('la odontóloga no ve «Catálogo» y #/catalogo?pestana=horarios la deja en la agenda sin pedir /api/admin (C-14)', async () => {
+    window.location.hash = '#/catalogo?pestana=horarios';
+    const odontologa = ruta('GET /api/auth/me', { ...ME, roles: ['odontologo'] });
+    const fetchFn = servidor(refresco, odontologa, ...panel, ...secciones, ...CATALOGO);
+    await abrir(fetchFn);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Catálogo' })).toBeNull();
+    expect(pedidos(fetchFn).some((u) => u.startsWith('/api/admin'))).toBe(false);
   });
 
   it('un hash #/caja deja a la odontóloga en la agenda y no pide nada de caja', async () => {

@@ -12,6 +12,7 @@ export type ErrorApi =
   | { readonly tipo: 'validacion'; readonly campos: CamposConError; readonly generales: readonly string[] }
   | { readonly tipo: 'fuera_de_horario'; readonly mensaje: string }
   | { readonly tipo: 'conflicto'; readonly motivo: 'profesional' | 'sillon'; readonly alternativas: readonly Alternativa[] }
+  | { readonly tipo: 'no_reservable'; readonly campo: 'tratamiento_id' | 'profesional_id' | null }
   | { readonly tipo: 'limite'; readonly mensaje: string }
   | { readonly tipo: 'desconocido'; readonly mensaje: string };
 
@@ -35,6 +36,11 @@ function esCampoConocido(campo: unknown): campo is keyof CamposConError {
 
 function limpiarMensaje(msg: string): string {
   return msg.replace(/^Value error,\s*/i, '');
+}
+
+/** El tratamiento o la profesional se desactivaron mientras la persona elegía (C-14): hay que elegir otro. */
+function interpretarNoReservable(campo: unknown): ErrorApi {
+  return { tipo: 'no_reservable', campo: campo === 'tratamiento_id' || campo === 'profesional_id' ? campo : null };
 }
 
 function interpretar422(detail: unknown): ErrorApi {
@@ -66,7 +72,9 @@ function interpretar409(cuerpo: Record<string, unknown>): ErrorApi {
 export function interpretarRespuestaError(status: number, cuerpo: unknown, retryAfter: string | null = null): ErrorApi {
   if (status === 429) return { tipo: 'limite', mensaje: mensajeLimite(retryAfter) };
   if (!esRegistro(cuerpo)) return DESCONOCIDO;
-  if (status === 422) return interpretar422(cuerpo['detail']);
+  if (status === 422) {
+    return cuerpo['motivo'] === 'no_reservable' ? interpretarNoReservable(cuerpo['campo']) : interpretar422(cuerpo['detail']);
+  }
   if (status === 409) return interpretar409(cuerpo);
   return DESCONOCIDO;
 }

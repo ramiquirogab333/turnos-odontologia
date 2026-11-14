@@ -2,7 +2,7 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { ErrorAlta, Resultado, TurnoCreado } from '../lib/tipos';
-import { apiFalsa, CREADO, OPCIONES, SLOTS } from '../test/datos';
+import { apiFalsa, CREADO, OPCIONES, OPCIONES_CON_INACTIVOS, SLOTS } from '../test/datos';
 import { AltaManual } from './AltaManual';
 
 const base = userEvent.setup();
@@ -31,6 +31,24 @@ async function completarDatos(nombre = 'Carlos Sintético', telefono = '+54 9 11
 
 const conflicto = (alternativas = [{ inicio: '2031-11-18T11:30:00-03:00', fin: '2031-11-18T12:00:00-03:00', sillon_id: 2 }]) =>
   ({ ok: false as const, error: { tipo: 'conflicto', motivo: 'profesional', alternativas } satisfies ErrorAlta });
+
+describe('AltaManual: solo ofrece lo activo (C-14)', () => {
+  it('el formulario no ofrece el tratamiento ni la profesional inactivos', () => {
+    render(
+      <AltaManual api={apiFalsa()} opciones={OPCIONES_CON_INACTIVOS} fechaInicial="2031-11-18" onCreado={vi.fn()} onCerrar={vi.fn()} />,
+    );
+    const tratamientos = within(screen.getByLabelText('Tratamiento')).getAllByRole('option').map((o) => o.textContent);
+    expect(tratamientos).toEqual(['Elegí un tratamiento', 'Limpieza dental', 'Empaste']);
+    const profesionales = within(screen.getByLabelText('Profesional')).getAllByRole('option').map((o) => o.textContent);
+    expect(profesionales).toEqual(['Elegí una profesional', 'Dra. Ana Ficticia', 'Dr. Bruno Ejemplo']);
+  });
+
+  it('con todo activo ofrece todo, sin marcas', () => {
+    montar();
+    expect(within(screen.getByLabelText('Profesional')).getAllByRole('option')).toHaveLength(3);
+    expect(screen.queryByText(/inactivo/i)).toBeNull();
+  });
+});
 
 describe('AltaManual: horarios', () => {
   it('no consulta la disponibilidad hasta elegir tratamiento y profesional', async () => {

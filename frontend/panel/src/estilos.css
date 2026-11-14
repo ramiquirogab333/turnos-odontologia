@@ -918,3 +918,108 @@ a.boton {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* C-14: Catálogo (tratamientos, profesionales, sillones y horarios). Mismos tokens que el resto del panel; el estado se
+   dice con texto y la atenuación solo lo refuerza. Las acciones van en su propia fila, de 48px, para tocarlas a 360px. */
+.catalogo-pestana {
+  display: grid;
+  gap: 12px;
+}
+
+.selector-catalogo {
+  display: flex;
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.lista-catalogo {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fila-catalogo {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  overflow-wrap: anywhere;
+}
+
+.fila-catalogo.atenuada {
+  border-style: dashed;
+  background: var(--color-fondo);
+  color: var(--color-texto-suave);
+}
+
+.fila-catalogo p {
+  margin: 0;
+}
+
+.fila-catalogo-titulo {
+  font-weight: 600;
+}
+
+.fila-catalogo-estado {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-primario);
+}
+
+.fila-catalogo.atenuada .fila-catalogo-estado {
+  color: var(--color-aviso);
+}
+
+.fila-catalogo-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.formulario-catalogo {
+  padding: 12px;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: var(--radio-tarjeta);
+  background: var(--color-superficie);
+}
+
+.dias-atencion {
+  display: grid;
+  gap: 16px;
+}
+
+.dia-atencion {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.dia-atencion h3 {
+  margin: 0;
+}
+
+.dia-atencion > .nota {
+  margin: 0;
+}
+
+.dialogo .boton-secundario {
+  margin-top: 8px;
+}
+
+@media (min-width: 640px) {
+  .fila-catalogo {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dias-atencion {
+    grid-template-columns: 1fr 1fr;
+  }
+}

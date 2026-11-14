@@ -174,7 +174,7 @@ function Contenido({ api, consulta, opcionesPendientes, agendaPendiente, onFiltr
               <option value="">Todos los profesionales</option>
               {opciones.profesionales.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nombre}
+                  {p.activo ? p.nombre : `${p.nombre} (inactivo)`}
                 </option>
               ))}
             </select>

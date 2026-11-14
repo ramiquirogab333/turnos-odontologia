@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { irA, leerSeccion, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA } from './ruta';
+import { irA, leerSeccion, pestanaDeCatalogo, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA } from './ruta';
 
 afterEach(() => {
   window.location.hash = '';
@@ -14,6 +14,8 @@ describe('leerSeccion', () => {
     expect(leerSeccion('#/recordatorios')).toBe('recordatorios');
     expect(leerSeccion('#/google-calendar')).toBe('google-calendar');
     expect(leerSeccion('#/datos')).toBe('datos');
+    expect(leerSeccion('#/catalogo')).toBe('catalogo');
+    expect(leerSeccion('#/catalogo?pestana=horarios')).toBe('catalogo');
   });
 
   it('ignora la query del hash (la vuelta de Google trae ?resultado=)', () => {
@@ -29,8 +31,9 @@ describe('leerSeccion', () => {
   });
 
   it('todas las secciones tienen su ruta', () => {
-    expect(SECCIONES).toEqual(['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios', 'google-calendar', 'datos']);
+    expect(SECCIONES).toEqual(['agenda', 'pacientes', 'indicadores', 'caja', 'recordatorios', 'google-calendar', 'datos', 'catalogo']);
     expect(SECCIONES_ODONTOLOGA).toEqual(['agenda', 'google-calendar']);
+    expect(SECCIONES_ODONTOLOGA).not.toContain('catalogo');
   });
 });
 
@@ -68,4 +71,17 @@ describe('pestanaDeDatos', () => {
     expect(pestanaDeDatos('#/caja?pestana=auditoria')).toBe('exportar');
     expect(pestanaDeDatos('')).toBe('exportar');
   });
+});
+
+describe('pestanaDeCatalogo', () => {
+  it.each(['tratamientos', 'profesionales', 'sillones', 'horarios'])('abre la pestaña válida "%s"', (pestana) => {
+    expect(pestanaDeCatalogo(`#/catalogo?pestana=${pestana}`)).toBe(pestana);
+  });
+
+  it.each(['#/catalogo', '#/catalogo?pestana=precios', '#/catalogo?otro=1', '#/datos?pestana=horarios', ''])(
+    'un valor inválido o de otra sección ("%s") abre Tratamientos',
+    (hash) => {
+      expect(pestanaDeCatalogo(hash)).toBe('tratamientos');
+    },
+  );
 });

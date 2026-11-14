@@ -22,6 +22,12 @@ import type {
   TurnoCreado,
   PaginaAuditoria,
   RegistroAuditoria,
+  CatalogoAdmin,
+  FranjaAdmin,
+  Impacto,
+  ProfesionalAdmin,
+  SillonAdmin,
+  TratamientoAdmin,
 } from '../lib/tipos';
 
 export function turno(sobre: Partial<TurnoAgenda> = {}): TurnoAgenda {
@@ -58,23 +64,30 @@ export function agenda(
 
 export const OPCIONES: Opciones = {
   profesionales: [
-    { id: 1, nombre: 'Dra. Ana Ficticia' },
-    { id: 4, nombre: 'Dr. Bruno Ejemplo' },
+    { id: 1, nombre: 'Dra. Ana Ficticia', activo: true },
+    { id: 4, nombre: 'Dr. Bruno Ejemplo', activo: true },
   ],
   sillones: [
     { id: 2, nombre: 'Sillón 1' },
     { id: 5, nombre: 'Sillón 2' },
   ],
   tratamientos: [
-    { id: 3, nombre: 'Limpieza dental', duracion_minutos: 30 },
-    { id: 6, nombre: 'Empaste', duracion_minutos: 45 },
+    { id: 3, nombre: 'Limpieza dental', duracion_minutos: 30, activo: true },
+    { id: 6, nombre: 'Empaste', duracion_minutos: 45, activo: true },
   ],
   puede_escribir: true,
 };
 
+/** Un profesional y un tratamiento retirados del catálogo (C-14): se ven en la agenda pero no se ofrecen para turnos nuevos. */
+export const OPCIONES_CON_INACTIVOS: Opciones = {
+  ...OPCIONES,
+  profesionales: [...OPCIONES.profesionales, { id: 7, nombre: 'Dr. Juan Ejemplo', activo: false }],
+  tratamientos: [...OPCIONES.tratamientos, { id: 8, nombre: 'Ortodoncia demo', duracion_minutos: 60, activo: false }],
+};
+
 export const SOLO_LECTURA: Opciones = {
   ...OPCIONES,
-  profesionales: [{ id: 1, nombre: 'Dra. Ana Ficticia' }],
+  profesionales: [{ id: 1, nombre: 'Dra. Ana Ficticia', activo: true }],
   puede_escribir: false,
 };
 
@@ -221,6 +234,45 @@ export const AUSENTISMO: Ausentismo = {
   recupero: { senas_retenidas: 1, importe_retenido: '3000.00', porcentaje: '100.00' },
 };
 
+// --- C-14: catálogo ----------------------------------------------------------------------------------------------
+
+export function tratamientoAdmin(sobre: Partial<TratamientoAdmin> = {}): TratamientoAdmin {
+  return { id: 3, nombre: 'Limpieza dental', duracion_minutos: 45, precio_base: '18500.00', activo: true, ...sobre };
+}
+
+export function profesionalAdmin(sobre: Partial<ProfesionalAdmin> = {}): ProfesionalAdmin {
+  return { id: 1, nombre: 'Dra. Ana Ficticia', matricula: 'MP-99001', especialidad: 'Odontología general', activo: true, ...sobre };
+}
+
+export function sillonAdmin(sobre: Partial<SillonAdmin> = {}): SillonAdmin {
+  return { id: 2, nombre: 'Sillón 1', estado: 'activo', ...sobre };
+}
+
+export function franjaAdmin(sobre: Partial<FranjaAdmin> = {}): FranjaAdmin {
+  return {
+    id: 10,
+    profesional_id: 1,
+    dia_semana: 0,
+    hora_inicio: '09:00:00',
+    hora_fin: '13:00:00',
+    sillon_defecto_id: null,
+    activo: true,
+    ...sobre,
+  };
+}
+
+export function catalogoAdmin(sobre: Partial<CatalogoAdmin> = {}): CatalogoAdmin {
+  return {
+    tratamientos: [tratamientoAdmin(), tratamientoAdmin({ id: 6, nombre: 'Empaste', duracion_minutos: 60, precio_base: '32000.00' })],
+    profesionales: [profesionalAdmin()],
+    sillones: [sillonAdmin(), sillonAdmin({ id: 5, nombre: 'Sillón 2' })],
+    franjas: [franjaAdmin()],
+    ...sobre,
+  };
+}
+
+export const SIN_IMPACTO: Impacto = { turnos_futuros: 0, primero: null };
+
 /** Un `Api` con todos los métodos espías; cada prueba sobreescribe los que le importan. */
 export function recordatorio(sobre: Partial<Recordatorio> = {}): Recordatorio {
   return {
@@ -352,6 +404,11 @@ export function apiFalsa(sobre: Partial<Api> = {}) {
     listarUsuarios: vi
       .fn<Api['listarUsuarios']>()
       .mockResolvedValue([{ id: 3, nombre_completo: 'Recepción Ficticia', activo: true }]),
+    catalogo: vi.fn<Api['catalogo']>().mockResolvedValue(catalogoAdmin()),
+    impactoCatalogo: vi.fn<Api['impactoCatalogo']>().mockResolvedValue(SIN_IMPACTO),
+    crearCatalogo: vi.fn<Api['crearCatalogo']>(),
+    actualizarCatalogo: vi.fn<Api['actualizarCatalogo']>(),
+    borrarCatalogo: vi.fn<Api['borrarCatalogo']>().mockResolvedValue({ ok: true, valor: null }),
     ...sobre,
   };
   return api;

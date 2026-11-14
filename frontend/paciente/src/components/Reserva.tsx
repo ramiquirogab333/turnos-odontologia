@@ -22,13 +22,21 @@ const TITULOS: Readonly<Record<Paso, string>> = {
   3: 'Confirmá tus datos',
 };
 
+interface Retirados {
+  readonly tratamientos: readonly number[];
+  readonly profesionales: readonly number[];
+}
+
+const AVISO_TRATAMIENTO_RETIRADO = 'Ese tratamiento ya no se ofrece. Elegí otro.';
+const AVISO_PROFESIONAL_RETIRADA = 'Esa profesional ya no atiende por este medio. Elegí otra o llamá a la clínica.';
+
 interface Props {
   readonly catalogo: Promise<Catalogo>;
   readonly onNueva: () => void;
 }
 
 export function Reserva({ catalogo: promesa, onNueva }: Props) {
-  const catalogo = use(promesa);
+  const completo = use(promesa);
   const [paso, setPaso] = useState<Paso>(1);
   const [tratamientoId, setTratamientoId] = useState<number | null>(null);
   const [profesionalElegido, setProfesionalElegido] = useState<number | null>(null);
@@ -41,7 +49,15 @@ export function Reserva({ catalogo: promesa, onNueva }: Props) {
   const [error, setError] = useState<ErrorApi | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [reserva, setReserva] = useState<ReservaCreada | null>(null);
+  // Ítems que se desactivaron mientras la persona elegía (422 `no_reservable`): no se vuelven a ofrecer en esta visita.
+  const [retirados, setRetirados] = useState<Retirados>({ tratamientos: [], profesionales: [] });
   const titulo = useRef<HTMLHeadingElement>(null);
+
+  const catalogo: Catalogo = {
+    ...completo,
+    tratamientos: completo.tratamientos.filter((t) => !retirados.tratamientos.includes(t.id)),
+    profesionales: completo.profesionales.filter((p) => !retirados.profesionales.includes(p.id)),
+  };
 
   // Con un único profesional no hay nada que elegir: se deriva, no se guarda.
   const profesionalId =
@@ -68,6 +84,7 @@ export function Reserva({ catalogo: promesa, onNueva }: Props) {
   }
 
   function irAHorarios(): void {
+    setAviso(null);
     setSlot(null);
     pedirHorarios();
     setPaso(2);
@@ -91,6 +108,23 @@ export function Reserva({ catalogo: promesa, onNueva }: Props) {
     setAviso(`Cambiamos tu horario al ${etiquetaDiaLarga(diaClinica(a.inicio))} a las ${horaClinica(a.inicio)}. Confirmá para reservarlo.`);
   }
 
+  /** El tratamiento o la profesional ya no se ofrecen: se vuelve al paso 1 sin perder nombre ni teléfono. */
+  function volverAElegir(campo: 'tratamiento_id' | 'profesional_id' | null): void {
+    setError(null);
+    setSlot(null);
+    setSlots(null);
+    setPaso(1);
+    if (campo === 'profesional_id') {
+      if (profesionalId !== null) setRetirados((r) => ({ ...r, profesionales: [...r.profesionales, profesionalId] }));
+      setProfesionalElegido(null);
+      setAviso(AVISO_PROFESIONAL_RETIRADA);
+      return;
+    }
+    if (tratamientoId !== null) setRetirados((r) => ({ ...r, tratamientos: [...r.tratamientos, tratamientoId] }));
+    setTratamientoId(null);
+    setAviso(AVISO_TRATAMIENTO_RETIRADO);
+  }
+
   async function enviar(): Promise<void> {
     if (enviando || slot === null || tratamientoId === null || profesionalId === null) return;
     setIntentado(true);
@@ -108,6 +142,10 @@ export function Reserva({ catalogo: promesa, onNueva }: Props) {
     setEnviando(false);
     if (resultado.ok) {
       setReserva(resultado.reserva);
+      return;
+    }
+    if (resultado.error.tipo === 'no_reservable') {
+      volverAElegir(resultado.error.campo);
       return;
     }
     setError(resultado.error);
@@ -138,6 +176,12 @@ export function Reserva({ catalogo: promesa, onNueva }: Props) {
       <h2 className="titulo-paso" ref={titulo} tabIndex={-1}>
         {TITULOS[paso]}
       </h2>
+
+      {paso === 1 && aviso !== null && (
+        <div className="aviso aviso-error" role="alert">
+          <p>{aviso}</p>
+        </div>
+      )}
 
       {paso === 1 && (
         <PasoTratamiento

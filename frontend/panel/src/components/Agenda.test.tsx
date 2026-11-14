@@ -2,7 +2,7 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Agenda as DatosAgenda, Opciones } from '../lib/tipos';
-import { agenda, apiFalsa, SOLO_LECTURA, turno } from '../test/datos';
+import { agenda, apiFalsa, OPCIONES_CON_INACTIVOS, SOLO_LECTURA, turno } from '../test/datos';
 import { Agenda } from './Agenda';
 
 const base = userEvent.setup();
@@ -131,6 +131,24 @@ describe('Agenda: vista día', () => {
     const api = apiFalsa({ agenda: vi.fn().mockResolvedValue(agenda([turno({ paciente_nombre: null, paciente_telefono: null })])) });
     await montar(api);
     expect(await screen.findByText('Sin datos del paciente')).toBeInTheDocument();
+  });
+});
+
+describe('Agenda: profesionales inactivos (C-14)', () => {
+  it('el filtro ofrece al profesional inactivo marcado "(inactivo)" y filtrar por él muestra sus turnos', async () => {
+    const turnoDeJuan = turno({ id: 31, profesional: { id: 7, nombre: 'Dr. Juan Ejemplo' }, paciente_nombre: 'Lucía Sintética' });
+    const api = apiFalsa({
+      opciones: vi.fn().mockResolvedValue(OPCIONES_CON_INACTIVOS),
+      agenda: vi.fn().mockImplementation((c: { profesionalId: number | null }) =>
+        Promise.resolve(agenda(c.profesionalId === 7 ? [turnoDeJuan] : [turno()])),
+      ),
+    });
+    await montar(api);
+    const filtro = screen.getByLabelText('Profesional');
+    expect(within(filtro).getByRole('option', { name: 'Dr. Juan Ejemplo (inactivo)' })).toBeInTheDocument();
+    expect(within(filtro).getByRole('option', { name: 'Dra. Ana Ficticia' })).toBeInTheDocument();
+    await usuario.elegir(filtro, '7');
+    expect(await screen.findByText('Lucía Sintética')).toBeInTheDocument();
   });
 });
 

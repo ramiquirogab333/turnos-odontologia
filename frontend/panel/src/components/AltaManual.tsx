@@ -202,7 +202,7 @@ export function AltaManual({ api, opciones, fechaInicial, onCreado, onCerrar }: 
               }}
             >
               <option value="">Elegí un tratamiento</option>
-              {opciones.tratamientos.map((t) => (
+              {opciones.tratamientos.filter((t) => t.activo).map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.nombre}
                 </option>
@@ -220,7 +220,7 @@ export function AltaManual({ api, opciones, fechaInicial, onCreado, onCerrar }: 
               }}
             >
               <option value="">Elegí una profesional</option>
-              {opciones.profesionales.map((p) => (
+              {opciones.profesionales.filter((p) => p.activo).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nombre}
                 </option>

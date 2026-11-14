@@ -376,6 +376,8 @@ function interpretarErrorGestion(status: number, cuerpo: unknown, retryAfter: st
     }
   }
   if (status === 422) {
+    // C-14: el tratamiento o la profesional se desactivaron; elegir otro horario no ayuda.
+    if (esRegistro(cuerpo) && cuerpo['motivo'] === 'no_reservable') return { tipo: 'no_reservable' };
     return { tipo: 'horario_invalido', mensaje: 'Ese horario no está disponible. Elegí otro horario.' };
   }
   return { tipo: 'desconocido', mensaje: 'No pudimos completar la operación. Intentá de nuevo en unos minutos.' };

@@ -58,6 +58,21 @@ import type {
   ParametrosExportacion,
   RegistroAuditoria,
   UsuarioDirectorio,
+  CatalogoAdmin,
+  DatosFranja,
+  DatosProfesional,
+  DatosSillon,
+  DatosTratamiento,
+  ErrorCatalogo,
+  FranjaAdmin,
+  FranjaEnConflicto,
+  Impacto,
+  ProfesionalAdmin,
+  ProfesionalOpcion,
+  RecursoCatalogo,
+  TratamientoOpcion,
+  SillonAdmin,
+  TratamientoAdmin,
 } from './tipos';
 
 /** El servidor respondió algo que no cumple el contrato: se descarta en vez de dibujar datos inventados. */
@@ -96,6 +111,14 @@ function esRef(v: unknown): v is Ref {
 
 function esTratamientoRef(v: unknown): v is TratamientoRef {
   return esRef(v) && esNumero((v as unknown as Registro)['duracion_minutos']);
+}
+
+function esProfesionalOpcion(v: unknown): v is ProfesionalOpcion {
+  return esRef(v) && typeof (v as unknown as Registro)['activo'] === 'boolean';
+}
+
+function esTratamientoOpcion(v: unknown): v is TratamientoOpcion {
+  return esTratamientoRef(v) && typeof (v as unknown as Registro)['activo'] === 'boolean';
 }
 
 function esSena(v: unknown): v is SenaAgenda {
@@ -174,9 +197,9 @@ function lista<T>(v: unknown, guarda: (x: unknown) => x is T): readonly T[] {
 function aOpciones(v: unknown): Opciones {
   if (!esRegistro(v) || typeof v['puede_escribir'] !== 'boolean') throw new ErrorDeRespuesta();
   return {
-    profesionales: lista(v['profesionales'], esRef),
+    profesionales: lista(v['profesionales'], esProfesionalOpcion),
     sillones: lista(v['sillones'], esRef),
-    tratamientos: lista(v['tratamientos'], esTratamientoRef),
+    tratamientos: lista(v['tratamientos'], esTratamientoOpcion),
     puede_escribir: v['puede_escribir'],
   };
 }
@@ -683,6 +706,121 @@ function errorExportacion(r: Response): ErrorExportacion {
   return { tipo: 'servidor' };
 }
 
+
+// --- Catálogo (C-14) -----------------------------------------------------------------------------------------
+
+const ESTADOS_SILLON: readonly string[] = ['activo', 'inactivo', 'mantenimiento'];
+
+function esTratamientoAdmin(v: unknown): v is TratamientoAdmin {
+  return (
+    esRegistro(v) &&
+    esNumero(v['id']) &&
+    esTexto(v['nombre']) &&
+    esNumero(v['duracion_minutos']) &&
+    esTexto(v['precio_base']) &&
+    typeof v['activo'] === 'boolean'
+  );
+}
+
+function esProfesionalAdmin(v: unknown): v is ProfesionalAdmin {
+  return (
+    esRegistro(v) &&
+    esNumero(v['id']) &&
+    esTexto(v['nombre']) &&
+    esTexto(v['matricula']) &&
+    esTexto(v['especialidad']) &&
+    typeof v['activo'] === 'boolean'
+  );
+}
+
+function esSillonAdmin(v: unknown): v is SillonAdmin {
+  return esRegistro(v) && esNumero(v['id']) && esTexto(v['nombre']) && esTexto(v['estado']) && ESTADOS_SILLON.includes(v['estado']);
+}
+
+function esFranjaAdmin(v: unknown): v is FranjaAdmin {
+  return (
+    esRegistro(v) &&
+    esNumero(v['id']) &&
+    esNumero(v['profesional_id']) &&
+    esNumero(v['dia_semana']) &&
+    esTexto(v['hora_inicio']) &&
+    esTexto(v['hora_fin']) &&
+    (v['sillon_defecto_id'] === null || esNumero(v['sillon_defecto_id'])) &&
+    typeof v['activo'] === 'boolean'
+  );
+}
+
+function esImpacto(v: unknown): v is Impacto {
+  return esRegistro(v) && esNumero(v['turnos_futuros']) && textoONulo(v['primero']);
+}
+
+/** Lo que la API de catálogo recibe y devuelve por recurso (las escrituras son parciales: `PUT` con `exclude_unset`). */
+interface TiposDeRecurso {
+  readonly tratamientos: {
+    readonly item: TratamientoAdmin;
+    readonly datos: DatosTratamiento;
+    readonly cambios: Partial<DatosTratamiento> & { readonly activo?: boolean };
+  };
+  readonly profesionales: {
+    readonly item: ProfesionalAdmin;
+    readonly datos: DatosProfesional;
+    readonly cambios: Partial<DatosProfesional> & { readonly activo?: boolean };
+  };
+  readonly sillones: { readonly item: SillonAdmin; readonly datos: DatosSillon; readonly cambios: Partial<DatosSillon> };
+  readonly disponibilidad: {
+    readonly item: FranjaAdmin;
+    readonly datos: DatosFranja;
+    readonly cambios: Partial<DatosFranja> & { readonly activo?: boolean };
+  };
+}
+
+export type ItemDeCatalogo<R extends RecursoCatalogo> = TiposDeRecurso[R]['item'];
+export type DatosDeCatalogo<R extends RecursoCatalogo> = TiposDeRecurso[R]['datos'];
+export type CambiosDeCatalogo<R extends RecursoCatalogo> = TiposDeRecurso[R]['cambios'];
+
+const GUARDA_DE_RECURSO: { readonly [R in RecursoCatalogo]: (v: unknown) => v is ItemDeCatalogo<R> } = {
+  tratamientos: esTratamientoAdmin,
+  profesionales: esProfesionalAdmin,
+  sillones: esSillonAdmin,
+  disponibilidad: esFranjaAdmin,
+};
+
+function esFranjaEnConflicto(v: unknown): v is FranjaEnConflicto {
+  return esRegistro(v) && esNumero(v['id']) && esNumero(v['dia_semana']) && esTexto(v['hora_inicio']) && esTexto(v['hora_fin']);
+}
+
+/** Campo y mensaje del primer error de validación de FastAPI (`loc: ["body", "campo"]`). */
+function validacionDeCatalogo(detail: unknown): ErrorCatalogo {
+  if (Array.isArray(detail)) {
+    for (const item of detail as unknown[]) {
+      if (!esRegistro(item) || !esTexto(item['msg'])) continue;
+      const loc = Array.isArray(item['loc']) ? (item['loc'] as unknown[]) : [];
+      const campo = loc[loc.length - 1];
+      return { tipo: 'validacion', campo: esTexto(campo) && campo !== 'body' ? campo : null, mensaje: limpiar(item['msg']) };
+    }
+  }
+  return { tipo: 'validacion', campo: null, mensaje: 'Revisá los datos que cargaste.' };
+}
+
+function errorCatalogo(status: number, cuerpo: Registro): ErrorCatalogo {
+  const motivo = cuerpo['motivo'];
+  const campo = esTexto(cuerpo['campo']) ? cuerpo['campo'] : null;
+  if (status === 403) return { tipo: 'sin_permiso' };
+  if (status === 404) return { tipo: 'no_encontrado' };
+  if (status === 409) {
+    if (motivo === 'en_uso') return { tipo: 'en_uso' };
+    if (motivo === 'duplicado') return { tipo: 'duplicado', campo };
+    if (motivo === 'franja_superpuesta') {
+      return { tipo: 'franja_superpuesta', franja: esFranjaEnConflicto(cuerpo['franja']) ? cuerpo['franja'] : null };
+    }
+  }
+  if (status === 422) {
+    if (motivo === 'no_reservable') return { tipo: 'no_reservable', campo };
+    return validacionDeCatalogo(cuerpo['detail']);
+  }
+  return { tipo: 'desconocido' };
+}
+
 // --- API -----------------------------------------------------------------------------------------------------
 
 export interface Api {
@@ -722,6 +860,16 @@ export interface Api {
   descargarExportacion(parametros: ParametrosExportacion, hoy: string): Promise<Resultado<ArchivoExportado, ErrorExportacion>>;
   consultarAuditoria(consulta: ConsultaAuditoria): Promise<PaginaAuditoria>;
   listarUsuarios(): Promise<readonly UsuarioDirectorio[]>;
+  // Catálogo y disponibilidad (C-14): las cuatro listas salen en paralelo y un fallo de cualquiera rechaza todo
+  catalogo(): Promise<CatalogoAdmin>;
+  impactoCatalogo(recurso: RecursoCatalogo, id: number): Promise<Impacto>;
+  crearCatalogo<R extends RecursoCatalogo>(recurso: R, datos: DatosDeCatalogo<R>): Promise<Resultado<ItemDeCatalogo<R>, ErrorCatalogo>>;
+  actualizarCatalogo<R extends RecursoCatalogo>(
+    recurso: R,
+    id: number,
+    cambios: CambiosDeCatalogo<R>,
+  ): Promise<Resultado<ItemDeCatalogo<R>, ErrorCatalogo>>;
+  borrarCatalogo(recurso: RecursoCatalogo, id: number): Promise<Resultado<null, ErrorCatalogo>>;
 }
 
 export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fetch(...args)): Api {
@@ -796,6 +944,27 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
     }
     if (r.ok) return { ok: true, valor: null };
     return { ok: false, error: interpretar(r.status, await cuerpoDe(r)) };
+  }
+
+  /** Escritura JSON sobre `/api/admin/{recurso}` (POST o PUT); la fila devuelta se valida con la guarda del recurso. */
+  async function escribirCatalogo<R extends RecursoCatalogo>(
+    metodo: 'POST' | 'PUT',
+    ruta: string,
+    recurso: R,
+    cuerpo: unknown,
+  ): Promise<Resultado<ItemDeCatalogo<R>, ErrorCatalogo>> {
+    const desconocido: ErrorCatalogo = { tipo: 'desconocido' };
+    let r: Response;
+    try {
+      r = await pedir(ruta, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+    } catch (e) {
+      if (e instanceof ErrorSesion) throw e;
+      return { ok: false, error: desconocido };
+    }
+    if (!r.ok) return { ok: false, error: errorCatalogo(r.status, await cuerpoDe(r)) };
+    const valor: unknown = await r.json().catch(() => null);
+    const guarda = GUARDA_DE_RECURSO[recurso] as (v: unknown) => v is ItemDeCatalogo<R>;
+    return guarda(valor) ? { ok: true, valor } : { ok: false, error: desconocido };
   }
 
   return {
@@ -960,6 +1129,35 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
         errorGoogle,
         { tipo: 'desconocido' },
       );
+    },
+    async catalogo() {
+      // Los cuatro pedidos salen juntos (R2): ninguno espera al otro.
+      const [tratamientos, profesionales, sillones, franjas] = await Promise.all([
+        leer('/api/admin/tratamientos'),
+        leer('/api/admin/profesionales'),
+        leer('/api/admin/sillones'),
+        leer('/api/admin/disponibilidad'),
+      ]);
+      return {
+        tratamientos: lista(tratamientos, esTratamientoAdmin),
+        profesionales: lista(profesionales, esProfesionalAdmin),
+        sillones: lista(sillones, esSillonAdmin),
+        franjas: lista(franjas, esFranjaAdmin),
+      };
+    },
+    async impactoCatalogo(recurso, id) {
+      const v = await leer(`/api/admin/${recurso}/${String(id)}/impacto`);
+      if (!esImpacto(v)) throw new ErrorDeRespuesta();
+      return { turnos_futuros: v.turnos_futuros, primero: v.primero };
+    },
+    crearCatalogo(recurso, datos) {
+      return escribirCatalogo('POST', `/api/admin/${recurso}`, recurso, datos);
+    },
+    actualizarCatalogo(recurso, id, cambios) {
+      return escribirCatalogo('PUT', `/api/admin/${recurso}/${String(id)}`, recurso, cambios);
+    },
+    borrarCatalogo(recurso, id) {
+      return borrar(`/api/admin/${recurso}/${String(id)}`, errorCatalogo, { tipo: 'desconocido' });
     },
     marcarRecordatorioFallido(id, motivo) {
       return escribir(`/api/panel/recordatorios/${String(id)}/fallido`, { motivo }, esRecordatorio, errorRecordatorio, {

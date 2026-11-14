@@ -28,6 +28,7 @@ function mensajeDeError(error: ErrorGestion): string {
       return error.mensaje;
     case 'fuera_de_plazo':
     case 'conflicto':
+    case 'no_reservable':
       return 'No pudimos completar la operación. Intentá de nuevo en unos minutos.';
   }
 }

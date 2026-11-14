@@ -82,6 +82,8 @@ function AvisoDeError({
           ))}
         </div>
       ) : null;
+    case 'no_reservable':
+      return null; // la reserva vuelve al paso 1 con su aviso (Reserva)
     case 'limite':
     case 'desconocido':
       return (
