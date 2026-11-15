@@ -469,7 +469,7 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 
 ## Backlog post-roadmap
 
-Seguimientos que quedaron fuera de los changes archivados, consolidados el 2026-11-14 (el detalle de origen sigue en cada change). No bloquean C-16 (C-14 ya está implementado). Numeración tentativa: se confirma al hacer `/opsx:propose`.
+Seguimientos que quedaron fuera de los changes archivados, consolidados el 2026-11-14 (el detalle de origen sigue en cada change). El roadmap C-01..C-16 quedó cerrado el 2026-11-15 sin que ninguno lo bloqueara. Numeración tentativa: se confirma al hacer `/opsx:propose`.
 
 ### Decisiones de negocio pendientes (sin código hasta decidir)
 
@@ -493,7 +493,7 @@ Preguntas formuladas en `knowledge-base/10_preguntas_abiertas.md` §Preguntas pe
 
 Seguimientos de C-16 (aprobados como fuera de alcance el 2026-11-14): listado propio "Mis pacientes" para la odontóloga (endpoint y pantalla nuevos, lectura auditada), desvincular un turno de su paciente, control de concurrencia en los datos administrativos del paciente, impresión o PDF de presupuestos y devolución de cobros (C-12 O2).
 
-Orden sugerido: C-16 → reunión con la clínica (decisiones de arriba) → C-17, C-18 y los changes que surjan de las decisiones.
+Orden sugerido (C-16 ya archivado): reunión con la clínica (decisiones de arriba) → C-17, C-18 y los changes que surjan de las decisiones. Antes de producción falta además definir hosting y despliegue (compose de producción, TLS, backups, credenciales reales de Mercado Pago y WhatsApp), hoy no descritos en la KB.
 
 ---
 
@@ -503,8 +503,8 @@ Orden sugerido: C-16 → reunión con la clínica (decisiones de arriba) → C-1
 |--------|------------|
 | ~~E2E Windows diferido~~ **Resuelto 2026-11-14** (C-01 4.1: popups `python.exe` colgaban el host; Playwright estuvo prohibido en este entorno) | El cuelgue venía del arnés de C-01 que levantaba Python directo en Windows; hoy el backend corre en Docker Compose y Playwright solo levanta Vite. Prueba controlada 2026-11-14: `frontend/panel` `catalogo.spec.ts` 14/14 en verde (360 + 1280 px, headless, 24 s), sin procesos `python.exe`. Los E2E se corren en local (backend con `APP_ENV=e2e MP_GATEWAY=fake`, imagen reconstruida tras cada change de backend) y también en CI. Historial: `## Acta de desvío` en `openspec/changes/archive/2026-10-01-crear-turno-sin-solapamientos/tasks.md` |
 | Forward-compat `EXCLUDE` → C-06 (`en_espera` no bloqueante) | Resuelta con estrategia A: EXCLUDE parciales por estado; `en_espera` queda fuera del constraint desde el DDL de C-01, sin migración correctiva en C-06. C-08 (migración 007, O19) amplió el predicado a `WHERE estado IN ('reservado','confirmado','atendido')`: un `atendido` ocupa el horario hasta su `fin` y `ausente` lo libera |
-| Daemon Docker no disponible en el host | `docker compose config` como verificación sin daemon pesado; Postgres levantado solo con `docker compose up -d postgres` (foreground, un intento); si falla, abortar y reportar en vez de reintentar en background |
-| Alertas Snyk: `playwright-cli` / `gws-calendar-agenda` | Skills solo como harness de test/agenda; sin pins productivos afectados; revisar alertas antes de C-05 (Playwright) y C-10 (GCal) |
-| Cifras de mercado autodeclaradas (ej. DentalSoft "+300 clínicas / −82% ausencias" sin auditoría) | No usar como criterio de aceptación; métricas de éxito propias en `01_vision_y_objetivos.md`; pendiente de confirmación (pregunta Media en `10_preguntas_abiertas.md`) |
+| ~~Daemon Docker no disponible en el host~~ **Cerrado 2026-11-15** | Desde C-01 el backend, Postgres, Redis y el worker corren con Docker Compose y healthchecks (R18), en local y en CI; la suite backend final (2290 passed, 6 skipped) y los E2E de C-16 corrieron sobre Compose. Se mantiene la práctica: si el daemon no responde, abortar y reportar en vez de reintentar en background |
+| ~~Alertas Snyk: `playwright-cli` / `gws-calendar-agenda`~~ **Cerrado como riesgo del producto 2026-11-15** | Las dos skills son ayudas del agente en `.agents/skills/` y no dependencias de la aplicación: no figuran en `backend/requirements.txt` ni en `frontend/*/package.json` (los E2E usan `@playwright/test` 1.64.1 y C-10 usa la API de Google Calendar por HTTP). No hay registro de una revisión formal de esas alertas: hacerla antes de reutilizar las skills en otro proyecto |
+| Cifras de mercado autodeclaradas (ej. DentalSoft "+300 clínicas / −82% ausencias" sin auditoría) | No usar como criterio de aceptación; métricas de éxito propias en `01_vision_y_objetivos.md`; pregunta cerrada como no bloqueante el 2026-11-15 (`10_preguntas_abiertas.md`) |
 | Reglas que pueden cambiar (ventana 24h idéntica p/ reprogramación, RN-GC-02, unicidad operativa por teléfono) | Trazadas como preguntas abiertas/inconsistencias en `10_preguntas_abiertas.md` (IN-02, RN-GC-02); cambios solo vía OPSX con specs actualizados |
 | Disponibilidad desactualizada (franjas/excepciones/feriados) | Horarios libres siempre calculados desde disponibilidad vigente − turnos bloqueantes (RN-TU-07); sin caché de libres del lado cliente |

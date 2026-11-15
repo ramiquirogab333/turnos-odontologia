@@ -100,7 +100,7 @@ turnos-odontologia/
 ├── frontend/                       # Todos los clientes web (R21: todo frontend nuevo va en frontend/<nombre>)
 │   ├── paciente/                   # Reserva pública y gestión del turno por el paciente (React + Vite, puerto 5173)
 │   └── panel/                      # Panel interno de la clínica (C-08): ingreso, agenda, alta manual y acciones (React + Vite, puerto 5174)
-├── knowledge-base/                 # Base de conocimiento (12 archivos: 01..11 + README)
+├── knowledge-base/                 # Base de conocimiento (11 archivos canónicos 01..11 + índice README.md)
 ├── openspec/
 │   ├── config.yaml                 # Configuración del workflow de especificaciones
 │   ├── changes/                    # Cambios propuestos y archivados (los changes archivados están en `archive/`: C-01..C-08 y C-11)
@@ -138,7 +138,7 @@ Un turno reservado por la web nace `en_espera` (no bloquea la agenda) y pasa a `
 - **Variables de entorno** (siempre del host, nunca en el repo: R17/R20; ver [`docker-compose.yml`](docker-compose.yml)): `APP_ENV` (`production` por defecto | `development` | `test` | `e2e`), `MP_GATEWAY` (`mercadopago` por defecto | `fake`), `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` (obligatorias con `MP_GATEWAY=mercadopago`; el backend no arranca si faltan y nunca imprime sus valores). **Los defaults son los seguros:** sin variables el backend arranca como producción con Mercado Pago real. `MP_GATEWAY=fake` solo se acepta con `APP_ENV=test` o `APP_ENV=e2e`, y `docker-compose.yml` no trae ningún secreto de webhook por defecto: `MP_WEBHOOK_SECRET` es obligatoria (para levantar solo Postgres alcanza con exportar cualquier valor), `MP_API_BASE_URL`, `MP_WEBHOOK_TOLERANCIA_SEGUNDOS` (300), `PUBLIC_BASE_URL` (a dónde vuelve el paciente del checkout), `API_PUBLIC_BASE_URL` (base de la `notification_url` del webhook), `SENA_BARRIDO_HABILITADO` y `SENA_BARRIDO_SEGUNDOS` (60). Para desarrollo local sin credenciales: `APP_ENV=e2e MP_GATEWAY=fake MP_WEBHOOK_SECRET=<un-valor-sintetico>`.
 - **Pasarela falsa (`MP_GATEWAY=fake`):** es la de tests, CI y E2E; no hace ninguna llamada de red. El checkout devuelve al paciente a `PUBLIC_BASE_URL/?pago=retorno&turno=ID` y el pago se "aprueba" enviando el webhook firmado con `data.id = fake-approved-<referencia_externa>@<monto>@ARS` (sin monto y moneda el pago queda `en_revision`, RN-SN-09). Los E2E firman con el secreto sintético del entorno (`E2E_MP_WEBHOOK_SECRET`, mismo valor que `MP_WEBHOOK_SECRET` del backend).
 - **Configurar el webhook en Mercado Pago:** en el panel de desarrolladores, Webhooks, cargar `https://<API_PUBLIC_BASE_URL>/api/webhooks/mercadopago`, marcar el evento *Pagos* y copiar la *clave secreta* a `MP_WEBHOOK_SECRET`. El backend verifica la firma HMAC-SHA256 (`x-signature`, `x-request-id`, tolerancia de 300 s), consulta el pago a la API y es idempotente ante reintentos.
-- **Acreditar una transferencia a mano** (recepción o admin; la UI llega con C-12): `POST /api/admin/pagos-sena/{id}/acreditar` con `Authorization: Bearer <token de /api/auth/login>`. El `{id}` es el `pago_id` que devuelve `POST /api/public/turnos/{id}/sena`. La configuración de porcentaje, medios, textos, plazos y datos bancarios se edita con `GET/PUT /api/admin/config/sena`.
+- **Acreditar una transferencia a mano** (recepción o admin; también desde la sección Caja del panel, C-12): `POST /api/admin/pagos-sena/{id}/acreditar` con `Authorization: Bearer <token de /api/auth/login>`. El `{id}` es el `pago_id` que devuelve `POST /api/public/turnos/{id}/sena`. La configuración de porcentaje, medios, textos, plazos y datos bancarios se edita con `GET/PUT /api/admin/config/sena`.
 - **Migración:** `cd backend && alembic upgrade head` aplica `006_sena_pagos` (el `downgrade` cancela los `en_espera` y borra el historial de señas).
 - **E2E de la seña** (Playwright a 360px contra el backend real con la pasarela falsa): levantar el backend con `APP_ENV=e2e MP_GATEWAY=fake MP_WEBHOOK_SECRET=secreto-webhook-sintetico-e2e SENA_BARRIDO_SEGUNDOS=3` (el caso de vencimiento espera al barrido), `docker compose up -d --build backend`, y correr `cd frontend/paciente && npm run e2e`. Si el puerto 5433 del host está ocupado por otro servicio, definir `E2E_PGPORT` con el puerto en el que publicás Postgres.
 
@@ -161,7 +161,7 @@ Todas leen el código de la cabecera `X-Codigo-Gestion`; un código desconocido 
 - **Contrato de cookie de `/api/auth` (cambio incompatible):** el login y el refresh devuelven solo `access_token`; el refresh viaja en la cookie `refresh_token` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth`, 7 días). `POST /api/auth/refresh` lee únicamente la cookie y exige la cabecera `X-Panel-Csrf: 1` (sin ella, 403 `csrf_requerido`). `POST /api/auth/logout` revoca la sesión (desde C-15, en el servidor: ver la sección siguiente). Si algún día el API se publica con CORS, hay que revisar esta defensa CSRF.
 - **Migración:** `cd backend && alembic upgrade head` aplica `007_turno_origen_ocupacion` (columna `turno.origen` y EXCLUDE ampliados a `atendido`). Si ya hay turnos superpuestos con un `atendido`, aborta sin tocar datos y lista los ids: corregilos a mano y reintentá.
 - **Desarrollo y pruebas:** `cd frontend/panel && npm install && npm run dev` (con el backend en `localhost:8000`); `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`. E2E (backend real con `APP_ENV=e2e MP_GATEWAY=fake` y la base local de Compose): `npm run e2e` (360 px y 1280 px).
-- **Pendiente antes de producción:** UI de catálogo y disponibilidad (C-14); el endurecimiento de la auth (C-15) está descrito en la sección siguiente; ver `CHANGES.md`.
+- **Pendiente antes de producción:** C-17 (hardening de despliegue) y C-18 (recuperación de contraseña y sesiones), ver `CHANGES.md` §Backlog post-roadmap. La UI de catálogo (C-14) y el endurecimiento de la auth (C-15, sección siguiente) ya están entregados.
 
 ### Sesión del panel y límites de solicitudes (C-15)
 
@@ -175,7 +175,7 @@ Todas leen el código de la cabecera `X-Codigo-Gestion`; un código desconocido 
 - **Tests:** `cd backend && python -m pytest tests/test_settings_auth.py tests/test_sesion_*.py tests/test_auth_*.py tests/test_limit*.py tests/test_ip_cliente.py tests/test_purga_sesiones.py -q`. El de Redis real (`test_limitador_redis_integration.py`) necesita `REDIS_URL` (Compose publica Redis solo en `127.0.0.1:6379`; en CI el job `backend` levanta Redis y ese test no se salta).
 
 ### Ficha, odontograma, presupuestos y pagos de presupuesto (C-11)
-Solo API por ahora (la UI es C-16). Todo bajo `/api/panel` con `Authorization: Bearer <access>`; datos de ejemplo 100 % sintéticos.
+La API se describe acá; la UI del panel llegó con C-16 (ver más abajo). Todo bajo `/api/panel` con `Authorization: Bearer <access>`; datos de ejemplo 100 % sintéticos.
 
 - **Acceso por rol:**
 
@@ -352,7 +352,7 @@ El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenS
 ## 7. Estado del Proyecto y Próximos Pasos
 
 - [x] **Fase 1 — Discovery y Relevamiento:** Requerimientos, casos de uso, estudio de competidores y definición de reglas iniciales.
-- [x] **KB — Base de conocimiento:** 12 archivos en `knowledge-base/` generados desde discovery (visión, modelo de datos, reglas, funcionalidades, arquitectura, decisiones y preguntas abiertas).
+- [x] **KB — Base de conocimiento:** 11 archivos canónicos (`01`..`11`) más el índice `README.md` en `knowledge-base/`, generados desde discovery (visión, modelo de datos, reglas, funcionalidades, arquitectura, decisiones y preguntas abiertas).
 - [x] **Roadmap — Secuencia de implementación:** `CHANGES.md` con 16 changes atómicos (C-01..C-16), dependencias, gates de paralelismo y camino crítico.
 - [x] **Skills — Capacidades de proyecto:** 6 skills en `.agents/skills/` (`vercel-react-best-practices`, `frontend-design`, `postgresql-table-design`, `playwright-cli`, `gws-calendar-agenda`, y la skill propia `spec-rules-auditor`) + `skills-lock.json` y `.atl/skill-registry.md`.
 - [x] **Agents — Instrucciones para agentes:** `AGENTS.md` + copia `CLAUDE.md` (stack decidido, KB, skills por rol, integración MCP, roadmap C-01..C-16, reglas duras R1–R20). Es lo primero que lee todo agente al entrar al repo.
@@ -365,8 +365,19 @@ El proyecto utiliza un enfoque **Spec-Driven Development** gobernado por **OpenS
 - [x] **C-06 — sena-pagos-turno (archivado 2026-11-06):** seña y pagos (`en_espera` sin bloqueo de agenda; la seña acreditada bloquea).
 - [x] **C-07 — cancelacion-reprogramacion-24h (archivado 2026-11-06):** cancelación y reprogramación con ventana de 24 hs.
 - [x] **C-08 — agenda-profesional-panel (archivado 2026-11-10):** panel de recepción y profesionales (`frontend/panel/`).
-- [x] **C-11 — ficha-odontograma-presupuestos-os (archivado 2026-11-10):** ficha del paciente, odontograma, presupuestos y pagos de presupuesto (solo API).
-- [ ] **Pendientes (ver `CHANGES.md`):** C-09 (whatsapp-recordatorios-confirmacion), C-10 (google-calendar-sync), C-12 (panel-admin-caja-ausentismo), C-13 (auditoria-exportacion), C-14 (panel-catalogo-disponibilidad), C-15 (auth-hardening-panel, obligatorio antes de producción) y C-16 (panel-ficha-presupuestos-ui).
+- [x] **C-11 — ficha-odontograma-presupuestos-os (archivado 2026-11-10):** ficha del paciente, odontograma, presupuestos y pagos de presupuesto (API; la UI es C-16).
+- [x] **C-09 — whatsapp-recordatorios-confirmacion (archivado 2026-11-11):** recordatorios por WhatsApp manual (`wa.me/`), confirmación del paciente y worker de trabajos programados (arq + Redis).
+- [x] **C-12 — panel-admin-caja-ausentismo (archivado 2026-11-11):** caja diaria, cierres, pendientes de la seña, indicadores de ocupación y ausentismo, listado de pacientes.
+- [x] **C-10 — google-calendar-sync (archivado 2026-11-12):** sincronía bidireccional con Google Calendar y resolución manual de conflictos (RN-GC-02).
+- [x] **C-13 — auditoria-exportacion (archivado 2026-11-13):** registro de auditoría de solo agregado y exportación de datos.
+- [x] **C-15 — auth-hardening-panel (archivado 2026-11-13):** refresh por cookie, sesiones revocables en el servidor y límites de solicitudes.
+- [x] **C-14 — panel-catalogo-disponibilidad (archivado 2026-11-14):** UI de catálogo de tratamientos y horarios de atención (disponibilidad), con baja lógica.
+- [x] **C-16 — panel-ficha-presupuestos-ui (archivado 2026-11-15):** detalle del paciente en el panel con ficha, odontograma, presupuestos, cobros y vínculo turno-paciente.
+
+**Estado final (2026-11-15): roadmap cerrado.** Los 16 changes de `CHANGES.md` están archivados en `openspec/changes/archive/` y no hay changes activos. Lo que sigue (nada de esto es parte de v1):
+
+- [ ] **Decisiones con la clínica:** retención de la auditoría, deshacer un ausente, pagos `en_revision` vencidos, devolución de cobros de presupuesto, entre otras (`knowledge-base/10_preguntas_abiertas.md` §Preguntas pendientes para la clínica).
+- [ ] **Antes de producción:** C-17 `hardening-despliegue` y C-18 `recuperacion-contrasena-sesiones`, más la definición de hosting y despliegue (`CHANGES.md` §Backlog post-roadmap).
 
 ---
 

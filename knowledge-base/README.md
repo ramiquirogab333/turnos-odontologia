@@ -4,10 +4,12 @@ Base de conocimiento generada por ingest silencioso (Mode A) desde `docs/discove
 
 ## Índice de Archivos
 
+11 archivos canónicos (`01`..`11`) más este índice.
+
 | Archivo | Contenido |
 |---------|-----------|
 | [01_vision_y_objetivos.md](01_vision_y_objetivos.md) | Propósito, objetivos por actor, alcance v1, fuera de alcance, métricas |
-| [02_descripcion_general.md](02_descripcion_general.md) | Stack (sin definir), arquitectura, WhatsApp + GCal + MP |
+| [02_descripcion_general.md](02_descripcion_general.md) | Stack congelado con versiones fijadas, arquitectura, WhatsApp + GCal + MP |
 | [03_actores_y_roles.md](03_actores_y_roles.md) | Paciente, odontólogo/a, recepción/admin; RBAC; rutas públicas |
 | [04_modelo_de_datos.md](04_modelo_de_datos.md) | Dominios, ERD, 13 entidades, seed data |
 | [05_reglas_de_negocio.md](05_reglas_de_negocio.md) | 17 reglas RN-TU/RN-WA/RN-GC/RN-PG/RN-GL |
@@ -15,7 +17,7 @@ Base de conocimiento generada por ingest silencioso (Mode A) desde `docs/discove
 | [07_flujos_principales.md](07_flujos_principales.md) | Reserva, cancelación/reprogramación, recordatorios WA, agenda, admin |
 | [08_arquitectura_propuesta.md](08_arquitectura_propuesta.md) | Patrones, estructura orientativa, seguridad, env vars |
 | [09_decisiones_y_supuestos.md](09_decisiones_y_supuestos.md) | DD-01 a DD-06, SU-01 a SU-04 |
-| [10_preguntas_abiertas.md](10_preguntas_abiertas.md) | Aviso PDF, IN-01/IN-02, 10 preguntas priorizadas |
+| [10_preguntas_abiertas.md](10_preguntas_abiertas.md) | Aviso PDF, IN-01/IN-02 (resueltas), preguntas priorizadas (cerradas) y preguntas pendientes para la clínica |
 | [11_analisis_competidores.md](11_analisis_competidores.md) | Extra: relevamiento 18+ sistemas, 3 frentes |
 
 ## Quick Start para Desarrolladores
@@ -29,4 +31,4 @@ Base de conocimiento generada por ingest silencioso (Mode A) desde `docs/discove
 
 ## Resumen Ejecutivo
 
-Sistema de turnos odontológicos para consultorios y clínicas chicas AR: reserva online sin login, regla de 24 hs, anti-solape por profesional/sillón, recordatorios por WhatsApp y sincronía con Google Calendar. Stack sin definir, diseño mobile-first. Núcleo MVP: reserva, cancelación/reprogramación y recordatorios.
+Sistema de turnos odontológicos para consultorios y clínicas chicas AR: reserva online sin login, regla de 24 hs, anti-solape por profesional/sillón, recordatorios por WhatsApp y sincronía con Google Calendar. Stack congelado (FastAPI + PostgreSQL + Redis / React + Vite; ver `02`), diseño mobile-first. Núcleo MVP: reserva, cancelación/reprogramación y recordatorios.

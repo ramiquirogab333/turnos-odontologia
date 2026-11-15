@@ -7,16 +7,16 @@
 
 ## Stack Tecnológico
 
-Stack decidido en la fase de fundación (cierra la pregunta abierta nº1 de la KB):
+Stack decidido en la fase de fundación (cierra la pregunta abierta nº1 de la KB). Versiones fijadas en C-01 y actualizadas por los changes; fuente de verdad: `backend/requirements.txt`, `backend/Dockerfile`, `docker-compose.yml`, `frontend/*/package.json` y `.github/workflows/ci.yml` (estado al 2026-11-15):
 
 | Capa | Tecnología | Versión |
 |------|------------|---------|
-| Backend | Python + FastAPI + SQLAlchemy (+ Alembic) | fijar en C-01 |
-| Base de datos | PostgreSQL | fijar en C-01 |
-| Colas / async | Redis (workers p/ jobs pesados) | — |
-| Auth | JWT (expiración corta + refresh) | — |
-| Frontend | React + TypeScript + Vite | fijar en C-01 |
-| E2E | Playwright | — |
+| Backend | Python + FastAPI + SQLAlchemy (+ Alembic) | Python 3.12 · FastAPI 0.142.2 · SQLAlchemy 2.0.54 · Alembic 1.20.0 · Pydantic 2.13.5 · asyncpg 0.31.0 |
+| Base de datos | PostgreSQL | 16 (`postgres:16-alpine`) |
+| Colas / async | Redis (workers p/ jobs pesados) | Redis 7 (`redis:7-alpine`) · arq 0.28.0 · redis-py 5.3.1 |
+| Auth | JWT (expiración corta + refresh) | PyJWT 2.15.1 |
+| Frontend | React + TypeScript + Vite | React 19.3.1 · TypeScript 6.0.3 · Vite 8.3.5 · Vitest 5.1.0 · Node 24 (CI) |
+| E2E | Playwright | `@playwright/test` 1.64.1 |
 | Integraciones | WhatsApp · Google Calendar · Mercado Pago | — |
 | Contenedores | Docker / Docker Compose (healthchecks) | — |
 
@@ -26,7 +26,7 @@ Detalle completo: [knowledge-base/02_descripcion_general.md](knowledge-base/02_d
 
 ## Base de Conocimiento
 
-La fuente de verdad del dominio vive en `knowledge-base/`. **Leé el archivo relevante ANTES de implementar.**
+La fuente de verdad del dominio vive en `knowledge-base/`: 11 archivos canónicos (`01`..`11`) más el índice `knowledge-base/README.md`. **Leé el archivo relevante ANTES de implementar.**
 
 | Archivo | Cuándo leerlo |
 |---------|---------------|
@@ -93,10 +93,10 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 
 - **Total**: 16 changes en 5 fases.
 - **Camino crítico** (9): detalle en `CHANGES.md` (eje `C-01 → … → C-13` con `C-06 sena-pagos-turno` como change propio de la restricción de seña).
-- **Primer change**: `C-01` (foundation-setup) → arrancar con `/opsx:propose C-01-foundation-setup`.
-- Estado actual: C-01 a C-16 archivados (roadmap completo).
+- **Estado (2026-11-15): roadmap cerrado.** C-01 a C-16 archivados en `openspec/changes/archive/` (primero: `2026-10-01-crear-turno-sin-solapamientos`; último: `2026-11-15-c-16-panel-ficha-presupuestos-ui`). No hay changes activos.
+- **Trabajo siguiente**: lo que quedó fuera de v1 está en `CHANGES.md` §Backlog post-roadmap (C-17 `hardening-despliegue` y C-18 `recuperacion-contrasena-sesiones` antes de producción, más seguimientos funcionales) y las decisiones de negocio pendientes en `knowledge-base/10_preguntas_abiertas.md` §Preguntas pendientes para la clínica. Ningún change nuevo se implementa sin decisión explícita.
 
-**Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md), identificá las dependencias del change y los archivos de "Leer antes".
+**Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md) (§Backlog post-roadmap), identificá las dependencias del change y los archivos de "Leer antes".
 
 ---
 

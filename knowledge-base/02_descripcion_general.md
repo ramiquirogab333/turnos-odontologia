@@ -4,18 +4,18 @@
 
 Stack **congelado (Resoluciones 2026-09-30, ver `10_preguntas_abiertas.md` §Resoluciones y `AGENTS.md`)**. Toda mención previa a "sin definir" queda reemplazada por este stack.
 
-| Capa | Tecnologías | Versión mínima |
+| Capa | Tecnologías | Versión fijada (2026-11-15; fuente: `backend/requirements.txt`, `docker-compose.yml`, `frontend/*/package.json`) |
 |------|--------------|----------------|
-| Frontend | React + TypeScript + Vite (requisito: mobile-first, la mayoría reserva desde el teléfono) | fijar en C-01 |
-| Backend | Python + FastAPI + SQLAlchemy (+ Alembic) | fijar en C-01 |
-| Base de datos | PostgreSQL (persistencia: turnos, pacientes, agenda, auditoría) | fijar en C-01 |
-| Colas / async | Redis (workers p/ jobs pesados) | — |
-| Auth | JWT (expiración corta + refresh) | — |
+| Frontend | React + TypeScript + Vite (requisito: mobile-first, la mayoría reserva desde el teléfono) | React 19.3.1 · TypeScript 6.0.3 · Vite 8.3.5 · Node 24 (CI) |
+| Backend | Python + FastAPI + SQLAlchemy (+ Alembic) | Python 3.12 · FastAPI 0.142.2 · SQLAlchemy 2.0.54 · Alembic 1.20.0 |
+| Base de datos | PostgreSQL (persistencia: turnos, pacientes, agenda, auditoría) | PostgreSQL 16 |
+| Colas / async | Redis (workers p/ jobs pesados) | Redis 7 · arq 0.28.0 |
+| Auth | JWT (expiración corta + refresh) | PyJWT 2.15.1 |
 | Mensajería WhatsApp | MANUAL v1: links `wa.me/` con mensajes preformateados, sin API paga (abstracción provider para migrar después) — ver `10_preguntas_abiertas.md` | — |
 | Calendario | Google Calendar API (sincronía bidireccional) | — |
 | Pagos | Mercado Pago SDK + transferencia bancaria | — |
 | Contenedores | Docker / Docker Compose (healthchecks) | — |
-| E2E | Playwright | — |
+| E2E | Playwright | `@playwright/test` 1.64.1 |
 
 ## Arquitectura general
 
