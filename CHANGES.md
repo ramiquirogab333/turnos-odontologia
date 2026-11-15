@@ -428,12 +428,15 @@ Paso │ Agente A (Backend Core)              │ Agente B (Backend Aux)        
 ---
 
 ### [C-16] `panel-ficha-presupuestos-ui`
-- **Estado**: `[ ]` pendiente (propuesto en C-11, decisión O13 del 2026-11-10)
-- **Scope**: Pantallas del panel para lo que C-11 entregó solo por API
+- **Estado**: `[x]` archivado 2026-11-15 (`openspec/changes/archive/2026-11-15-c-16-panel-ficha-presupuestos-ui/`, specs nuevas en `openspec/specs/clinica/odontograma-panel/spec.md`, `openspec/specs/clinica/presupuestos-panel/spec.md`, `openspec/specs/pacientes/ficha-panel/spec.md` y `openspec/specs/pacientes/pacientes-panel/spec.md`, y `openspec/specs/turnos/agenda-panel/spec.md` y `openspec/specs/pacientes/registro-paciente/spec.md` (ampliadas, ADDED); decisiones O1–O15 aprobadas 2026-11-14)
+- **Scope (final, sin migración)**: Pantallas del panel para lo que C-11 entregó solo por API
   - Ficha clínica (antecedentes con control de versión), odontograma FDI (registro en lote y estado vigente), presupuestos (armado, estados, cobro) sobre `frontend/panel/`
   - La odontóloga edita ficha y odontograma de sus pacientes desde la UI (O4, O16: lectura si el acceso venció); recepción/admin operan presupuestos y pagos
   - Reglas verificables: R1, R2 (cargas en paralelo), R3 (360 px), R7 (E2E Playwright de la edición de ficha y del registro de odontograma)
   - Pantallas de alta, edición y vínculo de pacientes (turno ↔ paciente): quedan acá por la decisión O16 de C-12 (C-12 solo entrega el listado y la búsqueda); sin el vínculo, el ausentismo por paciente no cuenta turnos
+  - Backend aditivo (sin migración): `paciente_id` en `TurnoAgenda`, `acceso_clinico` (`nivel`, `puede_escribir`) en `GET /pacientes/{id}` y `GET /api/panel/obras-sociales` (exenta de auditoría con motivo)
+  - Entrega: detalle `#/pacientes/{id}` con pestañas Ficha / Odontograma / Presupuestos / Datos, **Ver ficha** y **Vincular/Cambiar paciente** en la agenda, cobros de presupuesto; E2E a 360 y 1280 px (ficha, odontograma, presupuestos y vínculo)
+  - Seguimientos: "Mis pacientes" de la odontóloga (O1 b), desvincular turnos, control optimista de los datos administrativos del paciente (O13 b), PDF de presupuesto y limpiar la obra social "Particular" del seed (O5)
 - **Dependencias**: C-11
 - **Governance**: MEDIO (datos de salud: respetar el alcance por rol de C-11)
 - **Leer antes**:
@@ -488,6 +491,8 @@ Preguntas formuladas en `knowledge-base/10_preguntas_abiertas.md` §Preguntas pe
 | **C-18** `recuperacion-contrasena-sesiones` | Recuperación de contraseña del panel (hoy solo por consola `app.panel.usuarios`); UI para listar y cerrar sesiones; MFA opcional | C-15 | Antes de producción (recuperación); MFA opcional |
 | — | Migrar a la API paga de WhatsApp vía el puerto `ProveedorWhatsApp` | C-09 | Cuando el costo se justifique |
 
+Seguimientos de C-16 (aprobados como fuera de alcance el 2026-11-14): listado propio "Mis pacientes" para la odontóloga (endpoint y pantalla nuevos, lectura auditada), desvincular un turno de su paciente, control de concurrencia en los datos administrativos del paciente, impresión o PDF de presupuestos y devolución de cobros (C-12 O2).
+
 Orden sugerido: C-16 → reunión con la clínica (decisiones de arriba) → C-17, C-18 y los changes que surjan de las decisiones.
 
 ---
@@ -496,7 +501,7 @@ Orden sugerido: C-16 → reunión con la clínica (decisiones de arriba) → C-1
 
 | Riesgo | Mitigación |
 |--------|------------|
-| E2E Windows diferido (C-01 4.1: popups `python.exe` cuelgan el host; Playwright prohibido en este entorno) | Cobertura interina verde API+DB (carrera 201+409, SQLSTATE 23P01) en la suite 27 passed; follow-up en C-05/C-08; ver `## Acta de desvío` en `openspec/changes/archive/2026-10-01-crear-turno-sin-solapamientos/tasks.md` |
+| ~~E2E Windows diferido~~ **Resuelto 2026-11-14** (C-01 4.1: popups `python.exe` colgaban el host; Playwright estuvo prohibido en este entorno) | El cuelgue venía del arnés de C-01 que levantaba Python directo en Windows; hoy el backend corre en Docker Compose y Playwright solo levanta Vite. Prueba controlada 2026-11-14: `frontend/panel` `catalogo.spec.ts` 14/14 en verde (360 + 1280 px, headless, 24 s), sin procesos `python.exe`. Los E2E se corren en local (backend con `APP_ENV=e2e MP_GATEWAY=fake`, imagen reconstruida tras cada change de backend) y también en CI. Historial: `## Acta de desvío` en `openspec/changes/archive/2026-10-01-crear-turno-sin-solapamientos/tasks.md` |
 | Forward-compat `EXCLUDE` → C-06 (`en_espera` no bloqueante) | Resuelta con estrategia A: EXCLUDE parciales por estado; `en_espera` queda fuera del constraint desde el DDL de C-01, sin migración correctiva en C-06. C-08 (migración 007, O19) amplió el predicado a `WHERE estado IN ('reservado','confirmado','atendido')`: un `atendido` ocupa el horario hasta su `fin` y `ausente` lo libera |
 | Daemon Docker no disponible en el host | `docker compose config` como verificación sin daemon pesado; Postgres levantado solo con `docker compose up -d postgres` (foreground, un intento); si falla, abortar y reportar en vez de reintentar en background |
 | Alertas Snyk: `playwright-cli` / `gws-calendar-agenda` | Skills solo como harness de test/agenda; sin pins productivos afectados; revisar alertas antes de C-05 (Playwright) y C-10 (GCal) |
