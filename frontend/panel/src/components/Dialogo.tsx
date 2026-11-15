@@ -3,7 +3,11 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 interface Props {
   readonly titulo: string;
   readonly confirmar: string;
+  /** Texto del botón que cierra sin hacer nada (por defecto «Volver»). */
+  readonly volver?: string;
   readonly enviando: boolean;
+  /** Mientras falte algo por completar el botón de confirmar queda apagado. */
+  readonly confirmarDeshabilitado?: boolean;
   /** Por qué no se pudo guardar (o qué falta completar); se lee como alerta. */
   readonly rechazo: string | null;
   readonly onConfirmar: () => void;
@@ -12,7 +16,7 @@ interface Props {
 }
 
 /** Confirmación de una acción seria: dice qué pasa antes de hacerlo, recibe el foco y se cierra con Escape. */
-export function Dialogo({ titulo, confirmar, enviando, rechazo, onConfirmar, onVolver, children }: Props) {
+export function Dialogo({ titulo, confirmar, volver = 'Volver', enviando, confirmarDeshabilitado = false, rechazo, onConfirmar, onVolver, children }: Props) {
   const idTitulo = useId();
   const tituloRef = useRef<HTMLHeadingElement>(null);
 
@@ -42,9 +46,9 @@ export function Dialogo({ titulo, confirmar, enviando, rechazo, onConfirmar, onV
         )}
         <div className="acciones">
           <button type="button" className="boton boton-secundario" onClick={onVolver} disabled={enviando}>
-            Volver
+            {volver}
           </button>
-          <button type="button" className="boton boton-primario" disabled={enviando} onClick={onConfirmar}>
+          <button type="button" className="boton boton-primario" disabled={enviando || confirmarDeshabilitado} onClick={onConfirmar}>
             {enviando ? 'Guardando…' : confirmar}
           </button>
         </div>

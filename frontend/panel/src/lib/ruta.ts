@@ -22,8 +22,32 @@ function esSeccion(valor: string): valor is Seccion {
 
 /** Sección del hash (sin su query); todo lo que no sea una sección exacta cae en la agenda. */
 export function leerSeccion(hash: string): Seccion {
+  if (leerDetallePaciente(hash) !== null) return 'pacientes';
   const candidata = hash.startsWith('#/') ? (hash.slice(2).split('?')[0] ?? '') : '';
   return esSeccion(candidata) ? candidata : 'agenda';
+}
+
+export type PestanaPaciente = 'ficha' | 'odontograma' | 'presupuestos' | 'datos';
+export const PESTANAS_PACIENTE: readonly PestanaPaciente[] = ['ficha', 'odontograma', 'presupuestos', 'datos'];
+
+export interface DetallePaciente {
+  readonly pacienteId: number;
+  readonly pestana: PestanaPaciente;
+}
+
+const RUTA_DETALLE = /^#\/pacientes\/([1-9][0-9]*)$/;
+
+/** Detalle de un paciente (`#/pacientes/7?pestana=odontograma`); una pestaña inválida abre la ficha. `null` si no es esa ruta. */
+export function leerDetallePaciente(hash: string): DetallePaciente | null {
+  const [ruta = '', query] = hash.split('?');
+  const coincide = RUTA_DETALLE.exec(ruta);
+  if (coincide?.[1] === undefined) return null;
+  const pedida = query === undefined ? null : new URLSearchParams(query).get('pestana');
+  return { pacienteId: Number(coincide[1]), pestana: PESTANAS_PACIENTE.find((p) => p === pedida) ?? 'ficha' };
+}
+
+export function hashDePaciente(pacienteId: number, pestana: PestanaPaciente = 'ficha'): string {
+  return pestana === 'ficha' ? `#/pacientes/${String(pacienteId)}` : `#/pacientes/${String(pacienteId)}?pestana=${pestana}`;
 }
 
 export type ResultadoGoogle = 'conectado' | 'error_autorizacion' | 'permiso_denegado';

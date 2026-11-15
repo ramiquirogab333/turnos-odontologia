@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Api } from '../lib/api';
 import type { ConsultaPacientes, ListadoPacientes } from '../lib/tipos';
 import { apiFalsa, listado, pacienteListado } from '../test/datos';
@@ -100,9 +100,11 @@ describe('Pantalla de pacientes', () => {
     expect(screen.getByText(/buscá por DNI/)).toBeInTheDocument();
   });
 
-  it('sin pacientes cargados explica de dónde salen', async () => {
+  it('sin pacientes cargados lo dice y ofrece «Nuevo paciente» (el alta manual de turnos no crea pacientes)', async () => {
     await montar(() => Promise.resolve(listado([])));
-    expect(await screen.findByText(/Todavía no hay pacientes/)).toBeInTheDocument();
+    expect(await screen.findByText('Todavía no hay pacientes cargados')).toBeInTheDocument();
+    expect(screen.queryByText(/dar de alta un turno/)).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Nuevo paciente' }).length).toBeGreaterThan(0);
   });
 
   it('si falla la carga ofrece reintentar y se recupera', async () => {
@@ -116,5 +118,46 @@ describe('Pantalla de pacientes', () => {
     await usuario.click(within(alerta).getByRole('button', { name: 'Reintentar' }));
     expect(await screen.findByText('Lucía Ejemplo')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('Pacientes: detalle y alta (C-16)', () => {
+  afterEach(() => {
+    window.location.hash = '';
+  });
+
+  it('cada fila enlaza al detalle del paciente', async () => {
+    await montar();
+    const lista = await screen.findByRole('list', { name: 'Pacientes' });
+    expect(within(lista).getByRole('link', { name: /Lucía Ejemplo/ })).toHaveAttribute('href', '#/pacientes/8');
+    expect(within(lista).getByRole('link', { name: /Martín Prueba/ })).toHaveAttribute('href', '#/pacientes/9');
+  });
+
+  it('«Nuevo paciente» abre el formulario y «Cancelar» vuelve al listado', async () => {
+    await montar();
+    await screen.findByText('Lucía Ejemplo');
+    await usuario.click(screen.getByRole('button', { name: 'Nuevo paciente' }));
+    expect(await screen.findByRole('combobox', { name: 'Obra social' })).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    await usuario.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(await screen.findByText('Lucía Ejemplo')).toBeInTheDocument();
+  });
+
+  it('un alta correcta abre el detalle del paciente creado', async () => {
+    const api = apiFalsa({ listarPacientes: vi.fn<Api['listarPacientes']>().mockResolvedValue(listado([LUCIA])) });
+    await act(async () => {
+      render(<Pacientes api={api} esperaMs={40} />);
+      await Promise.resolve();
+    });
+    await screen.findByText('Lucía Ejemplo');
+    await usuario.click(screen.getByRole('button', { name: 'Nuevo paciente' }));
+    await screen.findByRole('combobox', { name: 'Obra social' });
+    await usuario.type(screen.getByLabelText('Nombre'), 'Mateo');
+    await usuario.type(screen.getByLabelText('Apellido'), 'Prueba');
+    await usuario.type(screen.getByLabelText('DNI'), '99000002');
+    await usuario.type(screen.getByLabelText('Teléfono'), '+5491100000002');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar paciente' }));
+    expect(api.crearPaciente).toHaveBeenCalledTimes(1);
+    expect(window.location.hash).toBe('#/pacientes/7');
   });
 });

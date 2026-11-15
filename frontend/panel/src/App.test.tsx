@@ -474,3 +474,49 @@ describe('App: secciones del panel (C-12)', () => {
     expect(screen.getByRole('button', { name: 'Anular cierre' })).toBeInTheDocument();
   });
 });
+
+describe('App: detalle de un paciente (C-16)', () => {
+  const refresco = ruta('POST /api/auth/refresh', { access_token: 'ACCESS-1' });
+  const PACIENTE = {
+    id: 7, nombre: 'Lucía', apellido: 'Ejemplo', dni: '99000001', telefono: '+5491100000001', email: null,
+    obra_social: null, numero_afiliado: null, acceso_clinico: { nivel: 'total', puede_escribir: true },
+  };
+  const FICHA = {
+    paciente_id: 7, alergias: 'Penicilina (sintético)', medicacion: '', antecedentes_medicos: '', observaciones: '',
+    version: 1, actualizado_por: null, historia: [],
+  };
+  const detalle = [ruta('GET /api/panel/pacientes/7', PACIENTE), ruta('GET /api/panel/pacientes/7/ficha', FICHA)];
+  const pedidos = (fetchFn: ReturnType<typeof servidor>) => fetchFn.mock.calls.map((c) => urlDe(c[0]).split('?')[0] ?? '');
+
+  afterEach(() => {
+    window.location.hash = '';
+  });
+
+  it('la odontóloga abre #/pacientes/7 aunque su navegación no tenga Pacientes', async () => {
+    window.location.hash = '#/pacientes/7';
+    const odontologa = ruta('GET /api/auth/me', { ...ME, roles: ['odontologo'] });
+    const fetchFn = servidor(refresco, odontologa, ...panel, ...detalle);
+    await abrir(fetchFn);
+    expect(await screen.findByRole('heading', { level: 2, name: 'Lucía Ejemplo' })).toBeInTheDocument();
+    expect(await screen.findByText('Penicilina (sintético)')).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Secciones del panel' });
+    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Agenda', 'Google Calendar']);
+    expect(pedidos(fetchFn)).toEqual(expect.arrayContaining(['/api/panel/pacientes/7', '/api/panel/pacientes/7/ficha']));
+  });
+
+  it('la odontóloga con #/pacientes (la lista) sigue viendo la agenda y no pide el listado', async () => {
+    window.location.hash = '#/pacientes';
+    const odontologa = ruta('GET /api/auth/me', { ...ME, roles: ['odontologo'] });
+    const fetchFn = servidor(refresco, odontologa, ...panel, ...detalle);
+    await abrir(fetchFn);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument();
+    expect(pedidos(fetchFn).some((u) => u.startsWith('/api/panel/pacientes'))).toBe(false);
+  });
+
+  it('recepción abre el detalle con Pacientes marcada en la navegación', async () => {
+    window.location.hash = '#/pacientes/7';
+    await abrir(servidor(refresco, ...panel, ...detalle));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Lucía Ejemplo' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pacientes' })).toHaveAttribute('aria-current', 'page');
+  });
+});

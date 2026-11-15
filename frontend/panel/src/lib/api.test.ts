@@ -41,6 +41,7 @@ const TURNO = {
   profesional: { id: 1, nombre: 'Dra. Ana Ficticia' },
   sillon: { id: 2, nombre: 'Sillón 1' },
   tratamiento: { id: 3, nombre: 'Limpieza dental', duracion_minutos: 30 },
+  paciente_id: null,
   paciente_nombre: 'Carlos Sintético',
   paciente_telefono: '+5491144445555',
   sena: { estado: 'acreditado', monto: '3000.00' },

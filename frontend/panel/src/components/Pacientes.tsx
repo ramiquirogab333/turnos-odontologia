@@ -6,6 +6,7 @@ import type { ConsultaPacientes, ListadoPacientes } from '../lib/tipos';
 import { Cargando } from './Cargando';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ErrorCarga } from './ErrorCarga';
+import { FormPaciente } from './FormPaciente';
 
 interface Props {
   readonly api: Api;
@@ -21,6 +22,7 @@ function normalizar(texto: string): string {
 }
 
 export function Pacientes({ api, esperaMs = 300 }: Props) {
+  const [creando, setCreando] = useState(false);
   const [texto, setTexto] = useState('');
   const [consulta, setConsulta] = useState<ConsultaPacientes>(INICIAL);
   const [pendiente, setPendiente] = useState(() => iniciar(() => api.listarPacientes(INICIAL)));
@@ -60,8 +62,45 @@ export function Pacientes({ api, esperaMs = 300 }: Props) {
     });
   }
 
+  if (creando) {
+    return (
+      <section className="pacientes" aria-label="Nuevo paciente">
+        <h2 className="subtitulo">Nuevo paciente</h2>
+        <FormPaciente
+          api={api}
+          paciente={null}
+          onGuardado={(creado) => {
+            window.location.hash = `#/pacientes/${String(creado.id)}`;
+          }}
+        />
+        <div className="acciones">
+          <button
+            type="button"
+            className="boton boton-secundario"
+            onClick={() => {
+              setCreando(false);
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="pacientes" aria-label="Pacientes">
+      <div className="acciones acciones-seccion">
+        <button
+          type="button"
+          className="boton boton-primario"
+          onClick={() => {
+            setCreando(true);
+          }}
+        >
+          Nuevo paciente
+        </button>
+      </div>
       <div className="barra">
         <div className="campo campo-busqueda">
           <label htmlFor="buscar-paciente">Buscar por nombre, apellido o DNI</label>
@@ -127,9 +166,7 @@ function Resultado({ pendiente, consulta, onPagina }: PropsResultado) {
       </div>
     ) : (
       <p className="vacio">
-        {consulta.conAusencias
-          ? 'Nadie tiene ausencias registradas.'
-          : 'Todavía no hay pacientes cargados. Se cargan al dar de alta un turno.'}
+        {consulta.conAusencias ? 'Nadie tiene ausencias registradas.' : 'Todavía no hay pacientes cargados'}
       </p>
     );
   }
@@ -140,7 +177,9 @@ function Resultado({ pendiente, consulta, onPagina }: PropsResultado) {
         {datos.pacientes.map((p) => (
           <li key={p.id} className="paciente">
             <p className="paciente-nombre">
-              {p.nombre} {p.apellido}
+              <a href={`#/pacientes/${String(p.id)}`}>
+                {p.nombre} {p.apellido}
+              </a>
             </p>
             <p className="nota">
               DNI {p.dni} · {cantidad(p.atendidos, 'atendido', 'atendidos')} · {cantidad(p.ausentes, 'ausencia', 'ausencias')}

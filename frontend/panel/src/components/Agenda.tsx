@@ -7,6 +7,7 @@ import { AltaManual } from './AltaManual';
 import { Cargando } from './Cargando';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ErrorCarga } from './ErrorCarga';
+import { PuedeVincularContext } from './contextoAgenda';
 import { TarjetaTurno } from './TarjetaTurno';
 
 interface Props {
@@ -159,7 +160,7 @@ function Contenido({ api, consulta, opcionesPendientes, agendaPendiente, onFiltr
   const variasProfesionales = opciones.profesionales.length > 1;
 
   return (
-    <>
+    <PuedeVincularContext value={opciones.puede_escribir}>
       <div className="filtros">
         {variasProfesionales && (
           <div className="campo">
@@ -256,7 +257,7 @@ function Contenido({ api, consulta, opcionesPendientes, agendaPendiente, onFiltr
           }}
         />
       )}
-    </>
+    </PuedeVincularContext>
   );
 }
 

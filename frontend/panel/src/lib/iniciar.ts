@@ -17,3 +17,14 @@ export function iniciar<T>(pedido: () => Promise<T>): Promise<T> {
 export function cantidad(n: number, singular: string, plural: string): string {
   return `${String(n)} ${n === 1 ? singular : plural}`;
 }
+
+/**
+ * Promesa ya cumplida que `use()` lee sin suspender (React usa `status` y `value` de la promesa): sirve para reemplazar
+ * lo cargado con la respuesta de una escritura sin mostrar «Cargando…».
+ */
+export function resuelta<T>(valor: T): Promise<T> {
+  const promesa: Promise<T> & { status?: 'fulfilled'; value?: T } = Promise.resolve(valor);
+  promesa.status = 'fulfilled';
+  promesa.value = valor;
+  return promesa;
+}

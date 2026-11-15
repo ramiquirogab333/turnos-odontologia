@@ -39,6 +39,8 @@ export interface TurnoAgenda {
   readonly profesional: Ref;
   readonly sillon: Ref;
   readonly tratamiento: TratamientoRef;
+  /** Paciente vinculado (C-16): solo el id; el nombre sigue siendo el de contacto del turno. */
+  readonly paciente_id: number | null;
   readonly paciente_nombre: string | null;
   readonly paciente_telefono: string | null;
   readonly sena: SenaAgenda | null;
@@ -574,4 +576,208 @@ export type ErrorCatalogo =
   | { readonly tipo: 'franja_superpuesta'; readonly franja: FranjaEnConflicto | null }
   | { readonly tipo: 'no_reservable'; readonly campo: string | null }
   | { readonly tipo: 'validacion'; readonly campo: string | null; readonly mensaje: string }
+  | { readonly tipo: 'desconocido' };
+
+// --- Pacientes, ficha, odontograma y presupuestos (C-16) -------------------------------------------------------
+
+export type NivelAcceso = 'total' | 'clinico_completo' | 'clinico_lectura';
+
+export interface AccesoClinico {
+  readonly nivel: NivelAcceso;
+  readonly puede_escribir: boolean;
+}
+
+/** `telefono` y `email` son `null` en la vista clínica de la odontóloga (el servidor no los envía). */
+export interface PacienteDetalle {
+  readonly id: number;
+  readonly nombre: string;
+  readonly apellido: string;
+  readonly dni: string;
+  readonly telefono: string | null;
+  readonly email: string | null;
+  readonly obra_social: Ref | null;
+  readonly numero_afiliado: string | null;
+  readonly acceso_clinico: AccesoClinico;
+}
+
+export interface DatosPaciente {
+  readonly nombre: string;
+  readonly apellido: string;
+  readonly dni: string;
+  readonly telefono: string;
+  readonly email: string | null;
+  readonly obra_social_id: number | null;
+  readonly numero_afiliado: string | null;
+}
+
+export interface VinculoTurno {
+  readonly turno_id: number;
+  readonly paciente_id: number;
+}
+
+export interface TurnoHistoria {
+  readonly turno_id: number;
+  readonly inicio: string;
+  readonly fin: string;
+  readonly estado: string;
+  readonly profesional: Ref;
+  readonly tratamiento: Ref;
+}
+
+export interface Antecedentes {
+  readonly alergias: string;
+  readonly medicacion: string;
+  readonly antecedentes_medicos: string;
+  readonly observaciones: string;
+}
+
+export interface Ficha extends Antecedentes {
+  readonly paciente_id: number;
+  readonly version: number;
+  readonly actualizado_por: number | null;
+  readonly historia: readonly TurnoHistoria[];
+}
+
+export interface DatosFicha extends Antecedentes {
+  readonly version: number;
+}
+
+export type Cara = 'O' | 'M' | 'D' | 'V' | 'L';
+
+export interface PiezaVigente {
+  readonly pieza: number;
+  readonly estado_pieza: string | null;
+  readonly caras: Readonly<Record<string, string>>;
+}
+
+export interface OdontogramaVigente {
+  readonly paciente_id: number;
+  readonly piezas: readonly PiezaVigente[];
+}
+
+export interface RegistroOdontograma {
+  readonly id: number;
+  readonly pieza: number;
+  readonly cara: string | null;
+  readonly estado: string;
+  readonly nota: string | null;
+  readonly registrado_por: number | null;
+  readonly registrado_en: string;
+}
+
+export interface HistorialOdontograma {
+  readonly registros: readonly RegistroOdontograma[];
+  readonly siguiente_antes_de_id: number | null;
+}
+
+export interface HallazgoNuevo {
+  readonly pieza: number;
+  readonly cara: Cara | null;
+  readonly estado: string;
+  readonly nota: string | null;
+}
+
+export type EstadoPresupuesto = 'borrador' | 'presentado' | 'aceptado' | 'rechazado' | 'anulado';
+export type MedioCobro = 'mercadopago' | 'transferencia';
+
+export interface LineaPresupuesto {
+  readonly id: number;
+  readonly orden: number;
+  readonly tratamiento: Ref;
+  readonly pieza: number | null;
+  readonly cara: string | null;
+  readonly cantidad: number;
+  readonly importe_bruto: string;
+  readonly importe_cobertura: string;
+  readonly importe_diferencial: string;
+  readonly importe_paciente: string;
+  readonly sin_cobertura: boolean;
+}
+
+export interface PagoPresupuesto {
+  readonly id: number;
+  readonly presupuesto_id: number;
+  readonly medio: MedioCobro;
+  readonly monto: string;
+  readonly estado: string;
+  readonly fecha_cobro: string;
+  readonly referencia: string | null;
+  readonly anulado_en: string | null;
+  readonly anulado_motivo: string | null;
+}
+
+interface PresupuestoBase {
+  readonly id: number;
+  readonly paciente_id: number;
+  readonly obra_social: Ref | null;
+  readonly estado: EstadoPresupuesto;
+  readonly subtotal: string;
+  readonly cobertura_total: string;
+  readonly diferencial_total: string;
+  readonly total_paciente: string;
+  readonly notas: string;
+  readonly anulado_motivo: string | null;
+  readonly created_at: string;
+  readonly lineas: readonly LineaPresupuesto[];
+}
+
+/** Vista de recepción y admin: con pagos y saldo. */
+export interface Presupuesto extends PresupuestoBase {
+  readonly pagos: readonly PagoPresupuesto[];
+  readonly total_pagado: string;
+  readonly saldo: string;
+}
+
+/** Vista de la odontóloga: líneas y totales, nunca pagos ni saldo (el discriminante es `pagos`). */
+export type PresupuestoClinico = PresupuestoBase;
+
+export type CualquierPresupuesto = Presupuesto | PresupuestoClinico;
+
+export interface LineaNueva {
+  readonly tratamiento_id: number;
+  readonly cantidad: number;
+  readonly pieza: number | null;
+  readonly cara: Cara | null;
+}
+
+/** `obra_social_id` ausente (`undefined`) = la del paciente; `null` = sin obra social. */
+export interface DatosPresupuesto {
+  readonly lineas: readonly LineaNueva[];
+  readonly obra_social_id?: number | null;
+  readonly notas: string;
+}
+
+export interface DatosCobro {
+  readonly medio: MedioCobro;
+  readonly monto: string;
+  /** Instante con offset; omitido = hoy según el reloj del servidor. */
+  readonly fecha_cobro?: string;
+  readonly referencia: string | null;
+}
+
+export interface CobroRegistrado {
+  readonly pago: PagoPresupuesto;
+  readonly total_pagado: string;
+  readonly saldo: string;
+}
+
+export type AccionPresupuesto = 'presentar' | 'aceptar' | 'rechazar';
+
+export type ErrorClinico =
+  | { readonly tipo: 'sin_permiso' }
+  | { readonly tipo: 'paciente_ajeno' }
+  | { readonly tipo: 'acceso_vencido' }
+  | { readonly tipo: 'no_encontrado' }
+  | { readonly tipo: 'version_desactualizada' }
+  | { readonly tipo: 'dni_duplicado' }
+  | { readonly tipo: 'obra_social_inactiva' }
+  | { readonly tipo: 'presupuesto_no_editable' }
+  | { readonly tipo: 'transicion_invalida' }
+  | { readonly tipo: 'presupuesto_con_pagos' }
+  | { readonly tipo: 'presupuesto_no_aceptado' }
+  | { readonly tipo: 'monto_excede_saldo'; readonly saldo: string | null }
+  | { readonly tipo: 'referencia_duplicada' }
+  | { readonly tipo: 'caja_cerrada' }
+  | { readonly tipo: 'validacion'; readonly mensaje: string }
+  /** Sin respuesta útil del servidor (red caída, respuesta malformada). */
   | { readonly tipo: 'desconocido' };

@@ -20,6 +20,16 @@ import type {
   ConflictoGoogle,
   TurnoAgenda,
   TurnoCreado,
+  AccesoClinico,
+  Ficha,
+  LineaPresupuesto,
+  OdontogramaVigente,
+  PacienteDetalle,
+  PagoPresupuesto,
+  PiezaVigente,
+  Presupuesto,
+  PresupuestoClinico,
+  RegistroOdontograma,
   PaginaAuditoria,
   RegistroAuditoria,
   CatalogoAdmin,
@@ -41,6 +51,7 @@ export function turno(sobre: Partial<TurnoAgenda> = {}): TurnoAgenda {
     profesional: { id: 1, nombre: 'Dra. Ana Ficticia' },
     sillon: { id: 2, nombre: 'Sillón 1' },
     tratamiento: { id: 3, nombre: 'Limpieza dental', duracion_minutos: 30 },
+    paciente_id: null,
     paciente_nombre: 'Carlos Sintético',
     paciente_telefono: '+5491144445555',
     sena: { estado: 'acreditado', monto: '3000.00' },
@@ -355,6 +366,143 @@ export function paginaAuditoria(items: readonly RegistroAuditoria[], siguiente: 
   return { items, siguiente };
 }
 
+// --- C-16: paciente, ficha, odontograma y presupuestos (datos sintéticos, R19) -----------------------------------
+
+export const ACCESO_TOTAL: AccesoClinico = { nivel: 'total', puede_escribir: true };
+export const ACCESO_COMPLETO: AccesoClinico = { nivel: 'clinico_completo', puede_escribir: true };
+export const ACCESO_LECTURA: AccesoClinico = { nivel: 'clinico_lectura', puede_escribir: false };
+
+export function pacienteDetalle(sobre: Partial<PacienteDetalle> = {}): PacienteDetalle {
+  return {
+    id: 7,
+    nombre: 'Lucía',
+    apellido: 'Ejemplo',
+    dni: '99000001',
+    telefono: '+5491100000001',
+    email: null,
+    obra_social: { id: 2, nombre: 'Swiss Medical' },
+    numero_afiliado: 'SM-0001',
+    acceso_clinico: ACCESO_TOTAL,
+    ...sobre,
+  };
+}
+
+/** La vista de la odontóloga: sin teléfono ni email. */
+export function pacienteClinico(sobre: Partial<PacienteDetalle> = {}): PacienteDetalle {
+  return pacienteDetalle({ telefono: null, email: null, acceso_clinico: ACCESO_COMPLETO, ...sobre });
+}
+
+export function ficha(sobre: Partial<Ficha> = {}): Ficha {
+  return {
+    paciente_id: 7,
+    alergias: 'Penicilina (sintético)',
+    medicacion: 'Ninguna (sintético)',
+    antecedentes_medicos: '',
+    observaciones: '',
+    version: 2,
+    actualizado_por: 3,
+    historia: [
+      {
+        turno_id: 11,
+        inicio: '2031-11-18T09:00:00-03:00',
+        fin: '2031-11-18T09:30:00-03:00',
+        estado: 'atendido',
+        profesional: { id: 1, nombre: 'Dra. Ana Ficticia' },
+        tratamiento: { id: 3, nombre: 'Limpieza dental' },
+      },
+      {
+        turno_id: 10,
+        inicio: '2031-10-02T10:00:00-03:00',
+        fin: '2031-10-02T10:30:00-03:00',
+        estado: 'atendido',
+        profesional: { id: 4, nombre: 'Dr. Juan Ejemplo' },
+        tratamiento: { id: 3, nombre: 'Limpieza dental' },
+      },
+    ],
+    ...sobre,
+  };
+}
+
+export function odontograma(piezas: readonly PiezaVigente[] = []): OdontogramaVigente {
+  return { paciente_id: 7, piezas };
+}
+
+export function registroOdonto(sobre: Partial<RegistroOdontograma> = {}): RegistroOdontograma {
+  return { id: 1, pieza: 16, cara: 'O', estado: 'caries', nota: null, registrado_por: 3, registrado_en: '2031-11-18T09:00:00-03:00', ...sobre };
+}
+
+export function lineaPresupuesto(sobre: Partial<LineaPresupuesto> = {}): LineaPresupuesto {
+  return {
+    id: 1,
+    orden: 1,
+    tratamiento: { id: 3, nombre: 'Limpieza dental' },
+    pieza: null,
+    cara: null,
+    cantidad: 1,
+    importe_bruto: '25000.00',
+    importe_cobertura: '22500.00',
+    importe_diferencial: '0.00',
+    importe_paciente: '2500.00',
+    sin_cobertura: false,
+    ...sobre,
+  };
+}
+
+export function pagoPresupuesto(sobre: Partial<PagoPresupuesto> = {}): PagoPresupuesto {
+  return {
+    id: 5,
+    presupuesto_id: 9,
+    medio: 'transferencia',
+    monto: '1000.00',
+    estado: 'registrado',
+    fecha_cobro: '2031-11-18T12:00:00-03:00',
+    referencia: 'TRF-0001',
+    anulado_en: null,
+    anulado_motivo: null,
+    ...sobre,
+  };
+}
+
+export function presupuesto(sobre: Partial<Presupuesto> = {}): Presupuesto {
+  return {
+    id: 9,
+    paciente_id: 7,
+    obra_social: { id: 2, nombre: 'Swiss Medical' },
+    estado: 'aceptado',
+    subtotal: '25000.00',
+    cobertura_total: '22500.00',
+    diferencial_total: '0.00',
+    total_paciente: '2500.00',
+    notas: '',
+    anulado_motivo: null,
+    created_at: '2031-11-18T09:00:00-03:00',
+    lineas: [lineaPresupuesto()],
+    pagos: [pagoPresupuesto()],
+    total_pagado: '1000.00',
+    saldo: '1500.00',
+    ...sobre,
+  };
+}
+
+export function presupuestoClinico(sobre: Partial<PresupuestoClinico> = {}): PresupuestoClinico {
+  const p = presupuesto();
+  return {
+    id: p.id,
+    paciente_id: p.paciente_id,
+    obra_social: p.obra_social,
+    estado: p.estado,
+    subtotal: p.subtotal,
+    cobertura_total: p.cobertura_total,
+    diferencial_total: p.diferencial_total,
+    total_paciente: p.total_paciente,
+    notas: p.notas,
+    anulado_motivo: p.anulado_motivo,
+    created_at: p.created_at,
+    lineas: p.lineas,
+    ...sobre,
+  };
+}
+
 export function apiFalsa(sobre: Partial<Api> = {}) {
   const api = {
     me: vi.fn<Api['me']>(),
@@ -409,6 +557,24 @@ export function apiFalsa(sobre: Partial<Api> = {}) {
     crearCatalogo: vi.fn<Api['crearCatalogo']>(),
     actualizarCatalogo: vi.fn<Api['actualizarCatalogo']>(),
     borrarCatalogo: vi.fn<Api['borrarCatalogo']>().mockResolvedValue({ ok: true, valor: null }),
+    paciente: vi.fn<Api['paciente']>().mockResolvedValue(pacienteDetalle()),
+    crearPaciente: vi.fn<Api['crearPaciente']>().mockResolvedValue({ ok: true, valor: pacienteDetalle() }),
+    editarPaciente: vi.fn<Api['editarPaciente']>().mockResolvedValue({ ok: true, valor: pacienteDetalle() }),
+    buscarPorDni: vi.fn<Api['buscarPorDni']>().mockResolvedValue([]),
+    vincularTurno: vi.fn<Api['vincularTurno']>().mockResolvedValue({ ok: true, valor: { turno_id: 11, paciente_id: 7 } }),
+    obrasSociales: vi.fn<Api['obrasSociales']>().mockResolvedValue([{ id: 2, nombre: 'Swiss Medical' }]),
+    ficha: vi.fn<Api['ficha']>().mockResolvedValue(ficha()),
+    guardarFicha: vi.fn<Api['guardarFicha']>().mockResolvedValue({ ok: true, valor: ficha({ version: 3 }) }),
+    odontograma: vi.fn<Api['odontograma']>().mockResolvedValue(odontograma()),
+    historialOdontograma: vi.fn<Api['historialOdontograma']>().mockResolvedValue({ registros: [], siguiente_antes_de_id: null }),
+    registrarOdontograma: vi.fn<Api['registrarOdontograma']>().mockResolvedValue({ ok: true, valor: [registroOdonto()] }),
+    presupuestos: vi.fn<Api['presupuestos']>().mockResolvedValue([]),
+    crearPresupuesto: vi.fn<Api['crearPresupuesto']>().mockResolvedValue({ ok: true, valor: presupuesto({ estado: 'borrador', pagos: [], total_pagado: '0.00', saldo: '2500.00' }) }),
+    editarPresupuesto: vi.fn<Api['editarPresupuesto']>().mockResolvedValue({ ok: true, valor: presupuesto({ estado: 'borrador', pagos: [], total_pagado: '0.00', saldo: '2500.00' }) }),
+    transicionarPresupuesto: vi.fn<Api['transicionarPresupuesto']>().mockResolvedValue({ ok: true, valor: presupuesto() }),
+    anularPresupuesto: vi.fn<Api['anularPresupuesto']>().mockResolvedValue({ ok: true, valor: presupuesto({ estado: 'anulado' }) }),
+    registrarCobro: vi.fn<Api['registrarCobro']>().mockResolvedValue({ ok: true, valor: { pago: pagoPresupuesto(), total_pagado: '1000.00', saldo: '1500.00' } }),
+    anularCobro: vi.fn<Api['anularCobro']>().mockResolvedValue({ ok: true, valor: { pago: pagoPresupuesto({ estado: 'anulado' }), total_pagado: '0.00', saldo: '2500.00' } }),
     ...sobre,
   };
   return api;

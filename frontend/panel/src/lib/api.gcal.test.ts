@@ -161,7 +161,7 @@ describe('agenda() y crearTurno() con los campos nuevos', () => {
     id: 11, inicio: '2031-11-18T09:00:00-03:00', fin: '2031-11-18T09:30:00-03:00', estado: 'reservado',
     bloquea_agenda: true, origen: 'web', profesional: { id: 1, nombre: 'Dra. Ana Ficticia' },
     sillon: { id: 2, nombre: 'Sillón 1' }, tratamiento: { id: 3, nombre: 'Limpieza dental', duracion_minutos: 30 },
-    paciente_nombre: 'Carlos Sintético', paciente_telefono: null, sena: null, vence_en: null, acciones: [],
+    paciente_id: null, paciente_nombre: 'Carlos Sintético', paciente_telefono: null, sena: null, vence_en: null, acciones: [],
     calendario: { estado: 'sincronizado', conflicto_abierto: true },
   };
 

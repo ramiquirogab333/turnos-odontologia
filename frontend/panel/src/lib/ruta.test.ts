@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { irA, leerSeccion, pestanaDeCatalogo, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA } from './ruta';
+import { irA, leerDetallePaciente, leerSeccion, pestanaDeCatalogo, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA } from './ruta';
 
 afterEach(() => {
   window.location.hash = '';
@@ -84,4 +84,31 @@ describe('pestanaDeCatalogo', () => {
       expect(pestanaDeCatalogo(hash)).toBe('tratamientos');
     },
   );
+});
+
+describe('leerDetallePaciente', () => {
+  it('lee el id y abre la ficha por defecto', () => {
+    expect(leerDetallePaciente('#/pacientes/7')).toEqual({ pacienteId: 7, pestana: 'ficha' });
+    expect(leerDetallePaciente('#/pacientes/120?x=1')).toEqual({ pacienteId: 120, pestana: 'ficha' });
+  });
+
+  it('reconoce las pestañas válidas y manda las inválidas a la ficha', () => {
+    expect(leerDetallePaciente('#/pacientes/7?pestana=odontograma')?.pestana).toBe('odontograma');
+    expect(leerDetallePaciente('#/pacientes/7?pestana=presupuestos')?.pestana).toBe('presupuestos');
+    expect(leerDetallePaciente('#/pacientes/7?pestana=datos')?.pestana).toBe('datos');
+    expect(leerDetallePaciente('#/pacientes/7?pestana=radiografias')?.pestana).toBe('ficha');
+  });
+
+  it('un id que no es un entero positivo, o una ruta más larga, no es un detalle', () => {
+    expect(leerDetallePaciente('#/pacientes/0')).toBeNull();
+    expect(leerDetallePaciente('#/pacientes/abc')).toBeNull();
+    expect(leerDetallePaciente('#/pacientes/-3')).toBeNull();
+    expect(leerDetallePaciente('#/pacientes/7/x')).toBeNull();
+    expect(leerDetallePaciente('#/pacientes')).toBeNull();
+    expect(leerDetallePaciente('#/caja/7')).toBeNull();
+  });
+
+  it('la sección sigue siendo pacientes para la ruta del detalle', () => {
+    expect(leerSeccion('#/pacientes/7')).toBe('pacientes');
+  });
 });

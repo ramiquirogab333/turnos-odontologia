@@ -139,7 +139,8 @@ h2:focus {
 }
 
 .campo input,
-.campo select {
+.campo select,
+.campo textarea {
   display: block;
   width: 100%;
   min-height: var(--objetivo-tactil);
@@ -152,11 +153,13 @@ h2:focus {
 }
 
 .campo input:focus-visible,
-.campo select:focus-visible {
+.campo select:focus-visible,
+.campo textarea:focus-visible {
   border-color: var(--color-primario);
 }
 
-.campo input[aria-invalid='true'] {
+.campo input[aria-invalid='true'],
+.campo textarea[aria-invalid='true'] {
   border: 2px solid var(--color-error);
 }
 
@@ -1022,4 +1025,363 @@ a.boton {
   .dias-atencion {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* Paciente: detalle, ficha, odontograma, presupuestos y cobros (C-16). Una columna a 360 px, acciones de 48 px, piezas de 44 px. */
+.campo textarea {
+  min-height: calc(var(--objetivo-tactil) * 2);
+  resize: vertical;
+}
+
+a.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+}
+
+.enlace-volver {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--objetivo-tactil);
+  font-weight: 600;
+  color: var(--color-primario);
+}
+
+.cabecera-paciente {
+  margin: 4px 0 8px;
+}
+
+.paciente-titulo {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--color-primario);
+  overflow-wrap: anywhere;
+}
+
+.texto-largo {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.selector-pestanas {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  margin: 8px 0 16px;
+}
+
+.selector-pestanas .selector-boton {
+  flex: 1 1 40%;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.subtitulo {
+  margin: 20px 0 8px;
+  font-size: 1rem;
+}
+
+.acciones-seccion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 8px 0 12px;
+}
+
+.acciones-seccion > .boton {
+  flex: 1 1 auto;
+}
+
+.campo-error {
+  overflow-wrap: anywhere;
+}
+
+.contador {
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+  color: var(--color-texto-suave);
+  text-align: right;
+}
+
+.antecedentes {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.antecedente dt {
+  font-weight: 600;
+}
+
+.antecedente dd {
+  margin: 2px 0 0;
+}
+
+.lista-historia,
+.lista-lote,
+.lineas-presupuesto,
+.lista-cobros {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item-historia,
+.item-lote,
+.linea-presupuesto,
+.cobro,
+.linea-form {
+  padding: 10px 12px;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+}
+
+.item-historia p,
+.linea-presupuesto p,
+.cobro p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.item-lote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.bloque-propio {
+  margin: 12px 0;
+  padding: 12px;
+  border: 2px dashed var(--color-aviso);
+  border-radius: var(--radio-tarjeta);
+  background: var(--color-superficie);
+}
+
+.bloque-propio h3 {
+  margin-top: 0;
+}
+
+.campo-propio {
+  margin: 8px 0;
+}
+
+.campo-propio .etiqueta {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Odontograma: 4 piezas por fila a 360 px (328 px útiles), 8 desde 768 px. Estado en texto, no solo color. */
+.grilla-piezas {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cuadrante {
+  padding: 8px;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+}
+
+.cuadrante-titulo {
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-texto-suave);
+}
+
+.piezas {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cuadrante-temporal .piezas {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.pieza {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  min-width: 44px;
+  min-height: 56px;
+  padding: 4px;
+  border: 1px solid var(--color-borde-campo);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  font: inherit;
+  color: var(--color-texto);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+button.pieza {
+  cursor: pointer;
+}
+
+.pieza-numero {
+  font-weight: 700;
+}
+
+.pieza-estado {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  color: var(--color-texto-suave);
+}
+
+.pieza-con-hallazgo {
+  border-color: var(--color-primario);
+  background: var(--color-info-fondo);
+}
+
+.pieza-elegida {
+  border-width: 2px;
+  background: var(--color-primario);
+  color: #fff;
+}
+
+.pieza-elegida .pieza-estado {
+  color: #fff;
+}
+
+.pieza-actual {
+  margin: 8px 0 0;
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .grilla-piezas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cuadrante-permanente .piezas {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
+
+/* Presupuestos y cobros: una tarjeta por presupuesto, por línea y por cobro; acciones en fila propia de 48 px. */
+.presupuesto {
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: var(--radio-tarjeta);
+  background: var(--color-fondo);
+}
+
+.presupuesto-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.presupuesto-fecha {
+  margin: 0;
+  font-weight: 700;
+}
+
+.insignia-presupuesto-aceptado {
+  border-color: var(--color-exito);
+  background: var(--color-exito-fondo);
+  color: #0d5c4d;
+}
+
+.insignia-presupuesto-presentado {
+  border-color: var(--color-primario);
+  color: var(--color-primario);
+}
+
+.insignia-presupuesto-borrador {
+  border-style: dashed;
+  color: var(--color-aviso);
+}
+
+.insignia-presupuesto-rechazado,
+.insignia-presupuesto-anulado {
+  border-color: var(--color-error);
+  background: var(--color-error-fondo);
+  color: var(--color-error);
+}
+
+.linea-nombre {
+  font-weight: 600;
+}
+
+.importes {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+}
+
+.importes > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+
+.importes dt {
+  color: var(--color-texto-suave);
+}
+
+.importes dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.total-paciente,
+.cobros-resumen {
+  margin: 12px 0 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.cobro-anulado {
+  border-style: dashed;
+  color: var(--color-texto-suave);
+}
+
+.cobros {
+  margin-top: 12px;
+}
+
+.acciones-presupuesto {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.linea-form {
+  margin-bottom: 12px;
+}
+
+.form-cobro .selector {
+  display: flex;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.form-cobro .selector-boton {
+  flex: 1 1 50%;
+  min-width: 0;
+}
+
+.importes-guardados {
+  margin: 8px 0;
 }

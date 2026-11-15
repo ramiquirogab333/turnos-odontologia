@@ -1,8 +1,37 @@
 import { consultaAuditoriaAQuery, nombreArchivo, parametrosExportacion } from './datos';
 import { esNumero, esRegistro, esTexto, type Registro } from './guardas';
+import {
+  aPacienteDetalle,
+  errorClinico,
+  esCobroRegistrado,
+  esCualquierPresupuesto,
+  esFicha,
+  esHistorial,
+  esListaRef,
+  esLote,
+  esOdontograma,
+  esPresupuesto,
+  esVinculo,
+} from './guardasClinica';
 import { minutosDesdeRetryAfter } from './limite';
 import { ErrorSesion, type Sesion } from './sesion';
 import type {
+  AccionPresupuesto,
+  CobroRegistrado,
+  CualquierPresupuesto,
+  DatosCobro,
+  DatosFicha,
+  DatosPaciente,
+  DatosPresupuesto,
+  ErrorClinico,
+  Ficha,
+  HallazgoNuevo,
+  HistorialOdontograma,
+  OdontogramaVigente,
+  PacienteDetalle,
+  Presupuesto,
+  RegistroOdontograma,
+  VinculoTurno,
   Accion,
   AccionMarcable,
   Acreditacion,
@@ -142,6 +171,7 @@ function esTurno(v: unknown): v is TurnoAgenda {
     esRef(v['profesional']) &&
     esRef(v['sillon']) &&
     esTratamientoRef(v['tratamiento']) &&
+    (v['paciente_id'] === null || esNumero(v['paciente_id'])) &&
     textoONulo(v['paciente_nombre']) &&
     textoONulo(v['paciente_telefono']) &&
     (v['sena'] === null || esSena(v['sena'])) &&
@@ -870,6 +900,26 @@ export interface Api {
     cambios: CambiosDeCatalogo<R>,
   ): Promise<Resultado<ItemDeCatalogo<R>, ErrorCatalogo>>;
   borrarCatalogo(recurso: RecursoCatalogo, id: number): Promise<Resultado<null, ErrorCatalogo>>;
+  // Pacientes, ficha, odontograma y presupuestos (C-16). Las lecturas rechazan con ErrorApiPanel (status y motivo).
+  paciente(id: number): Promise<PacienteDetalle>;
+  crearPaciente(datos: DatosPaciente): Promise<Resultado<PacienteDetalle, ErrorClinico>>;
+  editarPaciente(id: number, datos: DatosPaciente): Promise<Resultado<PacienteDetalle, ErrorClinico>>;
+  buscarPorDni(dni: string): Promise<readonly PacienteDetalle[]>;
+  vincularTurno(turnoId: number, pacienteId: number): Promise<Resultado<VinculoTurno, ErrorClinico>>;
+  obrasSociales(): Promise<readonly Ref[]>;
+  ficha(pacienteId: number): Promise<Ficha>;
+  guardarFicha(pacienteId: number, datos: DatosFicha): Promise<Resultado<Ficha, ErrorClinico>>;
+  odontograma(pacienteId: number): Promise<OdontogramaVigente>;
+  /** Página de 50 del historial (del más reciente al más antiguo); `antesDeId` es el cursor de la página siguiente. */
+  historialOdontograma(pacienteId: number, antesDeId: number | null): Promise<HistorialOdontograma>;
+  registrarOdontograma(pacienteId: number, registros: readonly HallazgoNuevo[]): Promise<Resultado<readonly RegistroOdontograma[], ErrorClinico>>;
+  presupuestos(pacienteId: number): Promise<readonly CualquierPresupuesto[]>;
+  crearPresupuesto(pacienteId: number, datos: DatosPresupuesto): Promise<Resultado<Presupuesto, ErrorClinico>>;
+  editarPresupuesto(pacienteId: number, presupuestoId: number, datos: DatosPresupuesto): Promise<Resultado<Presupuesto, ErrorClinico>>;
+  transicionarPresupuesto(pacienteId: number, presupuestoId: number, accion: AccionPresupuesto): Promise<Resultado<Presupuesto, ErrorClinico>>;
+  anularPresupuesto(pacienteId: number, presupuestoId: number, motivo: string): Promise<Resultado<Presupuesto, ErrorClinico>>;
+  registrarCobro(pacienteId: number, presupuestoId: number, datos: DatosCobro): Promise<Resultado<CobroRegistrado, ErrorClinico>>;
+  anularCobro(pacienteId: number, presupuestoId: number, pagoId: number, motivo: string): Promise<Resultado<CobroRegistrado, ErrorClinico>>;
 }
 
 export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fetch(...args)): Api {
@@ -911,11 +961,12 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
     esValido: (v: unknown) => v is T,
     interpretar: (status: number, c: Registro) => E,
     desconocido: E,
+    metodo: 'POST' | 'PUT' = 'POST',
   ): Promise<Resultado<T, E>> {
     let r: Response;
     try {
       r = await pedir(ruta, {
-        method: 'POST',
+        method: metodo,
         ...(cuerpo === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) }),
       });
     } catch (e) {
@@ -966,6 +1017,17 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
     const guarda = GUARDA_DE_RECURSO[recurso] as (v: unknown) => v is ItemDeCatalogo<R>;
     return guarda(valor) ? { ok: true, valor } : { ok: false, error: desconocido };
   }
+
+  const DESCONOCIDO_CLINICO: ErrorClinico = { tipo: 'desconocido' };
+  const rutaPaciente = (id: number): string => `/api/panel/pacientes/${String(id)}`;
+  const rutaPresupuesto = (id: number, pid: number): string => `${rutaPaciente(id)}/presupuestos/${String(pid)}`;
+  const escribirClinico = <T>(
+    ruta: string,
+    cuerpo: unknown,
+    esValido: (v: unknown) => v is T,
+    metodo: 'POST' | 'PUT' = 'POST',
+  ): Promise<Resultado<T, ErrorClinico>> => escribir(ruta, cuerpo, esValido, errorClinico, DESCONOCIDO_CLINICO, metodo);
+  const esPaciente = (v: unknown): v is PacienteDetalle => aPacienteDetalle(v) !== null;
 
   return {
     async me() {
@@ -1163,6 +1225,87 @@ export function crearApi(sesion: Sesion, fetchFn: typeof fetch = (...args) => fe
       return escribir(`/api/panel/recordatorios/${String(id)}/fallido`, { motivo }, esRecordatorio, errorRecordatorio, {
         tipo: 'desconocido',
       });
+    },
+    async paciente(id) {
+      const v = aPacienteDetalle(await leer(rutaPaciente(id)));
+      if (v === null) throw new ErrorDeRespuesta();
+      return v;
+    },
+    crearPaciente(datos) {
+      return escribirClinico('/api/panel/pacientes', datos, esPaciente);
+    },
+    editarPaciente(id, datos) {
+      return escribirClinico(rutaPaciente(id), datos, esPaciente, 'PUT');
+    },
+    async buscarPorDni(dni) {
+      const v = await leer(`/api/panel/pacientes?dni=${encodeURIComponent(dni)}`);
+      if (!Array.isArray(v)) throw new ErrorDeRespuesta();
+      return (v as unknown[]).map((x) => {
+        const p = aPacienteDetalle(x);
+        if (p === null) throw new ErrorDeRespuesta();
+        return p;
+      });
+    },
+    vincularTurno(turnoId, pacienteId) {
+      return escribirClinico(`/api/panel/turnos/${String(turnoId)}/paciente`, { paciente_id: pacienteId }, esVinculo, 'PUT');
+    },
+    async obrasSociales() {
+      const v = await leer('/api/panel/obras-sociales');
+      if (!esListaRef(v)) throw new ErrorDeRespuesta();
+      return v;
+    },
+    async ficha(pacienteId) {
+      const v = await leer(`${rutaPaciente(pacienteId)}/ficha`);
+      if (!esFicha(v)) throw new ErrorDeRespuesta();
+      return v;
+    },
+    guardarFicha(pacienteId, datos) {
+      return escribirClinico(`${rutaPaciente(pacienteId)}/ficha`, datos, esFicha, 'PUT');
+    },
+    async odontograma(pacienteId) {
+      const v = await leer(`${rutaPaciente(pacienteId)}/odontograma`);
+      if (!esOdontograma(v)) throw new ErrorDeRespuesta();
+      return v;
+    },
+    async historialOdontograma(pacienteId, antesDeId) {
+      const q = new URLSearchParams({ limite: '50' });
+      if (antesDeId !== null) q.set('antes_de_id', String(antesDeId));
+      const v = await leer(`${rutaPaciente(pacienteId)}/odontograma/historial?${q.toString()}`);
+      if (!esHistorial(v)) throw new ErrorDeRespuesta();
+      return v;
+    },
+    async registrarOdontograma(pacienteId, registros) {
+      const r = await escribirClinico(`${rutaPaciente(pacienteId)}/odontograma`, { registros }, esLote);
+      return r.ok ? { ok: true, valor: r.valor.registros } : r;
+    },
+    async presupuestos(pacienteId) {
+      const v = await leer(`${rutaPaciente(pacienteId)}/presupuestos`);
+      if (!Array.isArray(v) || !(v as unknown[]).every(esCualquierPresupuesto)) throw new ErrorDeRespuesta();
+      return v as readonly CualquierPresupuesto[];
+    },
+    crearPresupuesto(pacienteId, datos) {
+      return escribirClinico(`${rutaPaciente(pacienteId)}/presupuestos`, datos, esPresupuesto);
+    },
+    editarPresupuesto(pacienteId, presupuestoId, datos) {
+      return escribirClinico(rutaPresupuesto(pacienteId, presupuestoId), datos, esPresupuesto, 'PUT');
+    },
+    transicionarPresupuesto(pacienteId, presupuestoId, accion) {
+      return escribirClinico(`${rutaPresupuesto(pacienteId, presupuestoId)}/${accion}`, undefined, esPresupuesto);
+    },
+    anularPresupuesto(pacienteId, presupuestoId, motivo) {
+      return escribirClinico(`${rutaPresupuesto(pacienteId, presupuestoId)}/anular`, { motivo }, esPresupuesto);
+    },
+    registrarCobro(pacienteId, presupuestoId, datos) {
+      const cuerpo = {
+        medio: datos.medio,
+        monto: datos.monto,
+        ...(datos.fecha_cobro === undefined ? {} : { fecha_cobro: datos.fecha_cobro }),
+        ...(datos.referencia === null ? {} : { referencia: datos.referencia }),
+      };
+      return escribirClinico(`${rutaPresupuesto(pacienteId, presupuestoId)}/pagos`, cuerpo, esCobroRegistrado);
+    },
+    anularCobro(pacienteId, presupuestoId, pagoId, motivo) {
+      return escribirClinico(`${rutaPresupuesto(pacienteId, presupuestoId)}/pagos/${String(pagoId)}/anular`, { motivo }, esCobroRegistrado);
     },
   };
 }

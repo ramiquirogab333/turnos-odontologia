@@ -5,6 +5,7 @@ import { Catalogo } from './components/Catalogo';
 import { GoogleCalendar } from './components/GoogleCalendar';
 import { Cargando } from './components/Cargando';
 import { Datos } from './components/Datos';
+import { DetallePaciente } from './components/DetallePaciente';
 import { ErrorCarga } from './components/ErrorCarga';
 import { Indicadores } from './components/Indicadores';
 import { Ingreso } from './components/Ingreso';
@@ -12,7 +13,7 @@ import { Navegacion } from './components/Navegacion';
 import { Pacientes } from './components/Pacientes';
 import { Recordatorios } from './components/Recordatorios';
 import type { Api } from './lib/api';
-import { leerSeccion, pestanaDeCatalogo, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA, TITULO_SECCION, type Seccion } from './lib/ruta';
+import { leerDetallePaciente, leerSeccion, pestanaDeCatalogo, pestanaDeDatos, resultadoDeGoogle, SECCIONES, SECCIONES_ODONTOLOGA, TITULO_SECCION, type Seccion } from './lib/ruta';
 import { ErrorSesion, type MotivoCierre, type Sesion } from './lib/sesion';
 import type { Usuario } from './lib/tipos';
 
@@ -63,6 +64,20 @@ function Secciones({ usuario, api, hoy }: PropsPanel) {
   const permitidas: readonly Seccion[] = ve ? SECCIONES : SECCIONES_ODONTOLOGA;
   const leida = leerSeccion(hash);
   const seccion: Seccion = permitidas.includes(leida) ? leida : 'agenda';
+  // El detalle de un paciente lo abre cualquier rol del panel (la odontóloga, desde «Ver ficha»): el servidor decide el alcance.
+  const detalle = leerDetallePaciente(hash);
+
+  if (detalle !== null) {
+    return (
+      <>
+        <h1 className="titulo-seccion">Paciente</h1>
+        <Navegacion actual={ve ? 'pacientes' : 'agenda'} secciones={permitidas} />
+        <main>
+          <DetallePaciente key={detalle.pacienteId} api={api} roles={usuario.roles} pacienteId={detalle.pacienteId} pestanaInicial={detalle.pestana} />
+        </main>
+      </>
+    );
+  }
 
   return (
     <>

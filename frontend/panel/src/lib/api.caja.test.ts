@@ -144,6 +144,7 @@ const TURNO = {
   profesional: { id: 1, nombre: 'Dra. Ana Ficticia' },
   sillon: { id: 2, nombre: 'Sillón 1' },
   tratamiento: { id: 3, nombre: 'Limpieza dental', duracion_minutos: 30 },
+  paciente_id: null,
   paciente_nombre: 'Carlos Sintético',
   paciente_telefono: null,
   sena: null,
