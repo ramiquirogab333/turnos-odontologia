@@ -17,7 +17,7 @@ from app.clinica.schemas import (
     PresupuestoVistaClinicaOut,
     TransicionIn,
 )
-from app.pacientes.schemas import FichaUpdate, PacienteCreate, PacienteOut, PacienteVistaClinicaOut
+from app.pacientes.schemas import AccesoClinicoOut, FichaUpdate, PacienteCreate, PacienteOut, PacienteVistaClinicaOut
 
 PACIENTE = {"nombre": "Lucía", "apellido": "Ejemplo", "dni": "99000001", "telefono": "+5491100000001"}
 
@@ -155,12 +155,13 @@ def test_pago_rechaza_medio_efectivo_y_fecha_sin_zona() -> None:
 
 def test_vista_clinica_del_paciente_tiene_exactamente_los_campos_permitidos() -> None:
     assert set(PacienteVistaClinicaOut.model_fields) == {
-        "id", "nombre", "apellido", "dni", "obra_social", "numero_afiliado"}
+        "id", "nombre", "apellido", "dni", "obra_social", "numero_afiliado", "acceso_clinico"}
 
 
 def test_paciente_completo_no_se_filtra_al_construir_la_vista_clinica() -> None:
     completo = PacienteOut(id=1, nombre="Lucía", apellido="Ejemplo", dni="99000001", telefono="+5491100000001",
-                           email="lucia@ejemplo.test", obra_social=None, numero_afiliado="SM-SINT-0001")
+                           email="lucia@ejemplo.test", obra_social=None, numero_afiliado="SM-SINT-0001",
+                           acceso_clinico=AccesoClinicoOut(nivel="total", puede_escribir=True))
     vista = PacienteVistaClinicaOut.model_validate(completo, from_attributes=True)
     volcado = vista.model_dump()
     assert "telefono" not in volcado and "email" not in volcado

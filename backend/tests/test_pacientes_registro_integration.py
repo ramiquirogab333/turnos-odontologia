@@ -135,7 +135,7 @@ async def test_odontologa_propia_ve_dni_y_afiliado_pero_no_telefono_ni_email(ses
     resp = await client.get(f"/api/panel/pacientes/{paciente}", headers=bearer(esc.ana))
     assert resp.status_code == 200, resp.text
     cuerpo = resp.json()
-    assert set(cuerpo) == {"id", "nombre", "apellido", "dni", "obra_social", "numero_afiliado"}
+    assert set(cuerpo) == {"id", "nombre", "apellido", "dni", "obra_social", "numero_afiliado", "acceso_clinico"}
     assert cuerpo["dni"] == "99000001" and cuerpo["numero_afiliado"] == "SM-SINT-0001"
     assert "+5491100000001" not in resp.text and "lucia@ejemplo.test" not in resp.text
 
