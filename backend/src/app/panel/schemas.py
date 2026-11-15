@@ -75,6 +75,7 @@ class TurnoAgenda(_Base):
     profesional: Ref
     sillon: Ref
     tratamiento: TratamientoRef
+    paciente_id: int | None
     paciente_nombre: str | None
     paciente_telefono: str | None
     sena: SenaAgenda | None

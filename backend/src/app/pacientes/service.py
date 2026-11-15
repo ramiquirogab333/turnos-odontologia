@@ -5,9 +5,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.core import ObraSocial, Paciente
+from app.pacientes.alcance import AlcancePaciente
 from app.pacientes.auditoria import auditar
 from app.pacientes.errores import DniDuplicadoError, ObraSocialInactivaError, PacienteInexistenteError
-from app.pacientes.schemas import PacienteCreate, PacienteOut, PacienteVistaClinicaOut, VinculoTurnoOut
+from app.pacientes.schemas import AccesoClinicoOut, PacienteCreate, PacienteOut, PacienteVistaClinicaOut, VinculoTurnoOut
 from app.pagos.errores import TurnoInexistenteError
 from app.panel.schemas import Ref
 from app.plataforma.auditoria import registrar
@@ -41,16 +42,35 @@ async def _cargar_obra_social(session: AsyncSession, obra_social_id: int | None)
     return Ref(id=obra_social_id, nombre=nombre)
 
 
-async def paciente_out(session: AsyncSession, p: Paciente) -> PacienteOut:
+ACCESO_TOTAL = AccesoClinicoOut(nivel="total", puede_escribir=True)
+
+
+def acceso_clinico_out(alcance: AlcancePaciente) -> AccesoClinicoOut:
+    """Una sola fuente de verdad (C-16, O2): el mismo alcance que decide las escrituras clínicas."""
+    return AccesoClinicoOut(nivel=alcance.nivel, puede_escribir=alcance.escribe_clinica)
+
+
+async def paciente_out(session: AsyncSession, p: Paciente,
+                       acceso: AccesoClinicoOut = ACCESO_TOTAL) -> PacienteOut:
+    """Vista completa; solo la ven recepción y admin, cuyo acceso es siempre ``total`` (por eso el valor por defecto)."""
     return PacienteOut(id=int(p.id), nombre=p.nombre, apellido=p.apellido, dni=p.dni, telefono=p.telefono,
                        email=p.email, obra_social=await _cargar_obra_social(session, p.obra_social_id),
-                       numero_afiliado=p.numero_afiliado)
+                       numero_afiliado=p.numero_afiliado, acceso_clinico=acceso)
 
 
-async def paciente_vista_clinica(session: AsyncSession, p: Paciente) -> PacienteVistaClinicaOut:
+async def paciente_vista_clinica(session: AsyncSession, p: Paciente,
+                                 acceso: AccesoClinicoOut) -> PacienteVistaClinicaOut:
     return PacienteVistaClinicaOut(id=int(p.id), nombre=p.nombre, apellido=p.apellido, dni=p.dni,
                                    obra_social=await _cargar_obra_social(session, p.obra_social_id),
-                                   numero_afiliado=p.numero_afiliado)
+                                   numero_afiliado=p.numero_afiliado, acceso_clinico=acceso)
+
+
+async def listar_obras_sociales_activas(session: AsyncSession) -> list[Ref]:
+    """Obras sociales activas por nombre, para el alta del paciente y el presupuesto (C-16, O4)."""
+    filas = (await session.execute(
+        select(ObraSocial.id, ObraSocial.nombre).where(ObraSocial.is_active.is_(True))
+        .order_by(ObraSocial.nombre, ObraSocial.id))).all()
+    return [Ref(id=int(i), nombre=n) for i, n in filas]
 
 
 async def obtener_paciente(session: AsyncSession, paciente_id: int) -> Paciente:

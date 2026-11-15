@@ -167,6 +167,7 @@ async def consultar_agenda(session: AsyncSession, alcance: Alcance, query: Agend
             profesional=Ref(id=turno.profesional_id, nombre=profesional),
             sillon=Ref(id=turno.sillon_id, nombre=sillon),
             tratamiento=TratamientoRef(id=turno.tratamiento_id, nombre=tratamiento, duracion_minutos=duracion),
+            paciente_id=turno.paciente_id,
             paciente_nombre=turno.contacto_nombre,
             # O6: el teléfono es dato de contacto operativo; la odontóloga no lo recibe. Nunca el código de gestión.
             paciente_telefono=turno.contacto_telefono if alcance.puede_escribir else None,

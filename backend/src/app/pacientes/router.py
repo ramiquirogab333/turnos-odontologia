@@ -25,7 +25,7 @@ from app.pacientes.schemas import (
     VinculoTurnoUpdate,
 )
 from app.pacientes.schemas_listado import ListadoOut, ListadoQuery
-from app.panel.schemas import ErrorPanelBody
+from app.panel.schemas import ErrorPanelBody, Ref
 from app.shared.db import get_session
 
 router = APIRouter(prefix="/api/panel", tags=["pacientes"])
@@ -82,10 +82,21 @@ async def consultar_paciente(
 ) -> PacienteOut | PacienteVistaClinicaOut:
     alcance = await alcance_paciente(session, contexto, paciente_id, ahora)
     paciente = await service.obtener_paciente(session, paciente_id)
-    respuesta = (await service.paciente_out(session, paciente) if alcance.ve_contacto
-                 else await service.paciente_vista_clinica(session, paciente))
+    acceso = service.acceso_clinico_out(alcance)
+    respuesta = (await service.paciente_out(session, paciente, acceso) if alcance.ve_contacto
+                 else await service.paciente_vista_clinica(session, paciente, acceso))
     await service.auditar_lectura_paciente(session, paciente_id, contexto.usuario_id)  # sin rastro no hay datos
     return respuesta
+
+
+@router.get("/obras-sociales", response_model=list[Ref],
+            summary="Obras sociales activas (id y nombre) para el alta del paciente y el presupuesto (recepción/admin)",
+            responses={401: _ERRORES[401], 403: _ERRORES[403]})
+async def listar_obras_sociales(
+    _contexto: PermissionContext = Depends(require_recepcion_o_admin),
+    session: AsyncSession = Depends(get_session),
+) -> list[Ref]:
+    return await service.listar_obras_sociales_activas(session)
 
 
 @router.put("/pacientes/{paciente_id}", response_model=PacienteOut,

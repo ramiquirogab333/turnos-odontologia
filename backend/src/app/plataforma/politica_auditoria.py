@@ -132,6 +132,7 @@ POLITICAS: Final[Mapping[Clave, Politica]] = {
     # Plataforma (C-13).
     ("GET", "/api/panel/auditoria"): _lec("lectura_auditoria"),
     ("GET", "/api/panel/export"): _sem("exportacion"),
+    ("GET", "/api/panel/obras-sociales"): _ex("catálogo de obras sociales sin datos de pacientes (C-16)"),
     ("GET", "/api/panel/usuarios"): _ex("directorio del personal (id y nombre) sin datos de pacientes (C-13 O3)"),
     **_catalogo(),
 }

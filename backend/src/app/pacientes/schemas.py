@@ -2,7 +2,7 @@
 
 import re
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
@@ -54,6 +54,13 @@ class PacienteCreate(_Base):
 PacienteUpdate = PacienteCreate
 
 
+class AccesoClinicoOut(_Base):
+    """Alcance de quien consulta sobre la clínica del paciente (C-16, O2): lo calcula ``alcance_paciente``."""
+
+    nivel: Literal["total", "clinico_completo", "clinico_lectura"]
+    puede_escribir: bool
+
+
 class PacienteOut(_Base):
     """Vista completa (recepción y admin)."""
 
@@ -65,6 +72,7 @@ class PacienteOut(_Base):
     email: str | None
     obra_social: Ref | None
     numero_afiliado: str | None
+    acceso_clinico: AccesoClinicoOut
 
 
 class PacienteVistaClinicaOut(_Base):
@@ -76,6 +84,7 @@ class PacienteVistaClinicaOut(_Base):
     dni: str
     obra_social: Ref | None
     numero_afiliado: str | None
+    acceso_clinico: AccesoClinicoOut
 
 
 class VinculoTurnoUpdate(_Base):
