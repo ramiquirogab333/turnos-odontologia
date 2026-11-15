@@ -298,3 +298,157 @@ export async function leerCodigoGestion(turnoId: number): Promise<string> {
     return r.rows[0]?.codigo_gestion ?? '';
   });
 }
+
+// --- C-16: ficha, odontograma, presupuestos y vínculo (solo SQL sintético, R19) --------------------------------------
+
+/** Turno `atendido` de la Dra. Ana Ficticia vinculado con el paciente, que empezó hace `haceDias` días (acceso clínico, RN-CL-04). */
+export async function sembrarAtendido(semilla: Semilla, pacienteId: number, haceDias: number, profesional: 'ana' | 'bruno' = 'ana'): Promise<number> {
+  return sembrarTurno(semilla, {
+    inicio: new Date(Date.now() - haceDias * 86_400_000),
+    estado: 'atendido',
+    profesional,
+    sillon: profesional === 'ana' ? 1 : 2,
+    nombre: 'Lucía Ejemplo',
+    pacienteId,
+  });
+}
+
+/** Vincula un turno con un paciente sin pasar por la pantalla. */
+export async function vincularTurnoSql(turnoId: number, pacienteId: number): Promise<void> {
+  await ejecutar(async (c) => {
+    await c.query('UPDATE turno SET paciente_id = $2 WHERE id = $1', [turnoId, pacienteId]);
+  });
+}
+
+export async function leerPacienteDeTurno(turnoId: number): Promise<number | null> {
+  return ejecutar(async (c) => {
+    const r = await c.query<{ paciente_id: string | null }>('SELECT paciente_id FROM turno WHERE id = $1', [turnoId]);
+    const valor = r.rows[0]?.paciente_id;
+    return valor === null || valor === undefined ? null : Number(valor);
+  });
+}
+
+export async function contarPacientes(): Promise<number> {
+  return ejecutar(async (c) => Number((await c.query<{ n: string }>('SELECT count(*) AS n FROM paciente')).rows[0]?.n));
+}
+
+export interface FichaGuardada {
+  readonly version: number;
+  readonly alergias: string;
+  readonly medicacion: string;
+  readonly antecedentes_medicos: string;
+  readonly observaciones: string;
+}
+
+export async function sembrarFicha(pacienteId: number, campos: Partial<Omit<FichaGuardada, 'version'>>, version = 1): Promise<void> {
+  await ejecutar(async (c) => {
+    await c.query(
+      `INSERT INTO ficha (paciente_id, alergias, medicacion, antecedentes_medicos, observaciones, version)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [pacienteId, campos.alergias ?? '', campos.medicacion ?? '', campos.antecedentes_medicos ?? '', campos.observaciones ?? '', version],
+    );
+  });
+}
+
+export async function leerFicha(pacienteId: number): Promise<FichaGuardada | null> {
+  return ejecutar(async (c) => {
+    const r = await c.query<FichaGuardada>(
+      'SELECT version::int AS version, alergias, medicacion, antecedentes_medicos, observaciones FROM ficha WHERE paciente_id = $1',
+      [pacienteId],
+    );
+    return r.rows[0] ?? null;
+  });
+}
+
+export interface RegistroOdontogramaGuardado {
+  readonly pieza: number;
+  readonly cara: string | null;
+  readonly estado: string;
+  readonly registrado_por: number | null;
+}
+
+export async function leerRegistrosOdontograma(pacienteId: number): Promise<RegistroOdontogramaGuardado[]> {
+  return ejecutar(async (c) => {
+    const r = await c.query<RegistroOdontogramaGuardado>(
+      'SELECT pieza::int AS pieza, cara, estado, registrado_por::int AS registrado_por FROM odontograma_registro WHERE paciente_id = $1 ORDER BY id',
+      [pacienteId],
+    );
+    return r.rows;
+  });
+}
+
+export async function idDeUsuario(email: string): Promise<number> {
+  return ejecutar(async (c) => Number((await c.query<{ id: string }>('SELECT id FROM usuario WHERE email = $1', [email])).rows[0]?.id));
+}
+
+/** Obra social activa y su cobertura sintética para "Limpieza dental" (el TRUNCATE de la semilla vacía el nomenclador). */
+export async function sembrarObraSocial(semilla: Semilla, nombre: string, codigo: string, cobertura: string): Promise<number> {
+  return ejecutar(async (c) => {
+    const existente = await c.query<{ id: string }>('SELECT id FROM obra_social WHERE codigo = $1', [codigo]);
+    const id =
+      existente.rows[0] !== undefined
+        ? Number(existente.rows[0].id)
+        : await insertar(c, 'INSERT INTO obra_social (codigo, nombre, sigla, is_active) VALUES ($1, $2, $3, true) RETURNING id', [codigo, nombre, codigo.slice(0, 3)]);
+    await c.query('UPDATE obra_social SET is_active = true, nombre = $2 WHERE id = $1', [id, nombre]);
+    await c.query(
+      `INSERT INTO nomenclador (obra_social_id, tratamiento_id, codigo_prestacion, cobertura_porcentaje, arancel_diferencial)
+       VALUES ($1, $2, 'LIM-01', $3, 0.00) ON CONFLICT (obra_social_id, tratamiento_id) DO UPDATE SET cobertura_porcentaje = $3`,
+      [id, semilla.limpiezaId, cobertura],
+    );
+    return id;
+  });
+}
+
+export async function asignarObraSocial(pacienteId: number, obraSocialId: number): Promise<void> {
+  await ejecutar(async (c) => {
+    await c.query('UPDATE paciente SET obra_social_id = $2 WHERE id = $1', [pacienteId, obraSocialId]);
+  });
+}
+
+export interface PresupuestoGuardado {
+  readonly id: number;
+  readonly estado: string;
+  readonly total_paciente: string;
+}
+
+export async function leerPresupuestos(pacienteId: number): Promise<PresupuestoGuardado[]> {
+  return ejecutar(async (c) => {
+    const r = await c.query<PresupuestoGuardado>(
+      'SELECT id::int AS id, estado, total_paciente::text AS total_paciente FROM presupuesto WHERE paciente_id = $1 ORDER BY id',
+      [pacienteId],
+    );
+    return r.rows;
+  });
+}
+
+export interface PagoPresupuestoGuardado {
+  readonly estado: string;
+  readonly monto: string;
+  readonly medio: string;
+  readonly referencia: string | null;
+  readonly anulado_motivo: string | null;
+}
+
+export async function leerPagosPresupuesto(presupuestoId: number): Promise<PagoPresupuestoGuardado[]> {
+  return ejecutar(async (c) => {
+    const r = await c.query<PagoPresupuestoGuardado>(
+      'SELECT estado, monto::text AS monto, medio, referencia, anulado_motivo FROM pago_presupuesto WHERE presupuesto_id = $1 ORDER BY id',
+      [presupuestoId],
+    );
+    return r.rows;
+  });
+}
+
+/** Presupuesto presentado de un paciente (para el caso en que la pantalla no lo arma). */
+export async function sembrarPresupuestoConPago(pacienteId: number, cobrado: string): Promise<number> {
+  return ejecutar(async (c) => {
+    const id = await insertar(
+      c,
+      `INSERT INTO presupuesto (paciente_id, estado, subtotal, total_paciente, presentado_en, resuelto_en)
+       VALUES ($1, 'aceptado', 2500.00, 2500.00, now(), now()) RETURNING id`,
+      [pacienteId],
+    );
+    await c.query("INSERT INTO pago_presupuesto (presupuesto_id, medio, monto, estado, fecha_cobro) VALUES ($1, 'transferencia', $2, 'registrado', now())", [id, cobrado]);
+    return id;
+  });
+}
