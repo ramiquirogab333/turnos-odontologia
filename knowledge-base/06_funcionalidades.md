@@ -108,10 +108,12 @@ Organizadas por **épica** y luego por **historia de usuario** (formato US-NNN).
 **Para** registrar lo clínico-administrativo mínimo en v1
 
 **Criterios de aceptación**:
-- [ ] CA-1: Cargo odontograma FDI básico por paciente (recepción/admin, y la odontóloga sobre sus pacientes, RN-CL-02 y RN-CL-04).
-- [ ] CA-2: El presupuesto descuenta cobertura según nomenclador AR precargado.
+- [x] CA-1: Cargo odontograma FDI básico por paciente (recepción/admin, y la odontóloga sobre sus pacientes, RN-CL-02 y RN-CL-04).
+- [x] CA-2: El presupuesto descuenta cobertura según nomenclador AR precargado.
 
 **Reglas relacionadas**: RN-PG-02, RN-CL-01, RN-CL-02, RN-CL-03, RN-CL-04
+
+**Entregado en el panel (C-16, 2026-11-14)**: el detalle del paciente (`#/pacientes/{id}`) reúne **Ficha** (antecedentes con control de versión y historia de turnos), **Odontograma** (grilla FDI por cuadrante con el estado en texto, registro en lote de hasta 64 hallazgos, solo de alta, e historial paginado), **Presupuestos** (borrador con importes calculados siempre por el servidor, presentar, aceptar, rechazar y anular con motivo) y **Datos** (alta y edición del paciente, solo recepción y admin). Cada turno vinculado muestra **Ver ficha** en la agenda; recepción y admin vinculan o corrigen el vínculo desde la tarjeta del turno. A 360 px una sola columna, piezas de 44 px y acciones de 48 px (R3). Decisiones O1–O15 aprobadas el 2026-11-14 (DD-12).
 
 ### US-010 — Cobrar por Mercado Pago o transferencia
 **Como** recepción/admin
@@ -119,9 +121,11 @@ Organizadas por **épica** y luego por **historia de usuario** (formato US-NNN).
 **Para** registrar el pago del tratamiento
 
 **Criterios de aceptación**:
-- [ ] CA-1: Registro pagos con ambos medios y su estado.
+- [x] CA-1: Registro pagos con ambos medios y su estado.
 
 **Reglas relacionadas**: RN-PG-01
+
+**Entregado en el panel (C-16, 2026-11-14)**: en un presupuesto aceptado, recepción y admin registran cobros (Mercado Pago o transferencia, monto hasta el saldo, fecha de hoy o de un día pasado, referencia opcional) y los anulan con motivo; el cobro anulado sigue visible. La odontóloga ve los presupuestos sin pagos ni saldo.
 
 ## Épica 6: Plataforma
 
